@@ -11,7 +11,7 @@ IMAGE="${RANI_IMAGE:-rani-server:dev}"
 TARGET="${REGISTRY}/rani-server:${TAG}"
 
 echo "== build ${IMAGE} =="
-docker build -t "${IMAGE}" .
+docker build -f server/Dockerfile -t "${IMAGE}" .
 
 echo "== tag + push ${TARGET} =="
 docker tag "${IMAGE}" "${TARGET}"
