@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% set a = d.asset %}
+{% block title %}{{ a.hostname or 'Asset' }}{% endblock %}
+{% block heading %}{{ a.hostname or '(tanpa hostname)' }}{% endblock %}
+{% block subheading %}
+  {% if a.status == 'online' %}<span class="badge text-bg-success">online</span>
+  {% else %}<span class="badge text-bg-secondary">offline</span>{% endif %}
+  · last seen {{ a.last_seen | fmt_dt }}
+{% endblock %}
+
+{% block content %}
+<ul class="nav nav-tabs mb-3" role="tablist">
+  {% for key, label in [('overview','Overview'), ('hardware','Hardware'), ('software','Software'), ('users','Users'), ('security','Security'), ('network','Network'), ('reports','Reports'), ('sources','Sources')] %}
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if loop.first %}active{% endif %}" data-bs-toggle="tab"
+            data-bs-target="#tab-{{ key }}" type="button" role="tab">{{ label }}</button>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="tab-overview" role="tabpanel">
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header">Identitas</div>
+          <div class="card-body p-0">
+            <table class="table table-sm table-tight kv mb-0">
+              <tr><td>Hostname</td><td class="mono">{{ a.hostname or '—' }}</td></tr>
+              <tr><td>Domain</td><td class="mono">{{ a.domain or '—' }}</td></tr>
+              <tr><td>Machine ID</td><td class="mono">{{ a.machine_id or '—' }}</td></tr>
+              <tr><td>Serial</td><td class="mono">{{ a.serial or '—' }}</td></tr>
+              <tr><td>Vendor / Model</td><td>{{ a.vendor or '—' }} / {{ a.model or '—' }}</td></tr>
+              <tr><td>BIOS</td><td class="mono">{{ a.attrs.get('bios_version') or '—' }} <span class="small-muted">{{ a.attrs.get('bios_date') or '' }}</span></td></tr>
+              <tr><td>Chassis</td><td>{{ a.attrs.get('chassis_type') or '—' }}</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header">OS & jaringan</div>
+          <div class="card-body p-0">
+            <table class="table table-sm table-tight kv mb-0">
+              <tr><td>OS</td><td>{{ a.os_caption or '—' }} <span class="small-muted">{{ a.os_version or '' }} {{ a.os_build or '' }}</span></td></tr>
+              <tr><td>Install date</td><td>{{ a.attrs.get('os_install_date') or '—' }}</td></tr>
+              <tr><td>Uptime</td><td>{% if a.attrs.get('uptime_s') %}{{ (a.attrs.get('uptime_s') // 3600) }} jam{% else %}—{% endif %}</td></tr>
+              <tr><td>IP terakhir</td><td class="mono">{{ a.ip_last or '—' }}</td></tr>
+              <tr><td>MAC</td><td class="mono">{{ a.primary_mac or '—' }}</td></tr>
+              <tr><td>First seen</td><td>{{ a.first_seen | fmt_dt }}</td></tr>
+              <tr><td>Agent version</td><td class="mono">{{ a.attrs.get('last_agent_version') or '—' }}</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-hardware" role="tabpanel">
+    {% for cls, items in d.hardware.items() %}
+      {% if items %}
+      <div class="card mb-3">
+        <div class="card-header text-capitalize">{{ cls }}</div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-tight mb-0">
+            <thead class="table-light"><tr><th>Key</th><th>Detail</th><th>Status</th></tr></thead>
+            <tbody>
+              {% for c in items %}
+              <tr>
+                <td class="mono">{{ c.key }}</td>
+                <td class="mono small">
+                  {% for k, v in c.attrs.items() if v not in (none, '', []) %}{{ k }}={{ v }} {% endfor %}
+                </td>
+                <td>{% if c.present %}<span class="badge text-bg-success">present</span>
+                    {% else %}<span class="badge text-bg-secondary">removed</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+    {% if not d.hardware %}<p class="small-muted">Tidak ada data hardware pada payload terakhir.</p>{% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="tab-software" role="tabpanel">
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-header">Terinstal ({{ d.software_present | length }})</div>
+          <div class="card-body p-0" style="max-height: 480px; overflow: auto;">
+            <table class="table table-sm table-tight mb-0">
+              <thead class="table-light"><tr><th>Nama</th><th>Versi</th><th>Vendor</th></tr></thead>
+              <tbody>
+                {% for s in d.software_present %}
+                <tr><td>{{ s.name_raw }}</td><td class="mono">{{ s.version or '—' }}</td><td class="small-muted">{{ s.vendor or '' }}</td></tr>
+                {% else %}
+                <tr><td colspan="3" class="small-muted p-3">tidak ada data software</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card mb-3">
+          <div class="card-header">Riwayat terakhir</div>
+          <div class="card-body p-0">
+            <table class="table table-sm table-tight mb-0">
+              <tbody>
+                {% for e in d.events[:20] %}
+                <tr>
+                  <td class="small-muted">{{ e.at | fmt_dt }}</td>
+                  <td>
+                    {% if e.event == 'installed' %}<span class="badge text-bg-success">install</span>
+                    {% elif e.event == 'uninstalled' %}<span class="badge text-bg-danger">uninstall</span>
+                    {% else %}<span class="badge text-bg-warning">change</span>{% endif %}
+                  </td>
+                  <td>{{ e.detail.get('name') or '—' }}
+                    <div class="small-muted mono">{{ e.detail.get('from') or '' }}{% if e.detail.get('from') %} → {% endif %}{{ e.detail.get('to') or e.detail.get('version') or '' }}</div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td class="small-muted p-3">belum ada event</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Tidak terpasang lagi ({{ d.software_absent | length }})</div>
+          <div class="card-body p-0" style="max-height: 240px; overflow:auto;">
+            <table class="table table-sm table-tight mb-0">
+              <tbody>
+                {% for s in d.software_absent %}
+                <tr><td class="small-muted">{{ s.name_raw }}</td><td class="mono small-muted">{{ s.version or '' }}</td></tr>
+                {% else %}
+                <tr><td class="small-muted p-3">—</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-users" role="tabpanel">
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0">
+          <thead class="table-light"><tr><th>Username</th><th>Peran</th><th>Last seen</th></tr></thead>
+          <tbody>
+            {% for u in d.users %}
+            <tr><td class="mono">{{ u.username }}</td><td>{{ u.role }}</td><td class="small-muted">{{ u.last_seen | fmt_dt }}</td></tr>
+            {% else %}
+            <tr><td colspan="3" class="small-muted p-3">tidak ada data user</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-security" role="tabpanel">
+    {% if d.security %}
+    {% set s = d.security %}
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight kv mb-0">
+          <tr><td>Dicek</td><td>{{ s.checked_at | fmt_dt }}</td></tr>
+          <tr><td>Antivirus</td><td>{{ s.av_product or '—' }}
+            {% if s.av_ok is sameas true %}<span class="badge text-bg-success">up to date</span>
+            {% elif s.av_ok is sameas false %}<span class="badge text-bg-danger">kedaluwarsa</span>{% endif %}</td></tr>
+          <tr><td>Firewall</td><td class="mono">{{ s.firewall.get('profiles_on') | join(', ') if s.firewall else '—' }}</td></tr>
+          <tr><td>Disk encryption</td><td>{{ s.disk_encryption or '—' }}</td></tr>
+          <tr><td>TPM</td><td>{{ s.tpm_version or '—' }}</td></tr>
+          <tr><td>Secure Boot</td><td>{{ s.secure_boot if s.secure_boot is not none else '—' }}</td></tr>
+          <tr><td>Pending reboot</td><td>{{ s.pending_reboot if s.pending_reboot is not none else '—' }}</td></tr>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <p class="small-muted">Belum ada data security.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="tab-network" role="tabpanel">
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0">
+          <thead class="table-light"><tr><th>Interface</th><th>MAC</th><th>IPv4</th><th>Gateway</th><th>DNS</th><th>DHCP</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for i in d.interfaces %}
+            <tr>
+              <td class="mono">{{ i.name }}</td>
+              <td class="mono">{{ i.mac or '—' }}</td>
+              <td class="mono">{{ i.ipv4 or '—' }}</td>
+              <td class="mono">{{ i.gateway or '—' }}</td>
+              <td class="mono small">{{ i.dns | join(', ') if i.dns else '—' }}</td>
+              <td>{{ i.dhcp if i.dhcp is not none else '—' }}</td>
+              <td>{% if i.present %}<span class="badge text-bg-success">aktif</span>{% else %}<span class="badge text-bg-secondary">hilang</span>{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="small-muted p-3">tidak ada data interface</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-reports" role="tabpanel">
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0">
+          <thead class="table-light"><tr><th>Diterima</th><th>Collected</th><th>Status</th><th>SHA</th><th>Error</th></tr></thead>
+          <tbody>
+            {% for r in d.reports %}
+            <tr>
+              <td class="small-muted">{{ r.received_at | fmt_dt }}</td>
+              <td class="small-muted">{{ r.pushed_at | fmt_dt }}</td>
+              <td>
+                {% if r.status == 'processed' %}<span class="badge text-bg-success">processed</span>
+                {% elif r.status == 'failed' %}<span class="badge text-bg-danger">failed</span>
+                {% else %}<span class="badge text-bg-warning">{{ r.status }}</span>{% endif %}
+              </td>
+              <td class="mono small">{{ r.payload_sha[:12] }}…</td>
+              <td class="small text-danger">{{ r.error or '' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="small-muted p-3">belum ada report</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-sources" role="tabpanel">
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0">
+          <thead class="table-light"><tr><th>Waktu</th><th>Source</th><th>Matched on</th><th>Confidence</th><th>Evidence</th></tr></thead>
+          <tbody>
+            {% for s in d.sources %}
+            <tr>
+              <td class="small-muted">{{ s.ts | fmt_dt }}</td>
+              <td>{{ s.source }}</td>
+              <td><span class="badge text-bg-info">{{ s.matched_on }}</span></td>
+              <td>{{ '%.2f' % s.confidence }}</td>
+              <td class="mono small">{{ s.evidence | tojson }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="small-muted p-3">—</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

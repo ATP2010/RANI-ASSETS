@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masuk · RANI</title>
+  <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/vendor/adminlte.min.css">
+</head>
+<body class="login-page bg-body-secondary">
+<div class="login-box">
+  <div class="login-logo"><span class="fw-semibold">RANI</span> <span class="small-muted">asset inventory</span></div>
+  <div class="card">
+    <div class="card-body login-card-body">
+      <p class="login-box-msg">Masuk untuk melihat inventory</p>
+      {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="mb-3">
+          <label class="form-label" for="username">Username</label>
+          <input class="form-control" id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary w-100" type="submit">Masuk</button>
+      </form>
+      <p class="small-muted mt-3 mb-0">Akun admin di-seed dari <span class="mono">RANI_ADMIN_USER</span> / <span class="mono">RANI_ADMIN_PASSWORD</span> di <span class="mono">.env</span> saat boot pertama.</p>
+    </div>
+  </div>
+</div>
+<script src="/static/vendor/bootstrap.bundle.min.js"></script>
+</body>
+</html>

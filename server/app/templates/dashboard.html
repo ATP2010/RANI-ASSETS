@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block subheading %}data realtime dari agent{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card text-bg-primary h-100">
+      <div class="card-body">
+        <div class="small text-uppercase opacity-75">Total aset</div>
+        <div class="fs-2 fw-semibold" id="stat-total">{{ stats.assets_total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card text-bg-success h-100">
+      <div class="card-body">
+        <div class="small text-uppercase opacity-75">Online</div>
+        <div class="fs-2 fw-semibold" id="stat-online">{{ stats.assets_online }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card text-bg-secondary h-100">
+      <div class="card-body">
+        <div class="small text-uppercase opacity-75">Offline</div>
+        <div class="fs-2 fw-semibold" id="stat-offline">{{ stats.assets_offline }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card text-bg-dark h-100">
+      <div class="card-body">
+        <div class="small text-uppercase opacity-75">Judul software</div>
+        <div class="fs-2 fw-semibold" id="stat-software">{{ stats.software_titles }}</div>
+        <div class="small opacity-75"><span id="stat-installs">{{ stats.software_installs }}</span> instalasi aktif</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Distribusi OS</div>
+      <div class="card-body"><canvas id="chart-os" height="220"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Status aset</div>
+      <div class="card-body"><canvas id="chart-status" height="220"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Top software (jumlah aset)</div>
+      <div class="card-body"><canvas id="chart-software" height="220"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Push masuk 24 jam</div>
+      <div class="card-body"><canvas id="chart-trend" height="150"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Perubahan software terakhir</div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0">
+          <thead><tr><th>Waktu</th><th>Event</th><th>Software</th><th>Host</th></tr></thead>
+          <tbody id="recent-events">
+          {% for e in stats.recent_events %}
+            <tr>
+              <td class="small-muted">{{ e.at[:16].replace('T', ' ') }}</td>
+              <td>
+                {% if e.event == 'installed' %}<span class="badge text-bg-success">install</span>
+                {% elif e.event == 'uninstalled' %}<span class="badge text-bg-danger">uninstall</span>
+                {% else %}<span class="badge text-bg-warning">change</span>{% endif %}
+              </td>
+              <td>{{ e.name or '—' }}</td>
+              <td class="mono">{{ e.hostname or '—' }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4" class="small-muted">belum ada event — jalankan raniPush di satu PC.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.RANI_STATS = {{ stats | tojson }};
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => window.raniInitDashboard(window.RANI_STATS));
+</script>
+{% endblock %}
