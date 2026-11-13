@@ -52,12 +52,21 @@ ProjectDev/
 ## 5. Cara run dev
 ```bash
 cd /root/RaniProject/ProjectDev
-cp .env.example .env          # isi POSTGRES_PASSWORD, RANI_INGEST_PEPPER
-docker compose up -d          # api :8091, UI http://192.168.88.92:8091
+cp .env.example .env          # isi POSTGRES_PASSWORD, RANI_INGEST_PEPPER, RANI_ADMIN_PASSWORD
+docker compose up -d --build  # api :8091, UI http://192.168.88.92:8091  (project: rani-inv)
 # agent dev test (tanpa exe):
 python agent/raniPush.py --collect > payload.json
-python agent/raniPush.py 192.168.88.92 --from-file payload.json
+python agent/raniPush.py --enroll <token> 192.168.88.92:8091
+python agent/raniPush.py 192.168.88.92:8091
+# verifikasi:
+docker exec rani-inv-api-1 sh -c "cd /srv && python -m unittest discover -s tests -v"
+python3 scripts/smoke_test.py --base http://127.0.0.1:8091
 ```
+
+**PENTING — jangan bentrok dengan stack lama:** repo `/root/rani` sudah memakai compose
+project `rani` (port 8088/8443, image `rani-api`). ProjectDev memakai project name
+`rani-inv` dan image `rani-server`; jangan pernah menjalankan `docker compose down`
+di direktori lain atau mengubah project name ProjectDev menjadi `rani`.
 
 ## 6. Keputusan arsitektur tercatat (ADR-mini)
 - **ADR-D1**: push-model dulu, agentless scan menyusul → memangkas kebutuhan kredensial domain/WMI remote; SNMP tetap agentless-pull.
@@ -65,7 +74,26 @@ python agent/raniPush.py 192.168.88.92 --from-file payload.json
 - **ADR-D3**: UI server-rendered (Jinja2+htmx) bukan SPA → 1 container, tanpa node build stage.
 - **ADR-D4**: satu service `worker` menjalankan ingest-consumer + scanner scheduler; pecah lagi kalau tercekik.
 
-## 7. Kontak konteks
+## 7. Keputusan implementasi yang sudah dikunci (jangan re-derive)
+
+- **Verifikasi HMAC**: server menyimpan `agent_secret` terenkripsi Fernet (key = HKDF dari
+  `RANI_INGEST_PEPPER`), karena HMAC butuh key yang bisa dibaca server. Bukan bcrypt —
+  bcrypt tidak bisa diverifikasi HMAC-nya. Berganti pepper = semua agent harus enroll ulang.
+- **Urutan ingest**: API commit row `software_reports` DULU, baru `XADD`; worker punya
+  `requeue_loop` yang meng-enqueue ulang report `queued` > 2 menit (self-healing kalau
+  Redis sempat mati).
+- **Identitas**: kalau kandidat match lewat serial/MAC/hostname tapi `machine_id` berbeda,
+  JANGAN merge — buat asset baru (cegah merge PC re-image / snapshot VM / payload uji).
+- **Software drop guard**: bila incoming < 50% dari yang tercatat dan existing > 10,
+  uninstall massal dilewati + alasan ditulis ke `software_reports.error`.
+- **Worker** = ingest consumer + requeue sweeper + stale sweep (interval 5 menit,
+  `RANI_OFFLINE_AFTER_S` default 3 jam), sesuai ADR-D4.
+- **UI**: template AdminLTE 4 di `server/app/static/vendor/` (vendored, tanpa CDN/build step);
+  WS `/ws` auth lewat cookie sesi, event via Redis pub/sub channel `rani:events`.
+- **Test**: `server/tests/` = unit murni (stdlib `unittest`, tanpa DB) dijalankan di dalam
+  image; `scripts/smoke_test.py` = end-to-end lewat CLI agent asli.
+
+## 8. Kontak konteks
 - Analisis Lansweeper + blueprint: `../baseOn/analysis results.md`
 - Repo REA (reverse-engineer toolkit; referensi discipline kontrak JSON-schema): `..`
 - Fondasi RANI lama (pattern RBAC/FastAPI yang boleh di-reuse sebagai referensi baca-saja): `/root/rani` — **jangan tulis kode aplikasi ke sana**, ProjectDev ini rumah baru.
