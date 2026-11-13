@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rani.local/schema/agent_payload_v1.json",
+  "title": "RANI raniPush agent payload v1",
+  "type": "object",
+  "required": ["schema_version", "collected_at", "identity", "os"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "agent_version": { "type": "string" },
+    "collected_at": { "type": "string", "format": "date-time" },
+    "identity": {
+      "type": "object",
+      "required": ["machine_id", "hostname"],
+      "properties": {
+        "machine_id": { "type": "string", "description": "Windows MachineGuid / /etc/machine-id — primary identity key" },
+        "hostname": { "type": "string" },
+        "domain": { "type": ["string", "null"] },
+        "domain_joined": { "type": ["boolean", "null"] }
+      }
+    },
+    "hardware": {
+      "type": "object",
+      "properties": {
+        "serial": { "type": ["string", "null"] },
+        "vendor": { "type": ["string", "null"] },
+        "model": { "type": ["string", "null"] },
+        "chassis_type": { "type": ["string", "null"] },
+        "bios_version": { "type": ["string", "null"] },
+        "bios_date": { "type": ["string", "null"] },
+        "cpu": { "type": "array", "items": { "type": "object", "properties": { "name": {"type":"string"}, "cores": {"type":["integer","null"]}, "threads": {"type":["integer","null"]}, "max_clock_mhz": {"type":["number","null"]} } } },
+        "memory": { "type": "array", "items": { "type": "object", "properties": { "capacity_mb": {"type":["integer","null"]}, "speed_mhz": {"type":["integer","null"]}, "manufacturer": {"type":["string","null"]}, "slot": {"type":["string","null"]}, "serial": {"type":["string","null"]} } } },
+        "disks": { "type": "array", "items": { "type": "object", "properties": { "model": {"type":["string","null"]}, "serial": {"type":["string","null"]}, "size_gb": {"type":["number","null"]}, "media": {"type":["string","null"], "enum": ["HDD","SSD","NVMe",null]} } } },
+        "gpu": { "type": "array", "items": { "type": "object", "properties": { "name": {"type":"string"}, "driver_version": {"type":["string","null"]} } } },
+        "monitors": { "type": "array", "items": { "type": "object", "properties": { "name": {"type":["string","null"]}, "manufacturer": {"type":["string","null"]}, "serial": {"type":["string","null"]}, "resolution": {"type":["string","null"]} } } }
+      }
+    },
+    "os": {
+      "type": "object",
+      "required": ["family", "caption"],
+      "properties": {
+        "family": { "type": "string", "enum": ["windows", "linux"] },
+        "caption": { "type": "string" },
+        "version": { "type": ["string", "null"] },
+        "build": { "type": ["string", "null"] },
+        "install_date": { "type": ["string", "null"] },
+        "locale": { "type": ["string", "null"] },
+        "timezone": { "type": ["string", "null"] },
+        "uptime_s": { "type": ["integer", "null"] },
+        "arch": { "type": ["string", "null"] }
+      }
+    },
+    "network": {
+      "type": "object",
+      "properties": {
+        "interfaces": { "type": "array", "items": { "type": "object", "properties": {
+          "name": {"type":["string","null"]}, "mac": {"type":["string","null"]}, "ipv4": {"type":["string","null"]},
+          "ipv6": {"type":["string","null"]}, "mask": {"type":["string","null"]}, "gateway": {"type":["string","null"]},
+          "dns": {"type":"array","items":{"type":"string"}}, "dhcp": {"type":["boolean","null"]}, "speed_mbps": {"type":["number","null"]}
+        } } }
+      }
+    },
+    "software": {
+      "type": "array",
+      "items": { "type": "object", "required": ["name"], "properties": {
+        "name": {"type":"string"}, "version": {"type":["string","null"]}, "vendor": {"type":["string","null"]},
+        "install_date": {"type":["string","null"]}, "uninstall_hint": {"type":["string","null"]},
+        "source": {"type":["string","null"], "description": "registry|wmi|microsoft.store|dpkg|rpm|snap|flatpak"}
+      } }
+    },
+    "users": {
+      "type": "object",
+      "properties": {
+        "primary": { "type": ["string", "null"] },
+        "logged_on": { "type": "array", "items": { "type": "string" } },
+        "last_logons": { "type": "array", "items": { "type": "object", "properties": { "user": {"type":"string"}, "at": {"type":["string","null"]} } } },
+        "local_admins": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "av_product": { "type": ["string", "null"] },
+        "av_up_to_date": { "type": ["boolean", "null"] },
+        "firewall_profiles_on": { "type": "array", "items": { "type": "string" } },
+        "disk_encryption": { "type": ["string", "null"], "description": "on|off|partial|suspended|null" },
+        "tpm_version": { "type": ["string", "null"] },
+        "secure_boot": { "type": ["boolean", "null"] },
+        "pending_reboot": { "type": ["boolean", "null"] },
+        "last_patch_date": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
