@@ -57,17 +57,6 @@ async def asset_detail_page(asset_id: str, request: Request,
                                       {"user": user, "d": detail, "active": "assets"})
 
 
-@router.get("/agents")
-async def agents_page(request: Request, token: str | None = None,
-                      session: AsyncSession = Depends(get_session),
-                      user: AppUser = Depends(require_user("reader"))):
-    return templates.TemplateResponse(request, "agents.html", {
-        "user": user, "agents": await list_agents(session),
-        "tokens": await list_tokens(session), "new_token": token, "active": "agents",
-        "downloads": artifact_rows(), "server_url": str(request.base_url).rstrip("/"),
-    })
-
-
 @router.post("/agents/tokens")
 async def create_token_form(request: Request, label: str = Form(""),
                             ttl_hours: int = Form(24),
@@ -78,7 +67,7 @@ async def create_token_form(request: Request, label: str = Form(""),
     await audit(session, request, actor=user.username, action="token.create",
                 target=str(row.id), details={"label": label})
     await session.commit()
-    return RedirectResponse(f"/agents?token={raw}", status_code=303)
+    return RedirectResponse(f"/agents/push?token={raw}", status_code=303)
 
 
 @router.post("/agents/{agent_id}/revoke")
@@ -91,7 +80,7 @@ async def revoke_agent_form(agent_id: uuid.UUID, request: Request,
     await audit(session, request, actor=user.username, action="agent.revoke",
                 target=str(agent.id), details={"name": agent.name})
     await session.commit()
-    return RedirectResponse("/agents", status_code=303)
+    return RedirectResponse("/agents/push", status_code=303)
 
 
 @router.get("/export/assets.csv")

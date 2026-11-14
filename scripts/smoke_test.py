@@ -108,9 +108,23 @@ def main() -> int:
 
     # 7. halaman UI utama
     for path, marker in (("/", "Dashboard"), ("/assets", "Assets"),
-                         ("/agents", "Download agent")):
+                         ("/agents/push", "Cara pasang raniPush.exe"),
+                         ("/agents/scan", "Mulai scan"),
+                         ("/agents/groups", "Grup IP")):
         body = opener.open(base + path).read().decode("utf-8", "replace")
         check(f"UI {path} render", marker in body, f"{len(body)} bytes")
+
+    # 7d. scan: validasi range & guard (tanpa memutasi data)
+    bad = urllib.request.Request(base + "/agents/groups/save", method="POST",
+                                 data=urllib.parse.urlencode({
+                                     "name": "smoke-invalid", "description": "",
+                                     "ranges": "999.1.1.1", "snmp_version": "2c",
+                                     "community": "x", "port": "161"}).encode())
+    try:
+        opener.open(bad)
+        check("scan menolak range tidak valid", False, "tidak ada error")
+    except urllib.error.HTTPError as exc:
+        check("scan menolak range tidak valid", exc.code == 400, f"HTTP {exc.code}")
 
     # 7b. unduhan artefak agent dari browser (login reader/admin)
     for name in ("raniPush-signed.exe", "rani-push-signing.cer", "install-cert.ps1"):

@@ -29,9 +29,17 @@ class Settings(BaseSettings):
     RANI_REPORT_MAX_ROWS: int = 1000
     RANI_REPORT_TIMEOUT_MS: int = 8000
 
+    # Scan SNMP (menu Agents → Scan)
+    RANI_SCAN_MAX_HOSTS: int = 512
+    RANI_SCAN_CONCURRENCY: int = 16
+    RANI_SCAN_TIMEOUT_S: float = 1.0
+    RANI_SCAN_RETRIES: int = 1
+
     # Direktori artefak agent yang bisa diunduh dari halaman /agents (mount read-only).
     RANI_AGENT_DIR: str = "/srv/release"
     RANI_AGENT_SCRIPTS_DIR: str = "/srv/scripts"
+    # Dokumen markdown yang bisa dibuka dari UI (/docs/<slug>).
+    RANI_DOCS_DIR: str = "/srv/docs"
 
     RANI_ENV: str = "dev"
     RANI_LOG_LEVEL: str = "info"

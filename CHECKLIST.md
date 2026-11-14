@@ -38,19 +38,34 @@
 - report: 3 contoh ter-seed; run "Top software" → 20 baris/10 ms, filter kolom "microsoft" → 9 tampil; query 5000 baris → dipotong 1000 (`truncated`); `DELETE FROM assets` ditolak guard "hanya query SELECT"; heavy query → `statement_timeout` 8s → 400 + `last_error`; psql `rani_report` INSERT → `cannot execute INSERT in a read-only transaction`; `select password_hash from app_users` → `permission denied`; export CSV `text/csv`
 
 ## F2 — SNMP network scan (raniScan) + dashboard
-- [ ] F2.1 Worker `pysnmp-lextudio`: probe sysObjectID `.1.3.6.1.2.1.1.2.0` → skip bila timeout
-- [ ] F2.2 SNMP v1/v2c + v3 credential vault (terenkripsi at-rest), mapping per subnet/device-group
-- [ ] F2.3 Pull: system group, ifTable (incl. MAC, speed, oper status), ipNetToMedia (ARP), entity MIB (serial/firmware)
+- [x] F2.1 Klien SNMP **stdlib** (`app/snmp.py`): BER encode/decode, GET multi-varbind, GETNEXT walk, timeout+retry — tanpa dependency baru. Probe sysObjectID `1.3.6.1.2.1.1.2.0` dulu, host tanpa balasan = `timeout`
+- [x] F2.2 SNMP **v1/v2c** + credential vault: community terenkripsi Fernet di `scan_groups.community_enc`, per grup (bukan v3 — belum)
+- [x] F2.3 Pull system group (sysDescr/sysName/sysUpTime/ifNumber), entity MIB (serial/model/vendor), custom OID termasuk walk tabel (`ifDescr.*`, `ifOperStatus.*`). ifTable MAC/speed + ARP otomatis belum
 - [ ] F2.4 Bridge MIB (dot1dTpFdb) → MAC-per-port → tabel `endpoint_port_mappings` → topologi L2
-- [ ] F2.5 IP range target mgmt + jadwal scan + on-demand scan dengan progress via WebSocket (tabel `scan_targets` sudah disiapkan)
-- [ ] F2.6 Hasil SNMP masuk reconciler yang sama (source=`snmp`) → device jadi asset type `network`
+- [x] F2.5 IP range target mgmt (`/agents/groups`: CRUD grup, CIDR/range/IP, toggle) + custom OID mgmt + scan on-demand dengan progress WS (`scan.progress`/`scan.done`) dan polling UI. Jadwal otomatis belum
+- [x] F2.6 Hasil SNMP → asset `asset_type='network'` (identity serial→hostname→IP) + `scan_results` + `assets.attrs.snmp`; event `asset.new/update` ikut WS
 - [x] F2.7 Dashboard: **Apache ECharts 5.5** (donut OS mix, donut online/offline, bar top software, area push 24 jam dengan bucket per jam WIB) + tooltip persen, toolbox simpan PNG, tema gelap/terang re-render, resize saat sidebar collapse; realtime WS refresh. Sisanya: tren jumlah aset per jam (bukan push) belum
 - [ ] F2.8 Printer enrichment (host-resources MIB / JetDirect OID)
+
+**Bukti F2 (2026-11-14, dev LXC):** scan grup uji `172.22.0.1:1161` (net-snmp 5.9.4 lokal) → status `done`, 1/1 host, `sysName=SW-TEST-01`, `ifNumber=28`, sysObjectID `1.3.6.1.4.1.8072.3.2.10`; custom OID GET (`1.3.6.1.2.1.1.4.0` = `admin@rani.local`) dan walk `ifDescr.*` (16 baris: lo/eth0/docker0/…) tersimpan di `scan_results.oid_values`; asset `network` dibuat + `attrs.snmp`; audit `scan.start`. Unit test SNMP (fake agent UDP) 7 test: GET multi-OID, walk subtree, timeout, version field v1/v2c, parser range. Scan user `10.194.7.0/26` (Vlan_470) selesai 62/62 host, 0 menjawab SNMP (perlu cek community/ACL di perangkat).
+
+## Riwayat pekerjaan sesi (Nov 2026)
+
+| # | Pekerjaan | Commit | Bukti singkat |
+|---|---|---|---|
+| 1 | Agent 0.2 **tanpa token** (`raniPush <ip:port>`), auto-register mode `direct`, HMAC opsional, migration `0002` | `57b8647` | push 202 tanpa config; exe Wine push OK; 21 unit test |
+| 2 | **Download agent dari browser** `/downloads/<nama>` (signed exe, cert, portable zip, script), mount read-only | `57b8647` | signed exe 7.686.056 B via HTTP 200 |
+| 3 | Dashboard **Apache ECharts** (donut OS, status, bar top software, area push 24 jam) + bucket WIB | `10fc1ba` | 4 canvas, filter/legend, tema gelap re-render |
+| 4 | **Sidebar mini persisten** (`sidebar-mini` + `data-enable-persistence`), ikon SVG, pra-paint anti-flash | `10fc1ba` | 74 px collapsed, bertahan pindah halaman |
+| 5 | **Ikon aplikasi** (favicon, apple-touch, manifest, logo sidebar) + `scripts/make-icons.py` + `docs/branding.md` | `bbdbf8d`, `14618e8` | semua aset 200, brand 33/28 px |
+| 6 | **Custom reports SQL** (menu Reports) + role DB read-only `rani_report`, guard, row cap, CSV, migration `0003` | `c1c85bf` | 20 baris/10 ms; DML ditolak; timeout 8s |
+| 7 | **Submenu Agents + Scan SNMP** (grup IP CRUD, custom OID, scan on-demand + progress) + `docs/scan.md`, migration `0004` | (commit ini) | e2e net-snmp: 1/1 host, custom OID GET+walk, asset network |
+| 8 | Waktu UI konsisten **WIB** (`fmt_dt` + trend/recent events) | `10fc1ba`, `c1c85bf` | last_seen 15:42 = WIB |
 
 ## F3 — Ops & distribusi
 - [x] F3.1 Build raniPush → single exe PyInstaller (`agent/raniPush.spec`, `scripts/build-exe.sh` via Wine, workflow GitHub Actions Windows) + `scripts/install-agent.ps1` (copy + Task Scheduler, `-Token` opsional). Exe terverifikasi di Wine: `--collect` payload valid skema, push 202 tanpa token (auto-register mode `direct`) dan jalur enroll+HMAC tetap PASS. Tersedia juga `raniPush-signed.exe` (osslsigncode, sertifikat internal + timestamp, `scripts/sign-exe.sh` + `install-cert.ps1`) dan `raniPush-portable.zip` (Python embeddable + .cmd) untuk PC yang memblokir exe. **Belum** dijalankan di PC Windows nyata (MSI/GPO belum).
 - [x] F3.2 Enrollment token UI + agent revoke (UI + API); token kini opsional — `RANI_TOKENLESS_PUSH=0` untuk mewajibkan HMAC
-- [x] F3.8 Unduhan agent dari browser: panel **Download agent** di `/agents` (signed exe, exe unsigned, cert, `install-cert.ps1`, portable zip) via `/downloads/<nama>` — allowlist nama, wajib login, compose mount `./release` + `./scripts` read-only
+- [x] F3.8 Unduhan agent dari browser: panel **Download agent** di `/agents/push` (signed exe, exe unsigned, cert, `install-cert.ps1`, portable zip) via `/downloads/<nama>` — allowlist nama, wajib login, compose mount `./release` + `./scripts` read-only
 - [ ] F3.3 Remote config interval (server kirim `next_interval_s`; agent sudah menyimpannya — UI belum)
 - [ ] F3.4 Retention jobs: raw payload 90 hari, partisi software_reports
 - [x] F3.5 CSV export asset view (`/export/assets.csv`)

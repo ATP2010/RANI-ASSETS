@@ -17,7 +17,7 @@ Sumber requirements: `/root/RaniProject/baseOn/analysis results.md` (§3 bluepri
 | UI | AdminLTE 4 (Bootstrap 5) + Apache ECharts 5.5 (vendored) + WebSocket | owner request |
 | Deploy | docker compose, image push → registry lokal `192.168.88.92:5000` | migrasi = pull + `up -d` |
 | Timezone | **Asia/Jakarta (WIB)** semua container (`TZ=`) | owner request |
-| SNMP | `pysnmp-lextudio` (BUKAN `pysnmp` PyPI yang stale) | tech-watch |
+| SNMP | **Klien stdlib sendiri** (`server/app/snmp.py`: BER + GET/GETNEXT). Alasan: kebutuhan hanya GET/GETNEXT, image tanpa dependency tambahan, dan mudah diuji dengan fake agent UDP. `pysnmp-lextudio` tetap opsi bila butuh v3/trap | implementasi Nov 2026 |
 | Ingest auth | HMAC-SHA256(agent_secret, ts+nonce+body) + nonce replay-guard; **tanpa TLS wajib** (LAN by-IP) | owner: target manual IP, Task Scheduler cmd |
 
 ## 3. Struktur repo
@@ -41,7 +41,7 @@ ProjectDev/
 1. **Payload versioned**: field `schema_version` integer. Perubahan kontrak = tambah file schema versi baru, server tetap terima versi lama. Jangan pernah breaking-change v1.
 2. **Identity asset** (reconciler, urut): `machine_id` → `serial` → `primary_mac` → `hostname`. **IP bukan kunci identitas** (hanya atribut). Sumber: pola Lansweeper §1.3.
 3. **Software = delta model**, bukan snapshot-per-run: `software(asset_id,...,present,first_seen,last_seen)` + `software_events(install/uninstall/change)`. Raw payload dibuang >90 hari.
-4. **SNMP**: probe pertama wajib `sysObjectID 1.3.6.1.2.1.1.2.0` (timeout 2s ×2 → skip device). Community read-only cukup. Simpan raw OID di JSONB supaya device-type baru bisa di-re-match tanpa re-scan.
+4. **SNMP**: probe pertama wajib `sysObjectID 1.3.6.1.2.1.1.2.0` (timeout 1s ×1 retry → tandai `timeout`). Community read-only, terenkripsi at-rest per grup (`scan_groups.community_enc`). Hasil mentah (sysDescr + custom OID) disimpan di `scan_results.oid_values` dan `assets.attrs.snmp` supaya device-type baru bisa di-re-match tanpa re-scan. Jangan pernah kirim SNMP SET.
 5. **Idempotent ingest**: 2 push identik (sha body sama, <1 interval) → ACK tanpa insert duplikat.
 6. **Secrets**: agent secret di-hash (bcrypt/sha256+pepper); credential SNMP terenkripsi at-rest; `.env` gitignored.
 7. **WebSocket event names**: `asset.new`, `asset.update`, `asset.offline`, `scan.progress`, `scan.done`. Payload kecil (id + ringkasan); UI fetch detail via REST.

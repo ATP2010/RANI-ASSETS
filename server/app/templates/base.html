@@ -51,6 +51,9 @@
     #theme-toggle { min-width: 2.5rem; }
     [data-bs-theme="dark"] .app-sidebar { border-inline-end: 1px solid var(--bs-border-color); }
     .nav-icon svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
+    .nav-arrow svg { width: .75rem; height: .75rem; stroke-width: 2; }
+    .nav-treeview .nav-link { padding-left: 2.6rem; }
+    .sidebar-collapse .app-sidebar:not(:hover) .nav-arrow { display: none; }
     /* mode ringkas (sidebar-collapse): ikon saja, teks disembunyikan AdminLTE */
     .sidebar-collapse .app-sidebar:not(:hover) .sidebar-menu .nav-link { justify-content: center; }
     .sidebar-collapse .app-sidebar:not(:hover) .sidebar-menu .nav-link p { display: none; }
@@ -81,6 +84,8 @@
         </li>
         <li class="nav-item d-none d-md-block"><a href="/" class="nav-link">Dashboard</a></li>
         <li class="nav-item d-none d-md-block"><a href="/assets" class="nav-link">Assets</a></li>
+        <li class="nav-item d-none d-md-block"><a href="/agents/push" class="nav-link">Agents</a></li>
+        <li class="nav-item d-none d-md-block"><a href="/agents/scan" class="nav-link">Scan</a></li>
         <li class="nav-item d-none d-md-block"><a href="/reports" class="nav-link">Reports</a></li>
         <li class="nav-item d-none d-xl-block">
           <span class="nav-link small-muted">Resource &amp; Asset Network Intelligence</span>
@@ -131,10 +136,26 @@
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
               <p>Assets</p></a>
           </li>
-          <li class="nav-item">
-            <a href="/agents" title="Agents" class="nav-link {% if active == 'agents' %}active{% endif %}">
+          <li class="nav-item {% if active == 'agents' %}menu-open{% endif %}">
+            <a href="#" class="nav-link {% if active == 'agents' %}active{% endif %}"
+               data-lte-toggle="treeview">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg></span>
-              <p>Agents</p></a>
+              <p>Agents<i class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6"/></svg></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="/agents/push" class="nav-link {% if sub == 'push' %}active{% endif %}">
+                  <p>Push (agent)</p></a>
+              </li>
+              <li class="nav-item">
+                <a href="/agents/scan" class="nav-link {% if sub == 'scan' %}active{% endif %}">
+                  <p>Scan</p></a>
+              </li>
+              <li class="nav-item">
+                <a href="/agents/groups" class="nav-link {% if sub == 'groups' %}active{% endif %}">
+                  <p>Grup IP &amp; OID</p></a>
+              </li>
+            </ul>
           </li>
           <li class="nav-item">
             <a href="/reports" title="Reports" class="nav-link {% if active == 'reports' %}active{% endif %}">

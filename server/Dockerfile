@@ -21,6 +21,7 @@ COPY server/app /srv/app
 COPY server/worker /srv/worker
 COPY server/tests /srv/tests
 COPY schema /srv/schema
+COPY docs /srv/docs
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

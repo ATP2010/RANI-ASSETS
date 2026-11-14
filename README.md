@@ -10,6 +10,7 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
   tanpa CDN/online) dan sidebar AdminLTE `sidebar-mini` — status collapse disimpan di
   `localStorage` (`lte.sidebar.state`) sehingga tetap ringkas saat pindah menu.
 - Panduan lain: [`docs/reports.md`](docs/reports.md) (custom report SQL) ·
+  [`docs/scan.md`](docs/scan.md) (scan SNMP + custom OID) ·
   [`docs/branding.md`](docs/branding.md) (logo/ikon) ·
   [`docs/agent-windows.md`](docs/agent-windows.md) (agent Windows).
 - Ikon aplikasi: `server/app/static/img/` (`favicon.ico`, `icon-32/192/512.png`,
@@ -26,6 +27,7 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 | Agent `raniPush` Linux | jalan, terverifikasi (payload nyata → asset) |
 | Agent `raniPush` Windows (WMI/registry/PowerShell) | kode ada, **belum diuji di PC Windows nyata** |
 | Custom reports SQL (`/reports`) | jalan — role DB read-only, grid + filter kolom, export CSV |
+| Scan SNMP (`/agents/scan`) | jalan — grup IP + custom OID, probe v1/v2c, asset `network` otomatis; jadwal otomatis belum |
 | SNMP scanning (F2), installer exe + GNS (F3) | belum |
 
 ## Quick start (dev LXC 192.168.88.92)
@@ -44,7 +46,7 @@ docker compose up -d --build
 
 ## Alur pakai
 
-1. Login → menu **Agents** → panel **Download agent (Windows)** → unduh
+1. Login → menu **Agents → Push** → panel **Download agent (Windows)** → unduh
    `raniPush-signed.exe` (dan `rani-push-signing.cer` + `install-cert.ps1` bila PC
    memblokir "unknown publisher"). Tidak ada token/enroll untuk agent 0.2+.
 2. Di PC target (Windows, PowerShell **as Administrator**):

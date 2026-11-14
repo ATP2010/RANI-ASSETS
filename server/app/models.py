@@ -292,18 +292,87 @@ class NetworkInterface(Base):
     last_seen = _now()
 
 
-class ScanTarget(Base):
-    """Disiapkan untuk F2 (SNMP) — tabel minimal supaya migrasi berikutnya ringan."""
-    __tablename__ = "scan_targets"
-    __table_args__ = {"schema": SCHEMA}
+class ScanGroup(Base):
+    """Grup IP untuk scan SNMP: daftar CIDR/range + kredensial community (terenkripsi)."""
+    __tablename__ = "scan_groups"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_scan_groups_name"),
+        {"schema": SCHEMA},
+    )
 
     id = _uuid_pk()
-    label: Mapped[str] = mapped_column(String(128))
-    cidr: Mapped[str] = mapped_column(String(64))
-    snmp_version: Mapped[str] = mapped_column(String(8), default="2c")
-    community_enc: Mapped[str | None] = mapped_column(Text)  # terenkripsi at-rest (F2)
+    name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str | None] = mapped_column(Text)
+    ranges: Mapped[list] = mapped_column(JSONB, default=list)   # ["10.0.0.0/24", "10.0.1.5-10.0.1.20"]
+    snmp_version: Mapped[str] = mapped_column(String(8), default="2c")  # 1 | 2c
+    community_enc: Mapped[str | None] = mapped_column(Text)
+    port: Mapped[int] = mapped_column(Integer, default=161)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at = _now()
     last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_scan_status: Mapped[str | None] = mapped_column(String(32))
+
+
+class ScanOid(Base):
+    """Custom OID (gaya Lansweeper Custom OID Scanning): label + OID, filter vendor/model."""
+    __tablename__ = "scan_oids"
+    __table_args__ = (
+        UniqueConstraint("label", "oid", name="uq_scan_oids_label_oid"),
+        {"schema": SCHEMA},
+    )
+
+    id = _uuid_pk()
+    label: Mapped[str] = mapped_column(String(96))
+    oid: Mapped[str] = mapped_column(String(191))
+    description: Mapped[str | None] = mapped_column(Text)
+    vendor: Mapped[str | None] = mapped_column(String(96))     # opsional, substring match
+    model: Mapped[str | None] = mapped_column(String(96))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at = _now()
+
+
+class ScanRun(Base):
+    __tablename__ = "scan_runs"
+    __table_args__ = (
+        Index(f"ix_{SCHEMA}_scan_runs_started", "started_at"),
+        {"schema": SCHEMA},
+    )
+
+    id = _uuid_pk()
+    group_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey(f"{SCHEMA}.scan_groups.id", ondelete="SET NULL"), index=True)
+    status: Mapped[str] = mapped_column(String(16), default="running")  # running|done|failed|cancelled
+    started_at = _now()
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    hosts_total: Mapped[int] = mapped_column(Integer, default=0)
+    hosts_done: Mapped[int] = mapped_column(Integer, default=0)
+    hosts_found: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    error: Mapped[str | None] = mapped_column(Text)
     stats: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class ScanResult(Base):
+    __tablename__ = "scan_results"
+    __table_args__ = (
+        UniqueConstraint("run_id", "ip", name="uq_scan_results_run_ip"),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{SCHEMA}.scan_runs.id", ondelete="CASCADE"), index=True)
+    ip: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16), default="ok")  # ok|timeout|error
+    sys_object_id: Mapped[str | None] = mapped_column(String(191))
+    sys_name: Mapped[str | None] = mapped_column(String(191))
+    sys_descr: Mapped[str | None] = mapped_column(Text)
+    vendor: Mapped[str | None] = mapped_column(String(96))
+    model: Mapped[str | None] = mapped_column(String(128))
+    serial: Mapped[str | None] = mapped_column(String(128))
+    uptime_s: Mapped[int | None] = mapped_column(Integer)
+    if_count: Mapped[int | None] = mapped_column(Integer)
+    oid_values: Mapped[dict] = mapped_column(JSONB, default=dict)
+    error: Mapped[str | None] = mapped_column(String(255))
+    asset_id: Mapped[uuid.UUID | None] = mapped_column(UUID_PK, index=True)
+    created_at = _now()

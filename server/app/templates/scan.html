@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Scan{% endblock %}
+{% block heading %}Agents · Scan{% endblock %}
+{% block subheading %}SNMP sweep per grup IP{% endblock %}
+
+{% block content %}
+{% if not groups %}
+<div class="alert alert-secondary py-2">
+  Belum ada grup IP. <a href="/agents/groups">Buat grup IP</a> dulu (atau pakai tombol
+  “Kelola grup IP”).
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Mulai scan</span>
+        <a class="btn btn-sm btn-outline-secondary" href="/agents/groups">Kelola grup IP</a>
+      </div>
+      <div class="card-body">
+        {% if can_run %}
+        <div class="row g-2 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label small" for="scan-group">Grup IP</label>
+            <select class="form-select form-select-sm" id="scan-group">
+              {% for row in groups %}
+              <option value="{{ row.group.id }}" {% if not row.group.enabled %}disabled{% endif %}>
+                {{ row.group.name }} · {{ row.stats.hosts }}{% if row.stats.truncated %}+{% endif %} host
+                · SNMP {{ row.group.snmp_version }} · port {{ row.group.port }}
+                {% if not row.group.enabled %} (nonaktif){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4 d-grid">
+            <button class="btn btn-primary btn-sm" type="button" id="scan-start"
+                    {% if not groups %}disabled{% endif %}>Mulai scan</button>
+          </div>
+        </div>
+        <div class="small-muted mt-2">
+          Batas: {{ max_hosts }} host per scan, {{ concurrency }} probe paralel, timeout
+          {{ timeout_s }} dtk/host. Perangkat yang menjawab SNMP dibuat/di-update sebagai asset
+          <span class="mono">network</span>.
+        </div>
+        {% else %}
+        <p class="small-muted mb-0">Hanya role operator/admin yang bisa memulai scan.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Progres</div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between small-muted mb-1">
+          <span id="scan-state">idle</span>
+          <span id="scan-counts">—</span>
+        </div>
+        <div class="progress" style="height: 10px" role="progressbar" aria-label="progres scan">
+          <div class="progress-bar" id="scan-bar" style="width: 0%"></div>
+        </div>
+        <div class="small-muted mt-2" id="scan-note">
+          {% if selected %}
+          Run terakhir: {{ selected.status }} · {{ selected.hosts_found }}/{{ selected.hosts_done }}
+          dari {{ selected.hosts_total }} host
+          {% if selected.hosts_done and not selected.hosts_found %}
+          <div class="text-warning mt-1">Tidak ada perangkat yang menjawab SNMP — cek community,
+            ACL SNMP di perangkat, dan UDP port grup.</div>
+          {% endif %}
+          {% else %}
+          Belum ada scan yang dijalankan.
+          {% endif %}
+        </div>
+        <div class="mt-2 d-flex gap-2">
+          <button class="btn btn-sm btn-outline-danger d-none" type="button" id="scan-cancel">Batalkan</button>
+          <a class="btn btn-sm btn-outline-secondary d-none" href="#" id="scan-open">Buka hasil tersimpan</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>
+      Hasil scan
+      {% if selected %}· {{ selected.status }} · {{ selected.hosts_found }}/{{ selected.hosts_done }}{% endif %}
+    </span>
+    <span class="small-muted" id="scan-result-meta">
+      {{ results | length }} baris ditampilkan
+    </span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-tight mb-0 align-middle" id="scan-results">
+        <thead class="table-light">
+          <tr>
+            <th>IP</th><th>Status</th><th>Nama</th><th>Vendor / model</th>
+            <th>Serial</th><th>IF</th><th>Custom OID</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+          <tr>
+            <td class="mono">{{ r.ip }}</td>
+            <td>
+              {% if r.status == 'ok' %}<span class="badge text-bg-success">ok</span>
+              {% elif r.status == 'timeout' %}<span class="badge text-bg-secondary">timeout</span>
+              {% else %}<span class="badge text-bg-danger">error</span>{% endif %}
+            </td>
+            <td class="small">
+              {% if r.asset_id %}<a href="/assets/{{ r.asset_id }}">{{ r.sys_name or '—' }}</a>
+              {% else %}{{ r.sys_name or '—' }}{% endif %}
+            </td>
+            <td class="small-muted">{{ r.vendor or '—' }}{% if r.model %} · {{ r.model }}{% endif %}</td>
+            <td class="mono small">{{ r.serial or '—' }}</td>
+            <td class="mono small">{{ r.if_count if r.if_count is not none else '—' }}</td>
+            <td class="small">
+              {% if r.oid_values %}
+                {% for k, v in r.oid_values.items() %}
+                <div class="mono">{{ k }} = {{ v if v is string else v | tojson }}</div>
+                {% endfor %}
+              {% else %}—{% endif %}
+              {% if r.error %}<div class="text-danger">{{ r.error }}</div>{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="small-muted p-3">belum ada hasil scan</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">Riwayat scan</div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-tight mb-0">
+      <thead class="table-light">
+        <tr><th>Mulai</th><th>Grup</th><th>Status</th><th>Host</th><th>Ditemukan</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for row in history %}
+        <tr>
+          <td class="small-muted">{{ row.run.started_at | fmt_dt }}</td>
+          <td>{{ row.group_name or '—' }}</td>
+          <td>
+            {% if row.run.status == 'done' %}<span class="badge text-bg-success">done</span>
+            {% elif row.run.status == 'running' %}<span class="badge text-bg-primary">running</span>
+            {% elif row.run.status == 'cancelled' %}<span class="badge text-bg-warning">cancelled</span>
+            {% else %}<span class="badge text-bg-danger">failed</span>{% endif %}
+            {% if row.run.error %}<div class="small text-danger">{{ row.run.error[:90] }}</div>{% endif %}
+          </td>
+          <td class="mono small">{{ row.run.hosts_done }}/{{ row.run.hosts_total }}</td>
+          <td class="mono small">{{ row.run.hosts_found }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/agents/scan?run={{ row.run.id }}">Lihat</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="small-muted p-3">belum ada riwayat</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.RANI_SCAN = {
+    runId: {{ (selected.id | string | tojson) if selected else 'null' }},
+    running: {{ 'true' if selected and selected.status == 'running' else 'false' }}
+  };
+</script>
+<script src="/static/scan.js"></script>
+{% endblock %}
