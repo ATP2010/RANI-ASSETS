@@ -1,8 +1,5 @@
-/* RANI UI: WebSocket realtime + chart dashboard. */
+/* RANI UI: WebSocket realtime, sidebar persist, chart dashboard (Apache ECharts). */
 (function () {
-  const PALETTE = ['#0d6efd', '#6c757d', '#198754', '#ffc107', '#0dcaf0', '#dc3545',
-                   '#6f42c1', '#fd7e14', '#20c997', '#adb5bd'];
-
   function el(id) { return document.getElementById(id); }
 
   function toast(title, body, cls) {
@@ -56,8 +53,8 @@
         refreshDashboard();
       } else if (msg.type === 'asset.update') {
         const s = msg.software || {};
-        const delta = ['+' + (s.installed || 0) + ' / -' + (s.uninstalled || 0) +
-                       ' / ~' + (s.changed || 0)].join('');
+        const delta = '+' + (s.installed || 0) + ' / -' + (s.uninstalled || 0) +
+                      ' / ~' + (s.changed || 0);
         toast('Push diterima', (msg.hostname || '') + ' — software ' + delta, 'primary');
         refreshDashboard();
       } else if (msg.type === 'asset.offline') {
@@ -67,59 +64,234 @@
     };
   }
 
-  function chartConfig(type, labels, data, horizontal) {
+  // --------------------------------------------------------------- charts ---
+  const PALETTE = ['#0d6efd', '#198754', '#0dcaf0', '#ffc107', '#6f42c1',
+                   '#fd7e14', '#20c997', '#dc3545', '#6c757d'];
+  const charts = {};
+  let lastStats = null;
+  const nf = new Intl.NumberFormat('id-ID');
+
+  function cssVar(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v && v.trim()) || fallback;
+  }
+
+  function palette() {
     return {
-      type: type,
-      data: {
-        labels: labels,
-        datasets: [{
-          data: data,
-          backgroundColor: labels.map((_, i) => PALETTE[i % PALETTE.length]),
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        indexAxis: horizontal ? 'y' : 'x',
-        plugins: { legend: { display: type === 'doughnut', position: 'bottom' } },
-        scales: type === 'doughnut' ? {} : { x: { beginAtZero: true } }
-      }
+      text: cssVar('--bs-body-color', '#212529'),
+      muted: cssVar('--bs-secondary-color', '#6c757d'),
+      border: cssVar('--bs-border-color', '#dee2e6'),
+      surface: cssVar('--bs-body-bg', '#ffffff'),
+      online: cssVar('--bs-success', '#198754'),
+      offline: cssVar('--bs-secondary', '#6c757d'),
     };
   }
 
-  function renderStats(stats) {
-    ['total', 'online', 'offline', 'software', 'installs'].forEach(function (key) {
-      const map = { total: 'assets_total', online: 'assets_online', offline: 'assets_offline',
-                    software: 'software_titles', installs: 'software_installs' };
-      const node = el('stat-' + key);
-      if (node) node.textContent = stats[map[key]];
-    });
-    if (typeof Chart === 'undefined') return;
-    const os = stats.os_mix || [];
-    const top = stats.top_software || [];
-    const trend = stats.reports_trend || [];
-
-    const make = (id, cfg) => {
-      const canvas = el(id);
-      if (!canvas) return;
-      if (canvas._chart) canvas._chart.destroy();
-      canvas._chart = new Chart(canvas, cfg);
-    };
-    make('chart-os', chartConfig('doughnut', os.map(o => o.label), os.map(o => o.count)));
-    make('chart-status', chartConfig('doughnut', ['online', 'offline'],
-      [stats.assets_online, stats.assets_offline]));
-    make('chart-software', chartConfig('bar', top.map(t => t.label), top.map(t => t.count), true));
-    make('chart-trend', {
-      type: 'line',
-      data: {
-        labels: trend.map(t => t.hour.slice(11, 16)),
-        datasets: [{ label: 'push/jam', data: trend.map(t => t.count), tension: .3,
-                     fill: true, borderColor: PALETTE[0],
-                     backgroundColor: 'rgba(13,110,253,.15)' }]
+  function baseOption(p) {
+    return {
+      backgroundColor: 'transparent',
+      textStyle: { color: p.text, fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif' },
+      tooltip: {
+        backgroundColor: p.surface, borderColor: p.border, borderWidth: 1,
+        textStyle: { color: p.text, fontSize: 12 },
+        extraCssText: 'box-shadow:0 4px 16px rgba(0,0,0,.12);border-radius:6px;'
       },
-      options: { responsive: true, maintainAspectRatio: false }
+      toolbox: {
+        right: 4, top: 0, itemSize: 12, iconStyle: { borderColor: p.muted },
+        feature: { saveAsImage: { backgroundColor: 'transparent', pixelRatio: 2,
+                                  title: 'Simpan PNG', name: 'rani-chart' } }
+      },
+    };
+  }
+
+  function initChart(id) {
+    const node = el(id);
+    if (!node || typeof echarts === 'undefined') return null;
+    if (charts[id]) charts[id].dispose();
+    charts[id] = echarts.init(node, null, { renderer: 'canvas' });
+    return charts[id];
+  }
+
+  function drawOs(stats) {
+    const chart = initChart('chart-os');
+    if (!chart) return;
+    const p = palette();
+    const rows = (stats.os_mix || []).filter(r => r.count > 0);
+    const total = rows.reduce((sum, r) => sum + r.count, 0);
+    const option = baseOption(p);
+    option.color = PALETTE;
+    option.tooltip.trigger = 'item';
+    option.tooltip.formatter = (pt) => pt.name + '<br/><b>' + nf.format(pt.value) +
+      '</b> aset (' + pt.percent + '%)';
+    option.legend = {
+      bottom: 0, type: 'scroll', icon: 'circle', itemWidth: 8, itemHeight: 8,
+      textStyle: { color: p.muted, fontSize: 11 },
+      pageIconColor: p.muted, pageTextStyle: { color: p.muted }, pageIconSize: 10
+    };
+    option.graphic = rows.length ? [
+      { type: 'text', left: 'center', top: '33%', silent: true,
+        style: { text: nf.format(total), fontSize: 22, fontWeight: 600, fill: p.text } },
+      { type: 'text', left: 'center', top: '47%', silent: true,
+        style: { text: 'aset', fontSize: 11, fill: p.muted } },
+    ] : [{ type: 'text', left: 'center', top: 'middle', silent: true,
+           style: { text: 'belum ada aset', fill: p.muted, fontSize: 12 } }];
+    option.series = [{
+      type: 'pie', radius: ['52%', '74%'], center: ['50%', '42%'],
+      avoidLabelOverlap: true, minAngle: 3,
+      itemStyle: { borderColor: p.surface, borderWidth: 2, borderRadius: 4 },
+      label: { show: false }, labelLine: { show: false },
+      emphasis: { scaleSize: 4, label: { show: false } },
+      data: rows.map(r => ({ name: r.label, value: r.count })),
+    }];
+    chart.setOption(option, true);
+  }
+
+  function drawStatus(stats) {
+    const chart = initChart('chart-status');
+    if (!chart) return;
+    const p = palette();
+    const online = stats.assets_online || 0;
+    const offline = stats.assets_offline || 0;
+    const total = online + offline;
+    const pct = total ? Math.round((online / total) * 100) : 0;
+    const option = baseOption(p);
+    option.tooltip.trigger = 'item';
+    option.tooltip.formatter = (pt) => pt.name + ': <b>' + nf.format(pt.value) + '</b> aset (' +
+      pt.percent + '%)';
+    option.legend = { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8,
+                      textStyle: { color: p.muted, fontSize: 11 } };
+    option.graphic = total ? [
+      { type: 'text', left: 'center', top: '33%', silent: true,
+        style: { text: pct + '%', fontSize: 22, fontWeight: 600, fill: p.online } },
+      { type: 'text', left: 'center', top: '47%', silent: true,
+        style: { text: 'online', fontSize: 11, fill: p.muted } },
+    ] : [{ type: 'text', left: 'center', top: 'middle', silent: true,
+           style: { text: 'belum ada aset', fill: p.muted, fontSize: 12 } }];
+    option.series = [{
+      type: 'pie', radius: ['54%', '76%'], center: ['50%', '42%'], startAngle: 90,
+      itemStyle: { borderColor: p.surface, borderWidth: 2, borderRadius: 4 },
+      label: { show: false }, labelLine: { show: false },
+      data: [
+        { name: 'online', value: online, itemStyle: { color: p.online } },
+        { name: 'offline', value: offline, itemStyle: { color: p.offline } },
+      ],
+    }];
+    chart.setOption(option, true);
+  }
+
+  function drawSoftware(stats) {
+    const chart = initChart('chart-software');
+    if (!chart) return;
+    const p = palette();
+    const rows = (stats.top_software || []).slice().sort((a, b) => a.count - b.count);
+    const total = stats.assets_total || 0;
+    const option = baseOption(p);
+    option.grid = { left: 4, right: 34, top: 6, bottom: 4, containLabel: true };
+    option.tooltip.trigger = 'axis';
+    option.tooltip.axisPointer = { type: 'shadow' };
+    option.tooltip.formatter = (pts) => {
+      const pt = pts[0];
+      const pct = total ? Math.round((pt.value / total) * 100) : 0;
+      return pt.name + '<br/><b>' + nf.format(pt.value) + '</b> aset (' + pct + '% dari fleet)';
+    };
+    option.xAxis = {
+      type: 'value', minInterval: 1,
+      axisLabel: { color: p.muted, fontSize: 11 },
+      splitLine: { lineStyle: { color: p.border, opacity: 0.5 } },
+    };
+    option.yAxis = {
+      type: 'category', data: rows.map(r => r.label),
+      axisLabel: { color: p.text, fontSize: 11, width: 120, overflow: 'truncate' },
+      axisLine: { lineStyle: { color: p.border } }, axisTick: { show: false },
+    };
+    option.series = [{
+      type: 'bar', barMaxWidth: 14,
+      data: rows.map(r => r.count),
+      itemStyle: {
+        borderRadius: [0, 4, 4, 0],
+        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: '#0d6efd' }, { offset: 1, color: '#0dcaf0' },
+        ]),
+      },
+      label: { show: true, position: 'right', color: p.muted, fontSize: 11 },
+    }];
+    option.graphic = rows.length ? [] : [{
+      type: 'text', left: 'center', top: 'middle', silent: true,
+      style: { text: 'belum ada data software', fill: p.muted, fontSize: 12 },
+    }];
+    chart.setOption(option, true);
+  }
+
+  function drawTrend(stats) {
+    const chart = initChart('chart-trend');
+    if (!chart) return;
+    const p = palette();
+    const rows = stats.reports_trend || [];
+    const empty = !rows.some(r => r.count > 0);
+    const option = baseOption(p);
+    option.grid = { left: 4, right: 12, top: 24, bottom: 4, containLabel: true };
+    option.tooltip.trigger = 'axis';
+    option.tooltip.formatter = (pts) => {
+      const pt = pts[0];
+      return pt.name + '<br/><b>' + nf.format(pt.value) + '</b> push';
+    };
+    option.xAxis = {
+      type: 'category', boundaryGap: false,
+      data: rows.map(r => (r.hour || '').slice(11, 16)),
+      axisLabel: { color: p.muted, fontSize: 11, interval: 2 },
+      axisLine: { lineStyle: { color: p.border } }, axisTick: { show: false },
+    };
+    option.yAxis = {
+      type: 'value', minInterval: 1,
+      axisLabel: { color: p.muted, fontSize: 11 },
+      splitLine: { lineStyle: { color: p.border, opacity: 0.5 } },
+    };
+    option.series = [{
+      name: 'push/jam', type: 'line', smooth: true, showSymbol: false,
+      symbol: 'circle', symbolSize: 6,
+      data: rows.map(r => r.count),
+      lineStyle: { width: 2, color: '#0d6efd' },
+      itemStyle: { color: '#0d6efd' },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(13,110,253,.35)' },
+          { offset: 1, color: 'rgba(13,110,253,0)' },
+        ]),
+      },
+      markLine: {
+        silent: true, symbol: 'none',
+        lineStyle: { type: 'dashed', color: p.border },
+        label: { color: p.muted, fontSize: 10, formatter: 'rata² {c}' },
+        data: [{ type: 'average' }],
+      },
+    }];
+    option.graphic = empty ? [{
+      type: 'text', left: 'center', top: 'middle', silent: true,
+      style: { text: 'belum ada push dalam 24 jam', fill: p.muted, fontSize: 12 },
+    }] : [];
+    chart.setOption(option, true);
+  }
+
+  function renderCharts(stats) {
+    if (!stats) return;
+    drawOs(stats);
+    drawStatus(stats);
+    drawSoftware(stats);
+    drawTrend(stats);
+  }
+
+  function resizeCharts() {
+    Object.keys(charts).forEach(k => { try { charts[k].resize(); } catch (e) {} });
+  }
+
+  function renderStats(stats) {
+    const map = { total: 'assets_total', online: 'assets_online', offline: 'assets_offline',
+                  software: 'software_titles', installs: 'software_installs' };
+    Object.keys(map).forEach(function (key) {
+      const node = el('stat-' + key);
+      if (node) node.textContent = nf.format(stats[map[key]] || 0);
     });
+    renderCharts(stats);
   }
 
   let dashboardActive = false;
@@ -127,34 +299,48 @@
     if (!dashboardActive) return;
     fetch('/api/v1/stats', { headers: { 'Accept': 'application/json' } })
       .then(r => r.ok ? r.json() : null)
-      .then(s => { if (s) renderStats(s); })
+      .then(s => { if (s) { lastStats = s; renderStats(s); } })
       .catch(() => {});
   }
 
   window.raniInitDashboard = function (stats) {
     dashboardActive = true;
+    lastStats = stats;
     renderStats(stats);
+    window.addEventListener('resize', resizeCharts);
+    // sidebar collapse/expand mengubah lebar kanvas → resize setelah transisi
+    new MutationObserver(() => setTimeout(resizeCharts, 320))
+      .observe(document.body, { attributes: true, attributeFilter: ['class'] });
   };
 
+  // ---------------------------------------------------------------- theme ---
   function initTheme() {
     const root = document.documentElement;
     const button = el('theme-toggle');
     const label = el('theme-toggle-label');
-    const apply = (mode) => {
+    const apply = (mode, persist) => {
       root.setAttribute('data-bs-theme', mode);
-      try { localStorage.setItem('rani-theme', mode); } catch (e) {}
+      if (persist) { try { localStorage.setItem('rani-theme', mode); } catch (e) {} }
       if (label) label.textContent = mode === 'dark' ? 'Terang' : 'Gelap';
       if (button) button.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
+      document.dispatchEvent(new CustomEvent('rani:theme', { detail: { mode: mode } }));
     };
-    apply(root.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light');
+    apply(root.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light', false);
     if (button) {
       button.addEventListener('click', function () {
-        apply(root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
+        apply(root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark', true);
       });
     }
+    document.addEventListener('rani:theme', function () {
+      // warna sumbu/legend ECharts diambil dari CSS var → gambar ulang
+      if (dashboardActive && lastStats) renderCharts(lastStats);
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    // AdminLTE sudah menerapkan body.sidebar-collapse; lepas marker pra-paint
+    // supaya perilaku hover-expand bawaan AdminLTE kembali aktif.
+    document.documentElement.classList.remove('rani-pre-collapsed');
     initTheme();
     connect();
   });

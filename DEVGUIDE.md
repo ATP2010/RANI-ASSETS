@@ -4,7 +4,7 @@
 
 ## 1. Apa aplikasi ini
 **RANI** = IT asset management / cyber-asset inventory mirip **Lansweeper**, self-hosted, target ±1.000 endpoint Windows + perangkat jaringan.
-Loop inti: **`raniPush`** (agent di PC user, CLI `raniPush <targetIP>`, jalan via Windows Task Scheduler) → **server FastAPI menangkap** (`POST /api/v1/ingest/push`) → **data tampil detail di web dashboard** (AdminLTE 4 + Chart.js + WebSocket realtime).
+Loop inti: **`raniPush`** (agent di PC user, CLI `raniPush <targetIP>`, jalan via Windows Task Scheduler) → **server FastAPI menangkap** (`POST /api/v1/ingest/push`) → **data tampil detail di web dashboard** (AdminLTE 4 + Apache ECharts + WebSocket realtime).
 Sumber requirements: `/root/RaniProject/baseOn/analysis results.md` (§3 blueprint, §4b SNMP, §5 keputusan owner signed-off 2026-11-13).
 
 ## 2. Stack & keputusan tetap (JANGAN diganti tanpa owner sign-off)
@@ -14,7 +14,7 @@ Sumber requirements: `/root/RaniProject/baseOn/analysis results.md` (§3 bluepri
 | Server | FastAPI + gunicorn + Jinja2 + htmx | reuse skill/fondasi `/root/rani` |
 | DB | **PostgreSQL 16** (JSONB) | payload agent & MIB fleksibel; MariaDB live dipakai report lain saja |
 | Queue/cache | Redis 7 (`noeviction`) | stream ingest + WS pub/sub |
-| UI | AdminLTE 4 (Bootstrap 5) + Chart.js 4 + WebSocket | owner request |
+| UI | AdminLTE 4 (Bootstrap 5) + Apache ECharts 5.5 (vendored) + WebSocket | owner request |
 | Deploy | docker compose, image push → registry lokal `192.168.88.92:5000` | migrasi = pull + `up -d` |
 | Timezone | **Asia/Jakarta (WIB)** semua container (`TZ=`) | owner request |
 | SNMP | `pysnmp-lextudio` (BUKAN `pysnmp` PyPI yang stale) | tech-watch |

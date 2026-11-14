@@ -6,6 +6,9 @@ dashboard AdminLTE realtime (WebSocket).
 - Requirements & analisis: [`../baseOn/analysis results.md`](../baseOn/analysis%20results.md)
 - Doktrin untuk AI agent/dev: [`DEVGUIDE.md`](DEVGUIDE.md) ← **baca dulu**
 - Progres: [`CHECKLIST.md`](CHECKLIST.md)
+- UI: dashboard memakai **Apache ECharts 5.5** (vendored di `server/app/static/vendor/echarts.min.js`,
+  tanpa CDN/online) dan sidebar AdminLTE `sidebar-mini` — status collapse disimpan di
+  `localStorage` (`lte.sidebar.state`) sehingga tetap ringkas saat pindah menu.
 
 ## Status sekarang
 

@@ -1,13 +1,15 @@
 """Query baca (dipakai UI server-rendered dan JSON API — satu sumber kebenaran)."""
 import uuid
-from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (Agent, Asset, AssetSource, EnrollmentToken, HwComponent,
                         NetworkInterface, SecurityState, Software, SoftwareEvent,
                         SoftwareReport, UserSeen)
+
+DISPLAY_TZ = ZoneInfo("Asia/Jakarta")  # label jam/tanggal di UI selalu WIB
 
 SORT_COLUMNS = {
     "hostname": Asset.hostname,
@@ -129,13 +131,21 @@ async def dashboard_stats(session: AsyncSession) -> dict:
         .limit(8)
     )).all()
 
-    since = datetime.now(timezone.utc) - timedelta(hours=24)
-    trend_rows = (await session.execute(
-        select(func.date_trunc("hour", SoftwareReport.received_at).label("hour"),
-               func.count(SoftwareReport.id))
-        .where(SoftwareReport.received_at >= since)
-        .group_by("hour").order_by("hour")
-    )).all()
+    # 24 bucket per jam termasuk jam tanpa push, supaya grafik tren tidak bolong.
+    # generate_series memakai timezone sesi DB yang sama dengan date_trunc → bucket
+    # selalu sejajar dengan label jam yang dikirim ke UI.
+    trend_rows = (await session.execute(text(
+        """
+        SELECT gs.hour AS hour, count(r.id) AS count
+          FROM generate_series(date_trunc('hour', now()) - interval '23 hours',
+                               date_trunc('hour', now()),
+                               interval '1 hour') AS gs(hour)
+          LEFT JOIN rani_inventory.software_reports r
+                 ON date_trunc('hour', r.received_at) = gs.hour
+         GROUP BY gs.hour
+         ORDER BY gs.hour
+        """
+    ))).all()
 
     recent_events = (await session.execute(
         select(SoftwareEvent, Software.name_raw, Asset.hostname)
@@ -152,9 +162,10 @@ async def dashboard_stats(session: AsyncSession) -> dict:
         "software_installs": software_rows,
         "os_mix": [{"label": label, "count": count} for label, count in os_rows],
         "top_software": [{"label": str(label), "count": count} for label, count in top_rows],
-        "reports_trend": [{"hour": hour.isoformat(), "count": count}
-                          for hour, count in trend_rows],
-        "recent_events": [{"event": ev.event, "at": ev.at.isoformat(),
+        "reports_trend": [{"hour": hour.astimezone(DISPLAY_TZ).isoformat(),
+                           "count": count} for hour, count in trend_rows],
+        "recent_events": [{"event": ev.event,
+                           "at": ev.at.astimezone(DISPLAY_TZ).isoformat(),
                            "name": name, "hostname": hostname,
                            "software_id": str(ev.software_id) if ev.software_id else None}
                           for ev, name, hostname in recent_events],

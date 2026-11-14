@@ -44,19 +44,19 @@
   <div class="col-lg-4">
     <div class="card h-100">
       <div class="card-header">Distribusi OS</div>
-      <div class="card-body"><canvas id="chart-os" height="220"></canvas></div>
+      <div class="card-body"><div id="chart-os" class="rani-chart" style="height:240px"></div></div>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="card h-100">
       <div class="card-header">Status aset</div>
-      <div class="card-body"><canvas id="chart-status" height="220"></canvas></div>
+      <div class="card-body"><div id="chart-status" class="rani-chart" style="height:240px"></div></div>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="card h-100">
       <div class="card-header">Top software (jumlah aset)</div>
-      <div class="card-body"><canvas id="chart-software" height="220"></canvas></div>
+      <div class="card-body"><div id="chart-software" class="rani-chart" style="height:240px"></div></div>
     </div>
   </div>
 </div>
@@ -64,8 +64,11 @@
 <div class="row g-3 mt-1">
   <div class="col-lg-7">
     <div class="card h-100">
-      <div class="card-header">Push masuk 24 jam</div>
-      <div class="card-body"><canvas id="chart-trend" height="150"></canvas></div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Push masuk 24 jam</span>
+        <span class="small-muted">{{ stats.reports_trend | sum(attribute="count") }} push / 24 jam</span>
+      </div>
+      <div class="card-body"><div id="chart-trend" class="rani-chart" style="height:190px"></div></div>
     </div>
   </div>
   <div class="col-lg-5">

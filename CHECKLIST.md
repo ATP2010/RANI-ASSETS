@@ -42,7 +42,7 @@
 - [ ] F2.4 Bridge MIB (dot1dTpFdb) → MAC-per-port → tabel `endpoint_port_mappings` → topologi L2
 - [ ] F2.5 IP range target mgmt + jadwal scan + on-demand scan dengan progress via WebSocket (tabel `scan_targets` sudah disiapkan)
 - [ ] F2.6 Hasil SNMP masuk reconciler yang sama (source=`snmp`) → device jadi asset type `network`
-- [~] F2.7 Dashboard: Chart.js (OS mix, top software, push trend 24h) + realtime WS — selesai; asset trend 30h & online/offline donut: donut status sudah ada, trend aset per jam belum
+- [x] F2.7 Dashboard: **Apache ECharts 5.5** (donut OS mix, donut online/offline, bar top software, area push 24 jam dengan bucket per jam WIB) + tooltip persen, toolbox simpan PNG, tema gelap/terang re-render, resize saat sidebar collapse; realtime WS refresh. Sisanya: tren jumlah aset per jam (bukan push) belum
 - [ ] F2.8 Printer enrichment (host-resources MIB / JetDirect OID)
 
 ## F3 — Ops & distribusi

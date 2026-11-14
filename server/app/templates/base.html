@@ -14,6 +14,16 @@
       } catch (e) {}
     })();
   </script>
+  <script>
+    /* pulihkan state sidebar sebelum paint (AdminLTE menyimpannya di lte.sidebar.state) */
+    (function () {
+      try {
+        if (localStorage.getItem('lte.sidebar.state') === 'sidebar-collapse') {
+          document.documentElement.classList.add('rani-pre-collapsed');
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
   <link rel="stylesheet" href="/static/vendor/adminlte.min.css">
   <style>
@@ -31,9 +41,19 @@
     [data-bs-theme="dark"] .table > :not(caption) > * > * { border-color: var(--bs-border-color); }
     #theme-toggle { min-width: 2.5rem; }
     [data-bs-theme="dark"] .app-sidebar { border-inline-end: 1px solid var(--bs-border-color); }
+    .nav-icon svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
+    /* mode ringkas (sidebar-collapse): ikon saja, teks disembunyikan AdminLTE */
+    .sidebar-collapse .app-sidebar:not(:hover) .sidebar-menu .nav-link { justify-content: center; }
+    .sidebar-collapse .app-sidebar:not(:hover) .sidebar-menu .nav-link p { display: none; }
+    .sidebar-collapse .app-sidebar .logo-xs { position: static; font-weight: 700; font-size: 1rem; }
+    /* kondisi pra-paint: samakan dengan .sidebar-mini.sidebar-collapse milik AdminLTE */
+    html.rani-pre-collapsed .app-sidebar { min-width: 4.6rem; max-width: 4.6rem; }
+    html.rani-pre-collapsed .sidebar-menu .nav-link p { visibility: hidden; }
+    html.rani-pre-collapsed .brand-text { max-width: 0; overflow: hidden; }
+    html.rani-pre-collapsed .logo-xs { visibility: visible; opacity: 1; position: static; }
   </style>
 </head>
-<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+<body class="layout-fixed sidebar-expand-lg sidebar-mini bg-body-tertiary">
 <div class="app-wrapper">
   <nav class="app-header navbar navbar-expand bg-body">
     <div class="container-fluid">
@@ -64,21 +84,31 @@
     </div>
   </nav>
 
-  <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+  <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark"
+         data-enable-persistence="true">
     <div class="sidebar-brand">
-      <a href="/" class="brand-link"><span class="brand-text fw-semibold">RANI</span></a>
+      <a href="/" class="brand-link" title="RANI">
+        <span class="logo-xs text-primary">R</span>
+        <span class="brand-text fw-semibold">RANI</span>
+      </a>
     </div>
     <div class="sidebar-wrapper">
       <nav class="mt-2">
         <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation">
           <li class="nav-item">
-            <a href="/" class="nav-link {% if active == 'dashboard' %}active{% endif %}"><p>Dashboard</p></a>
+            <a href="/" title="Dashboard" class="nav-link {% if active == 'dashboard' %}active{% endif %}">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+              <p>Dashboard</p></a>
           </li>
           <li class="nav-item">
-            <a href="/assets" class="nav-link {% if active == 'assets' %}active{% endif %}"><p>Assets</p></a>
+            <a href="/assets" title="Assets" class="nav-link {% if active == 'assets' %}active{% endif %}">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+              <p>Assets</p></a>
           </li>
           <li class="nav-item">
-            <a href="/agents" class="nav-link {% if active == 'agents' %}active{% endif %}"><p>Agents</p></a>
+            <a href="/agents" title="Agents" class="nav-link {% if active == 'agents' %}active{% endif %}">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg></span>
+              <p>Agents</p></a>
           </li>
         </ul>
       </nav>
@@ -111,7 +141,7 @@
 
 <script src="/static/vendor/bootstrap.bundle.min.js"></script>
 <script src="/static/vendor/adminlte.min.js"></script>
-<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/vendor/echarts.min.js"></script>
 <script src="/static/app.js"></script>
 {% block scripts %}{% endblock %}
 </body>
