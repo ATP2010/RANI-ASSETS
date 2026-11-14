@@ -49,6 +49,29 @@ CONFIG_PATH = config_dir() / "config.json"
 SPOOL_DIR = config_dir() / "spool"
 
 
+
+LOG_PATH = CONFIG_PATH.parent / "raniPush.log"
+
+
+def say(message: str, error: bool = False) -> None:
+    """Tulis ke log file %PROGRAMDATA%\\Rani\\raniPush.log dan stdout/stderr.
+
+    Task Scheduler menjalankan agent tanpa console; log file adalah satu-satunya jejak
+    yang bisa dibaca saat troubleshooting. Kegagalan menulis stream tidak boleh
+    menggagalkan pengiriman data.
+    """
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    try:
+        with LOG_PATH.open("a", encoding="utf-8") as fh:
+            fh.write(f"{stamp} {'ERROR' if error else 'INFO '} {message}\n")
+    except OSError:
+        pass
+    try:
+        print(message, file=sys.stderr if error else sys.stdout)
+    except (OSError, ValueError):
+        pass
+
+
 def load_config() -> dict:
     if CONFIG_PATH.exists():
         try:
@@ -521,14 +544,14 @@ def do_enroll(args) -> int:
     status, text = http_json(server + "/api/v1/enroll", body,
                              {"Content-Type": "application/json"})
     if status != 200:
-        print(f"enroll gagal ({status}): {text}", file=sys.stderr)
+        say(f"enroll gagal ({status}): {text}", error=True)
         return 1
     data = json.loads(text)
     cfg.update({"server": server, "agent_id": data["agent_id"],
                 "agent_secret": data["agent_secret"],
                 "interval_s": data.get("next_interval_s", 3600)})
     save_config(cfg)
-    print(f"enrolled: agent_id={data['agent_id']} server={server} config={CONFIG_PATH}")
+    say(f"enrolled: agent_id={data['agent_id']} server={server} config={CONFIG_PATH}")
     return 0
 
 
@@ -546,7 +569,7 @@ def push_payload(payload: dict, cfg: dict, server: str | None = None) -> int:
     secret = cfg.get("agent_secret")
     base = normalize_server(server or cfg.get("server") or "")
     if not agent_id or not secret:
-        print("belum enroll: jalankan `raniPush --enroll <token> <server>`", file=sys.stderr)
+        say("belum enroll: jalankan `raniPush --enroll <token> <server>`", error=True)
         return 1
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     headers = {"Content-Type": "application/json", "X-Rani-Agent-Id": agent_id}
@@ -561,10 +584,10 @@ def push_payload(payload: dict, cfg: dict, server: str | None = None) -> int:
             cfg["interval_s"] = data["next_interval_s"]
             save_config(cfg)
         duplicate = " (idempotent)" if data.get("duplicate") else ""
-        print(f"push ok{duplicate}: report={data.get('report_id')} asset={data.get('asset_id')} "
+        say(f"push ok{duplicate}: report={data.get('report_id')} asset={data.get('asset_id')} "
               f"next={data.get('next_interval_s')}s")
         return 0
-    print(f"push gagal ({status}): {text}", file=sys.stderr)
+    say(f"push gagal ({status}): {text}", error=True)
     return 2
 
 
@@ -587,7 +610,7 @@ def flush_spool(cfg: dict) -> None:
             continue
         if push_payload(payload, cfg) == 0:
             path.unlink(missing_ok=True)
-            print(f"spool terkirim: {path.name}")
+            say(f"spool terkirim: {path.name}")
         else:
             break  # server masih tidak terjangkau; sisakan untuk run berikutnya
 
@@ -614,12 +637,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.collect:
         payload = collect_windows() if IS_WINDOWS else collect_linux()
-        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        try:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        except (OSError, ValueError):  # stream tertutup (mis. task tanpa console)
+            pass
         return 0
 
     if args.enroll:
         if not args.server:
-            print("butuh server: raniPush --enroll <token> <server>", file=sys.stderr)
+            say("butuh server: raniPush --enroll <token> <server>", error=True)
             return 1
         return do_enroll(args)
 
@@ -628,7 +654,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             payload = json.loads(Path(args.from_file).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            print(f"gagal baca payload: {exc}", file=sys.stderr)
+            say(f"gagal baca payload: {exc}", error=True)
             return 1
     else:
         payload = collect_windows() if IS_WINDOWS else collect_linux()
@@ -638,7 +664,7 @@ def main(argv: list[str] | None = None) -> int:
     status = push_payload(payload, cfg, args.server)
     if status == 2:  # server tidak terjangkau / error sementara → spool
         path = spool_payload(payload)
-        print(f"terspool untuk run berikutnya: {path}")
+        say(f"terspool untuk run berikutnya: {path}")
         return 0
     if status != 0:
         return 1
