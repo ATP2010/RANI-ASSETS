@@ -136,5 +136,26 @@
     renderStats(stats);
   };
 
-  document.addEventListener('DOMContentLoaded', connect);
+  function initTheme() {
+    const root = document.documentElement;
+    const button = el('theme-toggle');
+    const label = el('theme-toggle-label');
+    const apply = (mode) => {
+      root.setAttribute('data-bs-theme', mode);
+      try { localStorage.setItem('rani-theme', mode); } catch (e) {}
+      if (label) label.textContent = mode === 'dark' ? 'Terang' : 'Gelap';
+      if (button) button.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
+    };
+    apply(root.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light');
+    if (button) {
+      button.addEventListener('click', function () {
+        apply(root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    initTheme();
+    connect();
+  });
 })();

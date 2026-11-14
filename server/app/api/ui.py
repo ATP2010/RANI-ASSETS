@@ -93,25 +93,26 @@ async def revoke_agent_form(agent_id: uuid.UUID, request: Request,
 
 
 @router.get("/export/assets.csv")
-async def export_assets(session: AsyncSession = Depends(get_session),
+async def export_assets(q: str | None = None, status: str | None = None,
+                        os_family: str | None = None,
+                        session: AsyncSession = Depends(get_session),
                         user: AppUser = Depends(require_user("reader"))):
-    rows = (await session.execute(
-        select(Asset, (select(func.count(Software.id))
-                       .where(Software.asset_id == Asset.id, Software.present.is_(True))
-                       .scalar_subquery()))
-        .order_by(Asset.hostname.asc())
-    )).all()
+    """CSV mengikuti filter yang sama dengan halaman /assets (tanpa pagination)."""
+    result = await list_assets(session, q, status, os_family, sort="hostname", order="asc",
+                               page=1, per_page=5000)
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(["hostname", "ip", "os", "os_version", "vendor", "model", "serial", "mac",
                      "domain", "status", "first_seen", "last_seen", "software_count"])
-    for asset, count in rows:
+    for item in result["rows"]:
+        asset = item["asset"]
         writer.writerow([asset.hostname or "", asset.ip_last or "", asset.os_caption or "",
                          asset.os_version or "", asset.vendor or "", asset.model or "",
                          asset.serial or "", asset.primary_mac or "", asset.domain or "",
                          asset.status,
                          asset.first_seen.isoformat() if asset.first_seen else "",
-                         asset.last_seen.isoformat() if asset.last_seen else "", count])
+                         asset.last_seen.isoformat() if asset.last_seen else "",
+                         item["software_count"]])
     buffer.seek(0)
     return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": "attachment; filename=rani-assets.csv"})

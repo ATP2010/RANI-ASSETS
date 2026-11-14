@@ -1,7 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Assets{% endblock %}
 {% block heading %}Assets{% endblock %}
-{% block subheading %}{{ result.total }} aset · halaman {{ result.page }}/{{ result.pages }}{% endblock %}
+{% block subheading %}
+<div class="d-flex justify-content-sm-end align-items-center gap-2">
+  <span class="small-muted">{{ result.total }} aset · halaman {{ result.page }}/{{ result.pages }}</span>
+  <a class="btn btn-sm btn-success"
+     href="/export/assets.csv?q={{ result.q | urlencode }}&status={{ result.status }}&os_family={{ result.os_family }}">
+    Export CSV
+  </a>
+</div>
+{% endblock %}
 
 {% block content %}
 <div class="card mb-3">
