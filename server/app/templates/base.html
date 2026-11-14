@@ -24,6 +24,13 @@
       } catch (e) {}
     })();
   </script>
+  <link rel="icon" href="/static/img/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/icon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/img/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#0d6efd" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#212529" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
   <link rel="stylesheet" href="/static/vendor/adminlte.min.css">
   <style>
@@ -46,6 +53,11 @@
     .sidebar-collapse .app-sidebar:not(:hover) .sidebar-menu .nav-link { justify-content: center; }
     .sidebar-collapse .app-sidebar:not(:hover) .sidebar-menu .nav-link p { display: none; }
     .sidebar-collapse .app-sidebar .logo-xs { position: static; font-weight: 700; font-size: 1rem; }
+    .brand-link .brand-image { max-height: 30px; width: auto; }
+    .brand-link .logo-xs.brand-image-xs { width: 1.75rem; height: 1.75rem; object-fit: contain; margin: 0; }
+    /* mode ringkas: logo besar diganti logo kecil supaya tetap di tengah */
+    .sidebar-collapse .app-sidebar:not(:hover) .brand-link { justify-content: center; padding-inline: .5rem; }
+    .sidebar-collapse .app-sidebar:not(:hover) .brand-link .brand-image { display: none; }
     /* kondisi pra-paint: samakan dengan .sidebar-mini.sidebar-collapse milik AdminLTE */
     html.rani-pre-collapsed .app-sidebar { min-width: 4.6rem; max-width: 4.6rem; }
     html.rani-pre-collapsed .sidebar-menu .nav-link p { visibility: hidden; }
@@ -88,7 +100,8 @@
          data-enable-persistence="true">
     <div class="sidebar-brand">
       <a href="/" class="brand-link" title="RANI">
-        <span class="logo-xs text-primary">R</span>
+        <img src="/static/img/icon-32.png" alt="" class="logo-xs brand-image-xs">
+        <img src="/static/img/icon.png" alt="RANI" class="brand-image">
         <span class="brand-text fw-semibold">RANI</span>
       </a>
     </div>

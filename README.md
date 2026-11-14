@@ -9,6 +9,9 @@ dashboard AdminLTE realtime (WebSocket).
 - UI: dashboard memakai **Apache ECharts 5.5** (vendored di `server/app/static/vendor/echarts.min.js`,
   tanpa CDN/online) dan sidebar AdminLTE `sidebar-mini` — status collapse disimpan di
   `localStorage` (`lte.sidebar.state`) sehingga tetap ringkas saat pindah menu.
+- Ikon aplikasi: `server/app/static/img/` (`favicon.ico`, `icon-32/192/512.png`,
+  `apple-touch-icon.png`) + `static/manifest.json`; logo sidebar memakai `icon.png` dan
+  versi kecil `icon-32.png` saat sidebar ringkas. Ganti logo = timpa file itu lalu rebuild image.
 
 ## Status sekarang
 
