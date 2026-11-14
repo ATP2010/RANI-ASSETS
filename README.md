@@ -55,18 +55,27 @@ Push gagal (server mati/jaringan) → payload di-spool dan dicoba lagi pada run 
 
 ## Build agent Windows (`raniPush.exe`)
 
-Exe sudah tersedia di `release/raniPush.exe` (7 MB, single file, console). Rebuild:
+Artefak di `release/` (tidak di-commit, binary):
+
+| File | Isi | Kapan dipakai |
+|---|---|---|
+| `raniPush.exe` | exe unsigned, 7,4 MB | PC yang tidak memblokir exe |
+| `raniPush-signed.exe` | exe + signature internal + timestamp | PC dengan SmartScreen/"unknown publisher"; pasang `rani-push-signing.cer` dulu |
+| `rani-push-signing.cer` | sertifikat publik code-signing internal | dipasang via `scripts/install-cert.ps1` |
+| `raniPush-portable.zip` | Python embeddable resmi + `raniPush.py` + `raniPush.cmd` | PC dengan Smart App Control/AV ketat yang memblokir exe buatan sendiri |
 
 ```bash
-# di Linux ini (Wine + Python Windows, sudah terpasang): 
-bash scripts/build-exe.sh          # → release/raniPush.exe + smoke test --collect
+bash scripts/build-exe.sh        # → release/raniPush.exe
+bash scripts/sign-exe.sh         # → release/raniPush-signed.exe + .cer
+bash scripts/build-portable.sh   # → release/raniPush-portable.zip
 
 # di Windows (paling andal, atau lewat GitHub Actions workflow build-agent-exe):
 python -m pip install pyinstaller==6.11.1
 pyinstaller --noconfirm --clean --distpath release agent/raniPush.spec
 ```
 
-`release/` tidak di-commit (binary) — distribusi lewat artefak Actions atau copy manual.
+Kalau Windows memblokir exe: lihat
+[`docs/agent-windows.md` §10](docs/agent-windows.md#10-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control).
 
 ## Verifikasi
 

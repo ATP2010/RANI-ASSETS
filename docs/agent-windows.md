@@ -234,7 +234,108 @@ Setelah itu revoke agent-nya di UI supaya tidak tersisa sebagai agent aktif.
 
 ---
 
-## 10. Cek cepat (cheat sheet)
+## 10. Kalau Windows memblokir `raniPush.exe` (SmartScreen / Smart App Control)
+
+Windows memblokir exe yang belum punya reputasi signature. Tiga jenis blokir yang
+berbeda dan penanganannya tidak sama:
+
+| Yang muncul | Penyebab | Bisa "Run anyway"? |
+|---|---|---|
+| "Windows protected your PC" (More info → Run anyway) | **SmartScreen** untuk file hasil download (Mark-of-the-Web) | Ya |
+| "This app can't run because it can't be verified" / exe hilang tanpa pesan | **Smart App Control** (Windows 11, mode enforce) | **Tidak** — harus sign atau pakai paket portable |
+| "Your organization's policy blocks this app" | **ASR rule** Defender / kebijakan domain | Tidak — perlu izin IT |
+
+Diagnosa di PC target (PowerShell):
+
+```powershell
+# 0/2 = Smart App Control off atau evaluation; 1 = enforce (blokir aplikasi tak dikenal)
+Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy `
+  -Name VerifiedAndReputablePolicyState -ErrorAction SilentlyContinue
+
+# apakah file masih membawa tanda "hasil download"?
+Get-Item .\raniPush.exe -Stream Zone.Identifier -ErrorAction SilentlyContinue
+
+# aturan ASR yang aktif (mis. "block executable unless prevalence/age/trusted")
+Get-MpPreference | Select-Object -ExpandProperty AttackSurfaceReductionRules_Ids
+```
+
+### Solusi A — buka blokir file (cukup untuk SmartScreen)
+
+```powershell
+Unblock-File .\raniPush.exe
+```
+
+Lalu jalankan. Kalau dialog masih muncul: **More info → Run anyway**. Ini hanya
+menghapus Mark-of-the-Web; tidak mengubah proteksi sistem.
+
+### Solusi B — pakai exe bertanda tangan + pasang sertifikat internal
+
+Tersedia `release/raniPush-signed.exe` (ditandatangani sertifikat code-signing internal
+RANI + timestamp) dan `release/rani-push-signing.cer` (sertifikat publik).
+
+Di PC target (Administrator):
+
+```powershell
+.\install-cert.ps1 -CerPath .\rani-push-signing.cer
+Get-AuthenticodeSignature .\raniPush-signed.exe | Format-List Status, SignerCertificate
+# Status harus "Valid"
+```
+
+Sertifikat yang dipakai sekarang:
+
+- Subject: `CN = RANI Internal Code Signing, O = RANI Internal, C = ID`
+- SHA-256: `54:1E:A4:CB:AE:17:09:0B:AC:E6:73:35:1D:4A:DF:82:72:3C:E8:74:0F:F7:C3:4E:D7:25:6C:88:80:88:F7:63`
+- Berlaku: 14 Nov 2026 → 13 Nov 2029
+
+Batasnya: sertifikat **self-signed** menghilangkan status "unsigned"/"unknown publisher",
+tapi **tidak** memberi reputasi SmartScreen dan **tidak** menembus Smart App Control
+mode enforce. Untuk PC di luar kendali kita (atau SAC aktif), perlu sertifikat
+code-signing dari CA publik (OV/EV) — itu berbiaya, jadi untuk internal cukup
+sertifikat ini + GPO/Intune untuk distribusi.
+
+Buat ulang signature kapan pun setelah build:
+
+```bash
+bash scripts/build-exe.sh      # exe tanpa signature
+bash scripts/sign-exe.sh       # → release/raniPush-signed.exe + sertifikat publik
+```
+
+### Solusi C — paket portable tanpa exe buatan sendiri (paling tahan blokir)
+
+`release/raniPush-portable.zip` berisi Python 3.13 embeddable resmi (python.exe
+ditandatangani Python Software Foundation) + `raniPush.py` + `raniPush.cmd`. Tidak ada
+binary buatan kita, jadi tidak ada yang bisa ditolak sebagai "untrusted exe".
+
+```powershell
+# extract dulu, mis. ke C:\Rani-portable
+cd C:\Rani-portable
+Unblock-File .\python\python.exe, .\raniPush.py, .\raniPush.cmd
+.\raniPush.cmd --enroll <TOKEN> 192.168.88.92:8091
+.\raniPush.cmd 192.168.88.92:8091
+
+# jadwalkan
+schtasks /create /tn RaniPush /sc hourly /ru SYSTEM /rl HIGHEST /f `
+  /tr "C:\Rani-portable\raniPush.cmd 192.168.88.92:8091"
+```
+
+Perilaku, config, log (`C:\ProgramData\Rani\raniPush.log`), spool, dan endpoint sama
+persis dengan versi exe. Rebuild paket: `bash scripts/build-portable.sh`.
+
+### Mana yang dipakai?
+
+| Kondisi PC | Pilihan |
+|---|---|
+| Laptop pribadi, cuma muncul "Windows protected your PC" | Solusi A |
+| PC kantor/domain, IT bisa distribusi sertifikat | Solusi B (sign + `install-cert.ps1`) |
+| Smart App Control mode enforce / AV memblokir exe apa pun | Solusi C (portable) |
+| Perlu dipasang massal tanpa interaksi user | Solusi B + GPO/Intune, atau Solusi C |
+
+Jangan mematikan Defender/ASR atau menambah folder exclusion sebagai solusi rutin —
+kalau memang perlu, minta persetujuan pemilik infra dan catat alasannya.
+
+---
+
+## 11. Cek cepat (cheat sheet)
 
 ```powershell
 # 1. server hidup?

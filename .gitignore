@@ -8,4 +8,4 @@ release/
 node_modules/
 .venv/
 .cache/
-.pytest_cache/
+.pytest_cache/.signing/
