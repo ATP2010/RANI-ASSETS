@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% set is_new = report is none %}
+{% block title %}{{ 'Report baru' if is_new else report.name }}{% endblock %}
+{% block heading %}{{ 'Report baru' if is_new else report.name }}{% endblock %}
+{% block subheading %}{{ 'custom report SQL' if is_new else ('oleh ' ~ (owner or '—')) }}{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-danger py-2">{{ error }}</div>
+{% elif report and report.last_error and not run_now %}
+<div class="alert alert-warning py-2">
+  <span class="fw-semibold">Run terakhir gagal:</span> {{ report.last_error }}
+</div>
+{% endif %}
+
+<form method="post" action="{{ '/reports/new' if is_new else '/reports/' ~ report.id ~ '/save' }}">
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Definisi report</span>
+          {% if report %}
+          <span class="small-muted mono">{{ report.id }}</span>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="row g-2">
+            <div class="col-md-7">
+              <label class="form-label small" for="name">Nama</label>
+              <input class="form-control form-control-sm" id="name" name="name" maxlength="128"
+                     value="{{ values.name if values.name is defined else (report.name if report else '') }}"
+                     {% if not can_edit %}disabled{% endif %} required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small" for="description">Deskripsi singkat</label>
+              <input class="form-control form-control-sm" id="description" name="description"
+                     maxlength="2000"
+                     value="{{ values.description if values.description is defined else (report.description or '' if report else '') }}"
+                     {% if not can_edit %}disabled{% endif %}>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label small" for="sql_text">SQL (SELECT saja)</label>
+            <textarea class="form-control mono" id="sql_text" name="sql_text" rows="12"
+                      spellcheck="false" {% if not can_edit %}disabled{% endif %}
+                      required>{{ values.sql_text if values.sql_text is defined else (report.sql_text if report else '') }}</textarea>
+          </div>
+          {% if can_edit %}
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-primary btn-sm" type="submit" name="action" value="run">
+              Simpan &amp; Jalankan
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" type="submit" name="action" value="save">
+              Simpan
+            </button>
+            {% if report %}
+            <button class="btn btn-outline-primary btn-sm ms-auto" type="button"
+                    id="report-run" data-report-id="{{ report.id }}">
+              Jalankan tersimpan
+            </button>
+            {% endif %}
+          </div>
+          <div class="small-muted mt-2">
+            “Jalankan tersimpan” memakai SQL yang sudah disimpan — simpan dulu kalau baru diubah.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header">Batasan</div>
+        <div class="card-body small">
+          <ul class="mb-0 ps-3">
+            <li>Hanya <span class="mono">SELECT</span> / <span class="mono">WITH ... SELECT</span>,
+              satu statement.</li>
+            <li>Role database <span class="mono">read-only</span> — tulis/DDL ditolak.</li>
+            <li>Timeout {{ timeout_ms }} ms, maksimum {{ max_rows }} baris (sisanya dipotong).</li>
+            <li>Tabel tersedia: <span class="mono">assets</span>, <span class="mono">software</span>,
+              <span class="mono">software_events</span>, <span class="mono">agents</span>,
+              <span class="mono">hw_components</span>, <span class="mono">users_seen</span>,
+              <span class="mono">security_state</span>, <span class="mono">network_interfaces</span>,
+              <span class="mono">software_reports</span>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-header">Contoh query</div>
+        <div class="card-body p-0">
+          <div class="list-group list-group-flush">
+            {% for label, sql in examples %}
+            <button type="button" class="list-group-item list-group-item-action py-2 example-query"
+                    data-sql="{{ sql }}">
+              {{ label }}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="card-footer small-muted">
+          Klik untuk mengisi editor (mengganti isi saat ini).
+        </div>
+      </div>
+
+      {% if report and can_edit %}
+      <div class="card mt-3 border-danger-subtle">
+        <div class="card-header text-danger">Hapus report</div>
+        <div class="card-body small">
+          <form method="post" action="/reports/{{ report.id }}/delete"
+                onsubmit="return confirm('Hapus report ini?');">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Hapus permanen</button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+<div class="card mt-3" id="report-result"
+     data-report-id="{{ report.id if report else '' }}"
+     data-run-now="{{ 1 if run_now and report else 0 }}">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Hasil</span>
+    <span class="small-muted" id="report-meta">
+      {% if report and report.last_run_at and not run_now %}
+        terakhir: {{ report.last_run_at | fmt_dt }} · {{ report.last_run_rows or 0 }} baris · {{ report.last_run_ms or 0 }} ms
+      {% else %}
+        belum dijalankan
+      {% endif %}
+    </span>
+  </div>
+  <div class="card-body p-0" id="report-output">
+    <div class="p-3 small-muted">
+      {% if report %}
+        Klik <span class="fw-semibold">Jalankan tersimpan</span> atau <span class="fw-semibold">Simpan &amp; Jalankan</span>.
+      {% else %}
+        Simpan report dulu, lalu hasil query muncul di sini.
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/report.js"></script>
+{% endblock %}

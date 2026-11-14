@@ -48,6 +48,7 @@ ProjectDev/
 8. **Task scheduler contract**: `raniPush 192.168.88.92` exit code 0/1 saja (0=berhasil/terspool, 1=gagal fatal), tidak interaktif, tidak butuh admin untuk field utama (fallback null, jangan crash).
 9. **Git**: Conventional Commits (`feat:`, `fix:`, `docs:`), commit per milestone CHECKLIST.
 10. **Bukti dulu baru centang**: curl output / docker logs / query DB = bukti. Jangan klaim done tanpa verifikasi hasil di sistem nyata.
+11. **Report SQL = read-only**: query custom user hanya lewat role `rani_report` (SELECT + `default_transaction_read_only`), dibungkus `LIMIT`, dengan statement timeout. Jangan pernah menjalankan report SQL memakai koneksi aplikasi (`rani`) — itu membuka DDL/DML ke user. Tabel kredensial (`app_users`, `auth_sessions`, `enrollment_tokens`) tetap di-revoke.
 
 ## 5. Cara run dev
 ```bash

@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import (Agent, Asset, AssetSource, EnrollmentToken, HwComponent,
-                        NetworkInterface, SecurityState, Software, SoftwareEvent,
+from app.models import (Agent, Asset, AssetSource, AppUser, EnrollmentToken, HwComponent,
+                        NetworkInterface, Report, SecurityState, Software, SoftwareEvent,
                         SoftwareReport, UserSeen)
 
 DISPLAY_TZ = ZoneInfo("Asia/Jakarta")  # label jam/tanggal di UI selalu WIB
@@ -187,6 +187,31 @@ async def list_agents(session: AsyncSession) -> list[dict]:
                     "asset_id": asset.id if asset else None,
                     "last_seen": asset.last_seen if asset else agent.last_seen})
     return out
+
+
+async def list_reports(session: AsyncSession, user: AppUser) -> list[dict]:
+    """Report yang boleh dilihat user: shared, miliknya, atau semua bila admin."""
+    stmt = (select(Report, AppUser.username)
+            .outerjoin(AppUser, AppUser.id == Report.owner_id))
+    if user.role != "admin":
+        stmt = stmt.where(or_(Report.is_shared.is_(True), Report.owner_id == user.id))
+    rows = (await session.execute(stmt.order_by(Report.updated_at.desc()))).all()
+    return [{"report": report, "owner": owner} for report, owner in rows]
+
+
+async def get_report(session: AsyncSession, report_id: uuid.UUID,
+                     user: AppUser) -> dict | None:
+    row = (await session.execute(
+        select(Report, AppUser.username)
+        .outerjoin(AppUser, AppUser.id == Report.owner_id)
+        .where(Report.id == report_id)
+    )).first()
+    if row is None:
+        return None
+    report, owner = row
+    if not (report.is_shared or report.owner_id == user.id or user.role == "admin"):
+        return None
+    return {"report": report, "owner": owner}
 
 
 async def list_tokens(session: AsyncSession) -> list[EnrollmentToken]:

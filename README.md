@@ -1,7 +1,7 @@
 # RANI ProjectDev
 
-IT asset inventory self-hosted (mirip Lansweeper): **raniPush** agent → FastAPI ingest →
-dashboard AdminLTE realtime (WebSocket).
+**RANI — Resource & Asset Network Intelligence.** IT asset inventory self-hosted (mirip
+Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realtime (WebSocket).
 
 - Requirements & analisis: [`../baseOn/analysis results.md`](../baseOn/analysis%20results.md)
 - Doktrin untuk AI agent/dev: [`DEVGUIDE.md`](DEVGUIDE.md) ← **baca dulu**
@@ -9,6 +9,9 @@ dashboard AdminLTE realtime (WebSocket).
 - UI: dashboard memakai **Apache ECharts 5.5** (vendored di `server/app/static/vendor/echarts.min.js`,
   tanpa CDN/online) dan sidebar AdminLTE `sidebar-mini` — status collapse disimpan di
   `localStorage` (`lte.sidebar.state`) sehingga tetap ringkas saat pindah menu.
+- Panduan lain: [`docs/reports.md`](docs/reports.md) (custom report SQL) ·
+  [`docs/branding.md`](docs/branding.md) (logo/ikon) ·
+  [`docs/agent-windows.md`](docs/agent-windows.md) (agent Windows).
 - Ikon aplikasi: `server/app/static/img/` (`favicon.ico`, `icon-32/192/512.png`,
   `apple-touch-icon.png`) + `static/manifest.json`; logo sidebar memakai `icon.png` dan
   versi kecil `icon-32.png` saat sidebar ringkas. Ganti logo = jalankan
@@ -22,6 +25,7 @@ dashboard AdminLTE realtime (WebSocket).
 | Server ingest + reconciler + UI (F1) | jalan, terverifikasi end-to-end |
 | Agent `raniPush` Linux | jalan, terverifikasi (payload nyata → asset) |
 | Agent `raniPush` Windows (WMI/registry/PowerShell) | kode ada, **belum diuji di PC Windows nyata** |
+| Custom reports SQL (`/reports`) | jalan — role DB read-only, grid + filter kolom, export CSV |
 | SNMP scanning (F2), installer exe + GNS (F3) | belum |
 
 ## Quick start (dev LXC 192.168.88.92)

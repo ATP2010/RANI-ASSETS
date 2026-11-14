@@ -1,7 +1,7 @@
 # Branding: memasang logo / ikon aplikasi (manual)
 
-Panduan mengganti ikon RANI (favicon browser, ikon install web app, logo sidebar dan
-halaman login). Semua ikon adalah file statis — **tidak ada upload lewat UI** dan tidak
+Panduan mengganti ikon RANI — *Resource & Asset Network Intelligence* (favicon browser,
+ikon install web app, logo sidebar dan halaman login). Semua ikon adalah file statis — **tidak ada upload lewat UI** dan tidak
 ada setting di `.env`; yang berubah hanya file di `server/app/static/` lalu image
 dibangun ulang.
 

@@ -18,6 +18,7 @@
 - [x] F1.2 Alembic migration skema `rani_inventory` (revision `0001_initial`, 14 tabel)
 - [x] F1.3 `POST /api/v1/enroll` (token sekali-pakai → agent_id + secret; token hash sha256, TTL)
 - [x] F1.4 `POST /api/v1/ingest/push` : digest+timestamp+nonce wajib, HMAC opsional bila agent ter-enroll, rate-limit 30/min, idempotensi sha, enqueue Redis Stream
+- [x] F1.12 **Custom reports** (menu Reports): SQL SELECT dari user disimpan di tabel `reports`, dieksekusi role DB read-only `rani_report` (migration `0003_reports`), hasil JSON + grid dengan filter per kolom, export CSV, 3 report contoh, audit `report.*`
 - [x] F1.11 Push **tanpa token** (agent 0.2+): agent dikenali dari `identity.machine_id`, auto-register baris agent mode `direct` (secret NULL), `RANI_TOKENLESS_PUSH=0` mengembalikan wajib-HMAC. Migration `0002_agent_secret_nullable`
 - [x] F1.5 Worker ingest: upsert asset (reconcile machine_id→serial→MAC→hostname + konflik machine_id), software DELTA + drop-guard, hw components, users, security_state, network_interfaces, requeue sweeper, stale sweep
 - [x] F1.6 `GET /api/v1/assets` + `GET /api/v1/assets/{id}` (+ `/api/v1/stats`, `/api/v1/agents`)
@@ -34,6 +35,7 @@
 - negatif: secret salah 401, digest salah 401, agent tak dikenal 401, replay nonce 409, payload invalid 422, duplikat sha 202 `duplicate:true`
 - revoke agent → push 401; WS tanpa cookie ditolak
 - `scripts/smoke_test.py` → semua cek PASS
+- report: 3 contoh ter-seed; run "Top software" → 20 baris/10 ms, filter kolom "microsoft" → 9 tampil; query 5000 baris → dipotong 1000 (`truncated`); `DELETE FROM assets` ditolak guard "hanya query SELECT"; heavy query → `statement_timeout` 8s → 400 + `last_error`; psql `rani_report` INSERT → `cannot execute INSERT in a read-only transaction`; `select password_hash from app_users` → `permission denied`; export CSV `text/csv`
 
 ## F2 — SNMP network scan (raniScan) + dashboard
 - [ ] F2.1 Worker `pysnmp-lextudio`: probe sysObjectID `.1.3.6.1.2.1.1.2.0` → skip bila timeout

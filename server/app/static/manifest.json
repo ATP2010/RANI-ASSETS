@@ -1,7 +1,7 @@
 {
-  "name": "RANI — asset inventory",
+  "name": "RANI — Resource & Asset Network Intelligence",
   "short_name": "RANI",
-  "description": "IT asset inventory self-hosted (raniPush agent + dashboard realtime)",
+  "description": "RANI (Resource & Asset Network Intelligence) — inventory aset IT self-hosted: agent raniPush + dashboard realtime.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

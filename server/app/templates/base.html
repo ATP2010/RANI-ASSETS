@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}RANI{% endblock %} · RANI</title>
+  <meta name="description" content="RANI (Resource &amp; Asset Network Intelligence) — inventory aset IT self-hosted: agent raniPush, dashboard realtime, data hardware/software/security.">
+  <meta property="og:site_name" content="RANI — Resource &amp; Asset Network Intelligence">
   <script>
     /* set tema sebelum paint supaya tidak flash */
     (function () {
@@ -54,6 +56,10 @@
     .sidebar-collapse .app-sidebar:not(:hover) .sidebar-menu .nav-link p { display: none; }
     .sidebar-collapse .app-sidebar .logo-xs { position: static; font-weight: 700; font-size: 1rem; }
     .brand-link .brand-image { max-height: 30px; width: auto; }
+    .brand-link .brand-text { display: flex; flex-direction: column; line-height: 1.05; min-width: 0; }
+    .brand-link .brand-name { font-size: 1.02rem; letter-spacing: .01em; }
+    .brand-link .brand-tagline { font-size: .55rem; font-weight: 400; opacity: .72; line-height: 1.25;
+                                 white-space: nowrap; }
     .brand-link .logo-xs.brand-image-xs { width: 1.75rem; height: 1.75rem; object-fit: contain; margin: 0; }
     /* mode ringkas: logo besar diganti logo kecil supaya tetap di tengah */
     .sidebar-collapse .app-sidebar:not(:hover) .brand-link { justify-content: center; padding-inline: .5rem; }
@@ -75,6 +81,10 @@
         </li>
         <li class="nav-item d-none d-md-block"><a href="/" class="nav-link">Dashboard</a></li>
         <li class="nav-item d-none d-md-block"><a href="/assets" class="nav-link">Assets</a></li>
+        <li class="nav-item d-none d-md-block"><a href="/reports" class="nav-link">Reports</a></li>
+        <li class="nav-item d-none d-xl-block">
+          <span class="nav-link small-muted">Resource &amp; Asset Network Intelligence</span>
+        </li>
       </ul>
       <ul class="navbar-nav ms-auto align-items-center">
         <li class="nav-item me-2"><span class="nav-link small-muted" id="ws-status">realtime: menyambung…</span></li>
@@ -99,10 +109,13 @@
   <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark"
          data-enable-persistence="true">
     <div class="sidebar-brand">
-      <a href="/" class="brand-link" title="RANI">
+      <a href="/" class="brand-link" title="RANI — Resource &amp; Asset Network Intelligence">
         <img src="/static/img/icon-32.png" alt="" class="logo-xs brand-image-xs">
         <img src="/static/img/icon.png" alt="RANI" class="brand-image">
-        <span class="brand-text fw-semibold">RANI</span>
+        <span class="brand-text">
+          <span class="brand-name fw-semibold">RANI</span>
+          <small class="brand-tagline">Resource &amp; Asset Network Intelligence</small>
+        </span>
       </a>
     </div>
     <div class="sidebar-wrapper">
@@ -122,6 +135,11 @@
             <a href="/agents" title="Agents" class="nav-link {% if active == 'agents' %}active{% endif %}">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg></span>
               <p>Agents</p></a>
+          </li>
+          <li class="nav-item">
+            <a href="/reports" title="Reports" class="nav-link {% if active == 'reports' %}active{% endif %}">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg></span>
+              <p>Reports</p></a>
           </li>
         </ul>
       </nav>
@@ -146,7 +164,7 @@
 
   <footer class="app-footer">
     <div class="float-end d-none d-sm-inline small-muted">raniPush → ingest → reconciler</div>
-    <strong>RANI</strong> {{ version }} · Asia/Jakarta
+    <strong>RANI</strong> — Resource &amp; Asset Network Intelligence · {{ version }} · Asia/Jakarta
   </footer>
 </div>
 

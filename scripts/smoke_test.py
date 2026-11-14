@@ -119,6 +119,29 @@ def main() -> int:
         check(f"download {name}", resp.status == 200 and len(blob) > 100,
               f"{len(blob)} bytes")
 
+    # 7c. custom reports: list, run contoh, guard SQL, export CSV
+    body = opener.open(base + "/reports").read().decode("utf-8", "replace")
+    check("UI /reports render", "Custom reports" in body, f"{len(body)} bytes")
+    hrefs = [h for h in body.split('href="/reports/') if h[:36].replace("-", "").isalnum()]
+    if hrefs:
+        rid = hrefs[0][:36]
+        req = urllib.request.Request(base + f"/api/v1/reports/{rid}/run", method="POST",
+                                     headers={"Accept": "application/json"})
+        payload = json.loads(opener.open(req).read())
+        check("report run (contoh)", isinstance(payload.get("columns"), list),
+              f"{payload.get('row_count')} baris · {payload.get('duration_ms')} ms")
+        csv_rep = opener.open(base + f"/reports/{rid}/export.csv")
+        check("report export CSV", csv_rep.status == 200 and
+              csv_rep.headers.get("content-type", "").startswith("text/csv"),
+              f"{len(csv_rep.read())} bytes")
+    guarded = opener.open(urllib.request.Request(
+        base + "/reports/new", method="POST",
+        data=urllib.parse.urlencode({"name": "smoke-guard",
+                                     "description": "guard",
+                                     "sql_text": "DELETE FROM assets",
+                                     "action": "save"}).encode())).read().decode("utf-8", "replace")
+    check("report guard menolak DML", "hanya query SELECT" in guarded)
+
     # 8. stats + CSV
     stats = json.loads(opener.open(base + "/api/v1/stats").read())
     check("stats aset > 0", stats["assets_total"] > 0, str(stats["assets_total"]))

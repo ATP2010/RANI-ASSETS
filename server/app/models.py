@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (BigInteger, Boolean, DateTime, Float, ForeignKey, Identity,
-                        Index, String, Text, UniqueConstraint, func)
+                        Index, Integer, String, Text, UniqueConstraint, func)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -89,6 +89,30 @@ class Agent(Base):
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     agent_version: Mapped[str | None] = mapped_column(String(32))
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class Report(Base):
+    """Custom report: SQL SELECT yang ditulis user, dijalankan sebagai role read-only."""
+    __tablename__ = "reports"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_reports_name"),
+        Index(f"ix_{SCHEMA}_reports_updated", "updated_at"),
+        {"schema": SCHEMA},
+    )
+
+    id = _uuid_pk()
+    name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str | None] = mapped_column(Text)
+    sql_text: Mapped[str] = mapped_column(Text)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey(f"{SCHEMA}.app_users.id", ondelete="SET NULL"), index=True)
+    is_shared: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at = _now()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_run_ms: Mapped[int | None] = mapped_column(Integer)
+    last_run_rows: Mapped[int | None] = mapped_column(Integer)
+    last_error: Mapped[str | None] = mapped_column(Text)
 
 
 class Asset(Base):

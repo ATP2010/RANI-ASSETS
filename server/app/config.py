@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     # Push tanpa enroll/HMAC (agent dikenali dari machine_id/hostname payload).
     # Matikan (0) untuk mewajibkan signature semua agent.
     RANI_TOKENLESS_PUSH: bool = True
+    # Custom report SQL: eksekusi lewat role DB read-only terpisah.
+    RANI_REPORT_DB_USER: str = "rani_report"
+    RANI_REPORT_DB_PASSWORD: str = ""
+    RANI_REPORT_MAX_ROWS: int = 1000
+    RANI_REPORT_TIMEOUT_MS: int = 8000
+
     # Direktori artefak agent yang bisa diunduh dari halaman /agents (mount read-only).
     RANI_AGENT_DIR: str = "/srv/release"
     RANI_AGENT_SCRIPTS_DIR: str = "/srv/scripts"

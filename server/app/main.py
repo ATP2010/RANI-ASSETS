@@ -10,10 +10,11 @@ from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 from sqlalchemy import func, select, text
 
-from app.api import auth, data, downloads, enroll, ingest, system, ui
+from app.api import auth, data, downloads, enroll, ingest, reports, reports_ui, system, ui
 from app.config import get_settings
 from app.db import SessionLocal, dispose_engine
 from app.models import AppUser
+from app.reporting import dispose_report_engine, ensure_report_role, seed_sample_reports
 from app.security import hash_password, new_token
 from app.version import VERSION
 from app.ws import listen_forever
@@ -49,6 +50,9 @@ async def lifespan(app: FastAPI):
     app.state.redis = redis
     listener = asyncio.create_task(listen_forever(redis))
     await seed_admin()
+    app.state.reports_enabled = await ensure_report_role()
+    if app.state.reports_enabled:
+        await seed_sample_reports()
     try:
         yield
     finally:
@@ -57,6 +61,7 @@ async def lifespan(app: FastAPI):
             await redis.aclose()
         except Exception:
             pass
+        await dispose_report_engine()
         await dispose_engine()
 
 
@@ -74,6 +79,8 @@ def create_app() -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(data.router)
     app.include_router(ui.router)
+    app.include_router(reports_ui.router)
+    app.include_router(reports.router)
     app.include_router(downloads.router)
 
     @app.exception_handler(HTTPException)

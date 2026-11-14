@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block heading %}Reports{% endblock %}
+{% block subheading %}custom report SQL · read-only{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Custom reports ({{ rows | length }})</span>
+    {% if can_create %}
+    <a class="btn btn-sm btn-primary" href="/reports/new">+ Buat report</a>
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-tight mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Nama</th>
+          <th>Deskripsi</th>
+          <th>Pemilik</th>
+          <th>Diubah</th>
+          <th>Terakhir dijalankan</th>
+          <th class="text-end"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% set r = row.report %}
+        <tr>
+          <td>
+            <a href="/reports/{{ r.id }}">{{ r.name }}</a>
+            {% if not r.is_shared %}<span class="badge text-bg-secondary ms-1">private</span>{% endif %}
+          </td>
+          <td class="small-muted">{{ r.description or '—' }}</td>
+          <td class="mono">{{ row.owner or '—' }}</td>
+          <td class="small-muted">{{ r.updated_at | fmt_dt }}</td>
+          <td class="small-muted">
+            {% if r.last_run_at %}
+              {{ r.last_run_at | fmt_dt }}
+              <span class="mono">· {{ r.last_run_rows or 0 }} baris · {{ r.last_run_ms or 0 }} ms</span>
+              {% if r.last_error %}<span class="badge text-bg-danger ms-1">error</span>{% endif %}
+            {% else %}
+              <span class="small-muted">belum pernah</span>
+            {% endif %}
+          </td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-primary" href="/reports/{{ r.id }}?run=1">Jalankan</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ r.id }}">Buka</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="small-muted p-3">
+            belum ada report.
+            {% if can_create %}<a href="/reports/new">Buat report pertama</a> — tulis query SELECT
+            ke tabel <span class="mono">assets</span>, <span class="mono">software</span>,
+            <span class="mono">agents</span>, dst.{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small-muted">
+    Report dijalankan sebagai role database read-only dengan timeout; hasil dibatasi
+    jumlah baris dan bisa diekspor ke CSV. Query hanya boleh <span class="mono">SELECT</span>
+    atau <span class="mono">WITH ... SELECT</span>.
+  </div>
+</div>
+{% endblock %}
