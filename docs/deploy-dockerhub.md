@@ -4,7 +4,8 @@ Panduan memindahkan RANI ke server dev hanya dengan **pull image** dari Docker H
 tidak perlu clone repo, build, Python, atau Node. Image berisi API, worker, skema DB,
 migrasi, dokumen, skrip, dan artefak agent (raniPush-signed.exe, cert, portable zip).
 
-- Image: `adhityatp/raniassets:<tag>` (+ `:latest`)
+- Image: `adhityatp/raniassets:v0.1.0` (+ `:latest`) — repo **public**
+- Digest v0.1.0: `sha256:06f96852f887349c9d36426d8e4dcaafdc763b65d6bcc20d01974bb43a47215c`
 - Yang tetap di host: file `docker-compose.hub.yml` + `.env`, volume Postgres/Redis
 - Arsitektur image: **linux/amd64** (dibangun di server ini)
 - Ukuran image: ±386 MB (termasuk exe 7,4 MB + portable zip 11 MB)
@@ -75,7 +76,7 @@ POSTGRES_PASSWORD=<hasil rand 16>
 RANI_ADMIN_PASSWORD=<password admin pilihan Anda>
 RANI_INGEST_PEPPER=<hasil rand 32>
 RANI_REPORT_DB_PASSWORD=<hasil rand 16>
-RANI_IMAGE=adhityatp/raniassets:0.1.0     # pakai tag spesifik, bukan latest
+RANI_IMAGE=adhityatp/raniassets:v0.1.0     # pakai tag spesifik, bukan latest
 RANI_HTTP_PORT=8091
 TZ=Asia/Jakarta
 ```

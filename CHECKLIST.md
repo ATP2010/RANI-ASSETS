@@ -71,7 +71,7 @@
 - [ ] F3.4 Retention jobs: raw payload 90 hari, partisi software_reports
 - [x] F3.5 CSV export asset view (`/export/assets.csv`)
 - [x] F3.6 Script push image → registry lokal `192.168.88.92:5000/rani-server` (`scripts/push-registry.sh`)
-- [x] F3.9 **Deploy Docker Hub** `adhityatp/raniassets:<tag>`: image berisi API+worker+schema+docs+skrip+artefak agent, `docker-compose.hub.yml` (tanpa build/mount), `.env.hub.example`, `scripts/push-dockerhub.sh` (artefak → `docker/artifacts/` → build → tag latest → push), panduan `docs/deploy-dockerhub.md`
+- [x] F3.9 **Deploy Docker Hub** `adhityatp/raniassets:v0.1.0` + `latest` (repo public, digest `sha256:06f96852…47215c`, 386 MB): image berisi API+worker+schema+docs+skrip+artefak agent, `docker-compose.hub.yml` (tanpa build/mount), `.env.hub.example`, `scripts/push-dockerhub.sh` (artefak → `docker/artifacts/` → build → tag latest → push), panduan `docs/deploy-dockerhub.md`
 - [ ] F3.7 Backup schedule postgres (pg_dump harian ke volume)
 
 ## F4 — Backlog (nilai tambah, belum dijanjikan)
