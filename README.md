@@ -33,10 +33,15 @@ docker compose up -d --build
 ## Alur pakai
 
 1. Login → menu **Agents** → *Buat enrollment token* (role admin).
-2. Di PC target:
+2. Di PC target (Windows, PowerShell **as Administrator**):
    ```
-   raniPush --enroll <token> 192.168.88.92:8091     # sekali, simpan signing key
-   raniPush 192.168.88.92:8091                      # collect + push (exit 0)
+   .\install-agent.ps1 -Server 192.168.88.92:8091 -Token <token-dari-UI>
+   ```
+   Script menyalin exe ke `C:\Rani`, enroll, mendaftarkan Task Scheduler tiap 60 menit,
+   lalu push pertama. Manual:
+   ```
+   raniPush.exe --enroll <token> 192.168.88.92:8091     # sekali, simpan signing key
+   raniPush.exe 192.168.88.92:8091                      # collect + push (exit 0)
    schtasks /create /tn RaniPush /sc hourly /tr "C:\Rani\raniPush.exe 192.168.88.92:8091"
    ```
    Token sekali-pakai, TTL default 24 jam; revoke agent kapan saja di UI Agents.
@@ -45,6 +50,21 @@ docker compose up -d --build
 
 Push gagal (server mati/jaringan) → payload di-spool dan dicoba lagi pada run berikutnya
 (maks 7 hari).
+
+## Build agent Windows (`raniPush.exe`)
+
+Exe sudah tersedia di `release/raniPush.exe` (7 MB, single file, console). Rebuild:
+
+```bash
+# di Linux ini (Wine + Python Windows, sudah terpasang): 
+bash scripts/build-exe.sh          # → release/raniPush.exe + smoke test --collect
+
+# di Windows (paling andal, atau lewat GitHub Actions workflow build-agent-exe):
+python -m pip install pyinstaller==6.11.1
+pyinstaller --noconfirm --clean --distpath release agent/raniPush.spec
+```
+
+`release/` tidak di-commit (binary) — distribusi lewat artefak Actions atau copy manual.
 
 ## Verifikasi
 

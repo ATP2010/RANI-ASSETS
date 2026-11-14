@@ -58,6 +58,8 @@ docker compose up -d --build  # api :8091, UI http://192.168.88.92:8091  (projec
 python agent/raniPush.py --collect > payload.json
 python agent/raniPush.py --enroll <token> 192.168.88.92:8091
 python agent/raniPush.py 192.168.88.92:8091
+# build exe Windows (Wine + Python Windows sudah terpasang di mesin ini):
+bash scripts/build-exe.sh      # hasil: release/raniPush.exe
 # verifikasi:
 docker exec rani-inv-api-1 sh -c "cd /srv && python -m unittest discover -s tests -v"
 python3 scripts/smoke_test.py --base http://127.0.0.1:8091

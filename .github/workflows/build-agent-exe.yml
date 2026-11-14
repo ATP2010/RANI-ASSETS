@@ -1,0 +1,33 @@
+name: build-agent-exe
+
+# Build raniPush.exe di runner Windows (cara paling andal; build Wine dipakai untuk dev lokal).
+on:
+  workflow_dispatch:
+  push:
+    tags: ["agent-v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller==6.11.1
+      - name: Build exe
+        run: pyinstaller --noconfirm --clean --distpath release --workpath build/pyinstaller agent/raniPush.spec
+      - name: Smoke test (collect)
+        run: .\release\raniPush.exe --collect | Select-Object -First 1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raniPush-windows
+          path: release/raniPush.exe
+          retention-days: 30
+      - name: Attach to release (tag only)
+        if: startsWith(github.ref, 'refs/tags/agent-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/raniPush.exe

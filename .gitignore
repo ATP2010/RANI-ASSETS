@@ -4,8 +4,8 @@ __pycache__/
 *.log
 dist/
 build/
+release/
 node_modules/
 .venv/
 .cache/
 .pytest_cache/
-*.spec.bak

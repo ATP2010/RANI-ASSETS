@@ -45,7 +45,7 @@
 - [ ] F2.8 Printer enrichment (host-resources MIB / JetDirect OID)
 
 ## F3 — Ops & distribusi
-- [ ] F3.1 Build raniPush → single exe (PyInstaller), silent install + Task Scheduler registration
+- [x] F3.1 Build raniPush → single exe PyInstaller (`agent/raniPush.spec`, `scripts/build-exe.sh` via Wine, workflow GitHub Actions Windows) + `scripts/install-agent.ps1` (copy + enroll + Task Scheduler). Exe terverifikasi di Wine: `--collect` payload valid skema, enroll + push 202 ke server. **Belum** dijalankan di PC Windows nyata (MSI/GPO belum).
 - [x] F3.2 Enrollment token UI + agent revoke (UI + API)
 - [ ] F3.3 Remote config interval (server kirim `next_interval_s`; agent sudah menyimpannya — UI belum)
 - [ ] F3.4 Retention jobs: raw payload 90 hari, partisi software_reports
