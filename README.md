@@ -45,6 +45,8 @@ docker compose up -d --build
    schtasks /create /tn RaniPush /sc hourly /tr "C:\Rani\raniPush.exe 192.168.88.92:8091"
    ```
    Token sekali-pakai, TTL default 24 jam; revoke agent kapan saja di UI Agents.
+   Panduan lengkap Windows (enroll, Task Scheduler, troubleshooting, uninstall):
+   [`docs/agent-windows.md`](docs/agent-windows.md).
 3. Push masuk → API verifikasi (`HMAC` + digest + nonce + skema) → Redis Stream →
    worker merekonsiliasi → halaman **Assets** dan dashboard ter-update via WebSocket.
 
