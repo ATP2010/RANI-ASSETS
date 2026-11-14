@@ -61,6 +61,7 @@
 | 6 | **Custom reports SQL** (menu Reports) + role DB read-only `rani_report`, guard, row cap, CSV, migration `0003` | `c1c85bf` | 20 baris/10 ms; DML ditolak; timeout 8s |
 | 7 | **Submenu Agents + Scan SNMP** (grup IP CRUD, custom OID, scan on-demand + progress) + `docs/scan.md`, migration `0004` | (commit ini) | e2e net-snmp: 1/1 host, custom OID GET+walk, asset network |
 | 8 | Waktu UI konsisten **WIB** (`fmt_dt` + trend/recent events) | `10fc1ba`, `c1c85bf` | last_seen 15:42 = WIB |
+| 9 | **Deploy Docker Hub** (image pull & run, compose hub, env contoh, panduan) | (commit ini) | uji pull-and-run di port 8092: health ok, login, reports run, signed exe 7.686.056 B, role `rani_report` dibuat |
 
 ## F3 — Ops & distribusi
 - [x] F3.1 Build raniPush → single exe PyInstaller (`agent/raniPush.spec`, `scripts/build-exe.sh` via Wine, workflow GitHub Actions Windows) + `scripts/install-agent.ps1` (copy + Task Scheduler, `-Token` opsional). Exe terverifikasi di Wine: `--collect` payload valid skema, push 202 tanpa token (auto-register mode `direct`) dan jalur enroll+HMAC tetap PASS. Tersedia juga `raniPush-signed.exe` (osslsigncode, sertifikat internal + timestamp, `scripts/sign-exe.sh` + `install-cert.ps1`) dan `raniPush-portable.zip` (Python embeddable + .cmd) untuk PC yang memblokir exe. **Belum** dijalankan di PC Windows nyata (MSI/GPO belum).
@@ -69,7 +70,8 @@
 - [ ] F3.3 Remote config interval (server kirim `next_interval_s`; agent sudah menyimpannya — UI belum)
 - [ ] F3.4 Retention jobs: raw payload 90 hari, partisi software_reports
 - [x] F3.5 CSV export asset view (`/export/assets.csv`)
-- [x] F3.6 Script push image → registry `192.168.88.92:5000/rani-server` (`scripts/push-registry.sh`; belum dijalankan)
+- [x] F3.6 Script push image → registry lokal `192.168.88.92:5000/rani-server` (`scripts/push-registry.sh`)
+- [x] F3.9 **Deploy Docker Hub** `adhityatp/raniassets:<tag>`: image berisi API+worker+schema+docs+skrip+artefak agent, `docker-compose.hub.yml` (tanpa build/mount), `.env.hub.example`, `scripts/push-dockerhub.sh` (artefak → `docker/artifacts/` → build → tag latest → push), panduan `docs/deploy-dockerhub.md`
 - [ ] F3.7 Backup schedule postgres (pg_dump harian ke volume)
 
 ## F4 — Backlog (nilai tambah, belum dijanjikan)

@@ -1,0 +1,96 @@
+# Deployment "pull & run" dari Docker Hub.
+#
+#   docker compose -f docker-compose.hub.yml pull
+#   docker compose -f docker-compose.hub.yml up -d
+#
+# Image sudah memuat API, worker, skema, docs, skrip, dan artefak agent
+# (raniPush-signed.exe dll) — tidak ada build dan tidak ada bind mount.
+# Postgres + Redis memakai image resmi; data disimpan di named volume.
+#
+# Semua setting dibaca dari .env (lihat .env.hub.example).
+name: ${COMPOSE_PROJECT_NAME:-rani}
+
+x-server: &server
+  image: ${RANI_IMAGE:-adhityatp/raniassets:latest}
+  env_file:
+    - .env
+  environment:
+    TZ: ${TZ:-Asia/Jakarta}
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-rani}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-rani}
+    REDIS_URL: redis://redis:6379/0
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rani}
+      POSTGRES_USER: ${POSTGRES_USER:-rani}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      TZ: ${TZ:-Asia/Jakarta}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rani} -d ${POSTGRES_DB:-rani}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redisdata:/data
+    networks: [internal]
+    restart: unless-stopped
+
+  api:
+    <<: *server
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --workers 2
+    ports:
+      - "${RANI_HTTP_PORT:-8091}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks: [edge, internal]
+
+  worker:
+    <<: *server
+    command: ["python", "-m", "worker.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks: [internal]
+
+networks:
+  edge:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  pgdata:
+  redisdata:

@@ -9,6 +9,9 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 - UI: dashboard memakai **Apache ECharts 5.5** (vendored di `server/app/static/vendor/echarts.min.js`,
   tanpa CDN/online) dan sidebar AdminLTE `sidebar-mini` — status collapse disimpan di
   `localStorage` (`lte.sidebar.state`) sehingga tetap ringkas saat pindah menu.
+- Deploy dari Docker Hub: [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md) ·
+  compose siap pakai `docker-compose.hub.yml`, env contoh `.env.hub.example`,
+  build+push `scripts/push-dockerhub.sh`.
 - Panduan lain: [`docs/reports.md`](docs/reports.md) (custom report SQL) ·
   [`docs/scan.md`](docs/scan.md) (scan SNMP + custom OID) ·
   [`docs/branding.md`](docs/branding.md) (logo/ikon) ·
@@ -28,6 +31,7 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 | Agent `raniPush` Windows (WMI/registry/PowerShell) | kode ada, **belum diuji di PC Windows nyata** |
 | Custom reports SQL (`/reports`) | jalan — role DB read-only, grid + filter kolom, export CSV |
 | Scan SNMP (`/agents/scan`) | jalan — grup IP + custom OID, probe v1/v2c, asset `network` otomatis; jadwal otomatis belum |
+| Deploy Docker Hub | `adhityatp/raniassets:<tag>` — pull & run tanpa build ([`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md)) |
 | SNMP scanning (F2), installer exe + GNS (F3) | belum |
 
 ## Quick start (dev LXC 192.168.88.92)

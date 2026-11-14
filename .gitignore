@@ -10,3 +10,6 @@ node_modules/
 .cache/
 .pytest_cache/
 .signing/
+# artefak build untuk image Docker Hub (disalin scripts/push-dockerhub.sh)
+docker/artifacts/*
+!docker/artifacts/.gitkeep
