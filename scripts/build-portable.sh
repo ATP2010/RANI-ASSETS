@@ -30,8 +30,8 @@ cat > "${OUT_DIR}/raniPush.cmd" <<'CMD'
 @echo off
 setlocal
 rem Wrapper supaya bisa dipanggil dari Task Scheduler maupun Command Prompt.
-rem Contoh: raniPush.cmd --enroll <token> 192.168.88.92:8091
-rem           raniPush.cmd 192.168.88.92:8091
+rem Contoh: raniPush.cmd 192.168.88.92:8091   (tanpa token)
+rem Optional legacy: raniPush.cmd --enroll <token> 192.168.88.92:8091
 "%~dp0python\python.exe" "%~dp0raniPush.py" %*
 exit /b %ERRORLEVEL%
 CMD
@@ -48,8 +48,8 @@ out = pathlib.Path(sys.argv[1])
     "Langkah:\r\n"
     " 1. Extract folder ini (mis. ke C:\\Rani-portable)\r\n"
     " 2. PowerShell as Administrator:\r\n"
-    "      .\\raniPush.cmd --enroll <TOKEN> 192.168.88.92:8091\r\n"
     "      .\\raniPush.cmd 192.168.88.92:8091\r\n"
+    "      (tanpa token/enroll; mode HMAC legacy: .\\raniPush.cmd --enroll <TOKEN> 192.168.88.92:8091)\r\n"
     " 3. Jadwalkan (SYSTEM, tiap 60 menit):\r\n"
     "      schtasks /create /tn RaniPush /sc hourly /ru SYSTEM /rl HIGHEST /f ^\r\n"
     "        /tr \"C:\\Rani-portable\\raniPush.cmd 192.168.88.92:8091\"\r\n\r\n"

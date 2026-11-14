@@ -2,15 +2,20 @@
 """raniPush — collector + pusher inventory RANI (Windows/Linux, stdlib-first).
 
 Pemakaian:
-    raniPush --enroll <token> <server[:port]>     # sekali per PC, simpan signing key
-    raniPush <server[:port]>                       # collect + push (dipakai Task Scheduler)
+    raniPush <server[:port]>                       # collect + push langsung (tanpa token)
     raniPush --collect                             # cetak payload JSON ke stdout
     raniPush --from-file payload.json <server>     # kirim payload yang sudah ada
+    raniPush --enroll <token> <server>             # opsional/legacy: daftar + pakai HMAC
+
+Mode default tidak butuh token/enroll: PC dikenali server dari machine_id di payload,
+dan push pertama otomatis mendaftarkan agent di server. Enroll + HMAC tetap tersedia
+bila server dikonfigurasi `RANI_TOKENLESS_PUSH=0`.
 
 Exit code: 0 = sukses / terspool (dicoba lagi pada jadwal berikutnya), 1 = gagal fatal.
 
 Konfigurasi: %PROGRAMDATA%\\Rani\\config.json (Windows) atau /etc/rani/config.json
 (atau ~/.rani/config.json bila tidak writable). Spool offline di direktori yang sama.
+Override direktori lewat env `RANI_CONFIG_DIR` (dipakai smoke test / service account).
 """
 from __future__ import annotations
 
@@ -29,14 +34,17 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-AGENT_VERSION = "0.1.0"
+AGENT_VERSION = "0.2.0"
 SCHEMA_VERSION = 1
 IS_WINDOWS = os.name == "nt"
 
 
 # --------------------------------------------------------------------------- paths
 def config_dir() -> Path:
-    if IS_WINDOWS:
+    override = os.environ.get("RANI_CONFIG_DIR")
+    if override:
+        base = Path(override)
+    elif IS_WINDOWS:
         base = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "Rani"
     else:
         candidate = Path("/etc/rani")
@@ -555,25 +563,40 @@ def do_enroll(args) -> int:
     return 0
 
 
-def sign_headers(secret: str, raw: bytes, ts: str | None = None, nonce: str | None = None) -> dict:
-    ts = ts or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    nonce = nonce or uuid.uuid4().hex
-    signature = hmac.new(secret.encode(), ts.encode() + nonce.encode() + raw,
-                         hashlib.sha256).hexdigest()
-    return {"X-Rani-Digest": "sha256:" + hashlib.sha256(raw).hexdigest(),
-            "X-Rani-Signature": signature, "X-Rani-Timestamp": ts, "X-Rani-Nonce": nonce}
+def push_headers(raw: bytes, secret: str | None = None) -> dict:
+    """Header integritas + anti-replay.
+
+    Digest/timestamp/nonce selalu dikirim (dipakai mode langsung). Signature HMAC
+    hanya ditambahkan bila agent punya secret hasil enroll.
+    """
+    ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    nonce = uuid.uuid4().hex
+    headers = {"X-Rani-Digest": "sha256:" + hashlib.sha256(raw).hexdigest(),
+               "X-Rani-Timestamp": ts, "X-Rani-Nonce": nonce}
+    if secret:
+        headers["X-Rani-Signature"] = hmac.new(
+            secret.encode(), ts.encode() + nonce.encode() + raw, hashlib.sha256).hexdigest()
+    return headers
 
 
 def push_payload(payload: dict, cfg: dict, server: str | None = None) -> int:
+    """Kirim payload. 0 = sukses, 1 = gagal fatal (jangan spool), 2 = bisa dicoba lagi."""
+    target = (server or cfg.get("server") or "").strip()
+    if not target:
+        say("butuh alamat server: raniPush <ip:port>", error=True)
+        return 1
+    base = normalize_server(target)
+    raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+
     agent_id = cfg.get("agent_id")
     secret = cfg.get("agent_secret")
-    base = normalize_server(server or cfg.get("server") or "")
-    if not agent_id or not secret:
-        say("belum enroll: jalankan `raniPush --enroll <token> <server>`", error=True)
-        return 1
-    raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-    headers = {"Content-Type": "application/json", "X-Rani-Agent-Id": agent_id}
-    headers.update(sign_headers(secret, raw))
+    headers = {"Content-Type": "application/json"}
+    if agent_id and secret:
+        headers["X-Rani-Agent-Id"] = agent_id
+        headers.update(push_headers(raw, secret))
+    else:
+        headers.update(push_headers(raw))
+
     status, text = http_json(base + "/api/v1/ingest/push", raw, headers)
     if status in (200, 202):
         try:
@@ -582,13 +605,15 @@ def push_payload(payload: dict, cfg: dict, server: str | None = None) -> int:
             data = {}
         if data.get("next_interval_s"):
             cfg["interval_s"] = data["next_interval_s"]
-            save_config(cfg)
+        cfg["server"] = base
+        save_config(cfg)
         duplicate = " (idempotent)" if data.get("duplicate") else ""
         say(f"push ok{duplicate}: report={data.get('report_id')} asset={data.get('asset_id')} "
-              f"next={data.get('next_interval_s')}s")
+              f"agent={data.get('agent_id') or agent_id or '-'} next={data.get('next_interval_s')}s")
         return 0
     say(f"push gagal ({status}): {text}", error=True)
-    return 2
+    transient = status is None or status >= 500 or status in (408, 425, 429)
+    return 2 if transient else 1
 
 
 def spool_payload(payload: dict) -> Path:
@@ -630,7 +655,8 @@ def prune_spool(max_age_days: int = 7) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="raniPush", description="RANI inventory agent")
     parser.add_argument("server", nargs="?", help="server RANI, mis. 192.168.88.92:8091")
-    parser.add_argument("--enroll", metavar="TOKEN", help="enroll agent dengan token")
+    parser.add_argument("--enroll", metavar="TOKEN",
+                        help="opsional/legacy: enroll dengan token lalu pakai HMAC")
     parser.add_argument("--collect", action="store_true", help="cetak payload JSON lalu keluar")
     parser.add_argument("--from-file", metavar="PATH", help="kirim payload dari file JSON")
     args = parser.parse_args(argv)
@@ -650,6 +676,10 @@ def main(argv: list[str] | None = None) -> int:
         return do_enroll(args)
 
     cfg = load_config()
+    if not (args.server or cfg.get("server")):
+        say("butuh alamat server: raniPush <ip:port>  (contoh: raniPush 192.168.88.92:8091)",
+            error=True)
+        return 1
     if args.from_file:
         try:
             payload = json.loads(Path(args.from_file).read_text(encoding="utf-8"))

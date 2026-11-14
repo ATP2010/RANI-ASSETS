@@ -54,8 +54,10 @@ ProjectDev/
 cd /root/RaniProject/ProjectDev
 cp .env.example .env          # isi POSTGRES_PASSWORD, RANI_INGEST_PEPPER, RANI_ADMIN_PASSWORD
 docker compose up -d --build  # api :8091, UI http://192.168.88.92:8091  (project: rani-inv)
-# agent dev test (tanpa exe):
+# agent dev test (tanpa exe, tanpa token):
 python agent/raniPush.py --collect > payload.json
+python agent/raniPush.py 192.168.88.92:8091          # push langsung, agent auto-terdaftar
+# opsional/legacy (hanya bila RANI_TOKENLESS_PUSH=0):
 python agent/raniPush.py --enroll <token> 192.168.88.92:8091
 python agent/raniPush.py 192.168.88.92:8091
 # build exe Windows (Wine + Python Windows sudah terpasang di mesin ini):

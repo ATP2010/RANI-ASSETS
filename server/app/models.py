@@ -83,7 +83,7 @@ class Agent(Base):
     id = _uuid_pk()
     name: Mapped[str] = mapped_column(String(128))
     machine_id: Mapped[str | None] = mapped_column(String(128), index=True)
-    secret_enc: Mapped[str] = mapped_column(Text)  # Fernet(pepper) — reversible untuk HMAC
+    secret_enc: Mapped[str | None] = mapped_column(Text)  # Fernet(pepper); NULL = agent mode langsung
     enrolled_at = _now()
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

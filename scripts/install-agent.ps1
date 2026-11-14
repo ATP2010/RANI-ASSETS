@@ -1,13 +1,16 @@
 <#
 .SYNOPSIS
-    Install raniPush di Windows: copy exe, enroll agent, daftarkan Task Scheduler.
+    Install raniPush di Windows: copy exe, daftarkan Task Scheduler, push pertama.
 
 .DESCRIPTION
     Jalankan sebagai Administrator (PowerShell). Contoh:
-      .\install-agent.ps1 -Server 192.168.88.92:8091 -Token <token-dari-UI-Agents>
+      .\install-agent.ps1 -Server 192.168.88.92:8091
+      .\install-agent.ps1 -Server 192.168.88.92:8091 -ExePath .\raniPush-signed.exe
 
-    Setelah enroll, agent push tiap $IntervalMinutes menit dan langsung sekali di akhir
-    instalasi. Config + spool ada di %PROGRAMDATA%\Rani.
+    Agent 0.2+ tidak butuh token: server mengenali PC dari machine_id pada push pertama.
+    -Token hanya dipakai bila server di-set RANI_TOKENLESS_PUSH=0 (mode HMAC legacy).
+    Agent push tiap $IntervalMinutes menit dan langsung sekali di akhir instalasi.
+    Config + spool ada di %PROGRAMDATA%\Rani.
 
 .NOTES
     Exit code: 0 sukses, 1 gagal. Tidak menginstall software lain.
@@ -43,9 +46,9 @@ Write-Host "exe     : $target"
 if ($Token) {
     & $target --enroll $Token $Server
     if ($LASTEXITCODE -ne 0) { throw "enroll gagal (exit $LASTEXITCODE)" }
-    Write-Host 'enroll  : ok'
+    Write-Host 'enroll  : ok (mode HMAC legacy)'
 } else {
-    Write-Host 'enroll  : dilewati (tanpa -Token); pastikan agent sudah enroll'
+    Write-Host 'enroll  : tidak perlu (agent 0.2+ langsung push tanpa token)'
 }
 
 $action = New-ScheduledTaskAction -Execute $target -Argument $Server

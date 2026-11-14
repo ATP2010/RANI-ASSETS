@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import audit
+from app.api.downloads import artifact_rows
 from app.db import get_session
 from app.deps import get_current_user_ws, require_user
 from app.models import AppUser, Asset, Software
@@ -63,6 +64,7 @@ async def agents_page(request: Request, token: str | None = None,
     return templates.TemplateResponse(request, "agents.html", {
         "user": user, "agents": await list_agents(session),
         "tokens": await list_tokens(session), "new_token": token, "active": "agents",
+        "downloads": artifact_rows(), "server_url": str(request.base_url).rstrip("/"),
     })
 
 

@@ -32,23 +32,28 @@ docker compose up -d --build
 
 ## Alur pakai
 
-1. Login → menu **Agents** → *Buat enrollment token* (role admin).
+1. Login → menu **Agents** → panel **Download agent (Windows)** → unduh
+   `raniPush-signed.exe` (dan `rani-push-signing.cer` + `install-cert.ps1` bila PC
+   memblokir "unknown publisher"). Tidak ada token/enroll untuk agent 0.2+.
 2. Di PC target (Windows, PowerShell **as Administrator**):
    ```
-   .\install-agent.ps1 -Server 192.168.88.92:8091 -Token <token-dari-UI>
+   .\install-agent.ps1 -Server 192.168.88.92:8091 -ExePath .\raniPush-signed.exe
    ```
-   Script menyalin exe ke `C:\Rani`, enroll, mendaftarkan Task Scheduler tiap 60 menit,
-   lalu push pertama. Manual:
+   Script menyalin exe ke `C:\Rani`, mendaftarkan Task Scheduler tiap 60 menit, lalu
+   push pertama. Manual:
    ```
-   raniPush.exe --enroll <token> 192.168.88.92:8091     # sekali, simpan signing key
-   raniPush.exe 192.168.88.92:8091                      # collect + push (exit 0)
-   schtasks /create /tn RaniPush /sc hourly /tr "C:\Rani\raniPush.exe 192.168.88.92:8091"
+   raniPush-signed.exe 192.168.88.92:8091                # collect + push (exit 0)
+   schtasks /create /tn RaniPush /sc hourly /ru SYSTEM /rl HIGHEST /f `
+     /tr "C:\Rani\raniPush-signed.exe 192.168.88.92:8091"
    ```
-   Token sekali-pakai, TTL default 24 jam; revoke agent kapan saja di UI Agents.
-   Panduan lengkap Windows (enroll, Task Scheduler, troubleshooting, uninstall):
+   Server mengenali PC dari `machine_id` (MachineGuid) dan mendaftarkan agent pada push
+   pertama; revoke agent kapan saja di UI Agents. Ingin wajib kredensial? Set
+   `RANI_TOKENLESS_PUSH=0` di `.env` lalu pakai token + HMAC (`--enroll`).
+   Panduan lengkap Windows (Task Scheduler, SmartScreen/SAC, troubleshooting, uninstall):
    [`docs/agent-windows.md`](docs/agent-windows.md).
-3. Push masuk → API verifikasi (`HMAC` + digest + nonce + skema) → Redis Stream →
-   worker merekonsiliasi → halaman **Assets** dan dashboard ter-update via WebSocket.
+3. Push masuk → API validasi (digest + nonce + timestamp + skema; HMAC bila agent
+   ter-enroll) → Redis Stream → worker merekonsiliasi → halaman **Assets** dan dashboard
+   ter-update via WebSocket.
 
 Push gagal (server mati/jaringan) → payload di-spool dan dicoba lagi pada run berikutnya
 (maks 7 hari).
@@ -63,6 +68,10 @@ Artefak di `release/` (tidak di-commit, binary):
 | `raniPush-signed.exe` | exe + signature internal + timestamp | PC dengan SmartScreen/"unknown publisher"; pasang `rani-push-signing.cer` dulu |
 | `rani-push-signing.cer` | sertifikat publik code-signing internal | dipasang via `scripts/install-cert.ps1` |
 | `raniPush-portable.zip` | Python embeddable resmi + `raniPush.py` + `raniPush.cmd` | PC dengan Smart App Control/AV ketat yang memblokir exe buatan sendiri |
+
+Keempat file itu bisa diunduh langsung dari browser di `http://192.168.88.92:8091/agents`
+(route `/downloads/<nama>`, wajib login; compose me-mount `release/` dan `scripts/`
+read-only ke container).
 
 ```bash
 bash scripts/build-exe.sh        # → release/raniPush.exe

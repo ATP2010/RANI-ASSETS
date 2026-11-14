@@ -17,7 +17,8 @@
 - [x] F1.1 Scaffold `docker compose`: api (FastAPI+uvicorn 2 worker), worker, postgres 16.4, redis 7.4, `TZ=Asia/Jakarta`, project `rani-inv`, port 8091
 - [x] F1.2 Alembic migration skema `rani_inventory` (revision `0001_initial`, 14 tabel)
 - [x] F1.3 `POST /api/v1/enroll` (token sekali-pakai → agent_id + secret; token hash sha256, TTL)
-- [x] F1.4 `POST /api/v1/ingest/push` : verify HMAC+digest+timestamp+nonce, rate-limit 30/min, idempotensi sha, enqueue Redis Stream
+- [x] F1.4 `POST /api/v1/ingest/push` : digest+timestamp+nonce wajib, HMAC opsional bila agent ter-enroll, rate-limit 30/min, idempotensi sha, enqueue Redis Stream
+- [x] F1.11 Push **tanpa token** (agent 0.2+): agent dikenali dari `identity.machine_id`, auto-register baris agent mode `direct` (secret NULL), `RANI_TOKENLESS_PUSH=0` mengembalikan wajib-HMAC. Migration `0002_agent_secret_nullable`
 - [x] F1.5 Worker ingest: upsert asset (reconcile machine_id→serial→MAC→hostname + konflik machine_id), software DELTA + drop-guard, hw components, users, security_state, network_interfaces, requeue sweeper, stale sweep
 - [x] F1.6 `GET /api/v1/assets` + `GET /api/v1/assets/{id}` (+ `/api/v1/stats`, `/api/v1/agents`)
 - [x] F1.7 UI login (session cookie DB, bcrypt) + RBAC 3 role (admin/operator/reader) + audit log + rate-limit login
@@ -45,8 +46,9 @@
 - [ ] F2.8 Printer enrichment (host-resources MIB / JetDirect OID)
 
 ## F3 — Ops & distribusi
-- [x] F3.1 Build raniPush → single exe PyInstaller (`agent/raniPush.spec`, `scripts/build-exe.sh` via Wine, workflow GitHub Actions Windows) + `scripts/install-agent.ps1` (copy + enroll + Task Scheduler). Exe terverifikasi di Wine: `--collect` payload valid skema, enroll + push 202 ke server. Tersedia juga `raniPush-signed.exe` (osslsigncode, sertifikat internal + timestamp, `scripts/sign-exe.sh` + `install-cert.ps1`) dan `raniPush-portable.zip` (Python embeddable + .cmd) untuk PC yang memblokir exe. **Belum** dijalankan di PC Windows nyata (MSI/GPO belum).
-- [x] F3.2 Enrollment token UI + agent revoke (UI + API)
+- [x] F3.1 Build raniPush → single exe PyInstaller (`agent/raniPush.spec`, `scripts/build-exe.sh` via Wine, workflow GitHub Actions Windows) + `scripts/install-agent.ps1` (copy + Task Scheduler, `-Token` opsional). Exe terverifikasi di Wine: `--collect` payload valid skema, push 202 tanpa token (auto-register mode `direct`) dan jalur enroll+HMAC tetap PASS. Tersedia juga `raniPush-signed.exe` (osslsigncode, sertifikat internal + timestamp, `scripts/sign-exe.sh` + `install-cert.ps1`) dan `raniPush-portable.zip` (Python embeddable + .cmd) untuk PC yang memblokir exe. **Belum** dijalankan di PC Windows nyata (MSI/GPO belum).
+- [x] F3.2 Enrollment token UI + agent revoke (UI + API); token kini opsional — `RANI_TOKENLESS_PUSH=0` untuk mewajibkan HMAC
+- [x] F3.8 Unduhan agent dari browser: panel **Download agent** di `/agents` (signed exe, exe unsigned, cert, `install-cert.ps1`, portable zip) via `/downloads/<nama>` — allowlist nama, wajib login, compose mount `./release` + `./scripts` read-only
 - [ ] F3.3 Remote config interval (server kirim `next_interval_s`; agent sudah menyimpannya — UI belum)
 - [ ] F3.4 Retention jobs: raw payload 90 hari, partisi software_reports
 - [x] F3.5 CSV export asset view (`/export/assets.csv`)

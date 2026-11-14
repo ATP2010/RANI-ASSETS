@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     RANI_RATE_LIMIT_PER_MIN: int = 30
     RANI_SESSION_TTL_H: int = 12
 
+    # Push tanpa enroll/HMAC (agent dikenali dari machine_id/hostname payload).
+    # Matikan (0) untuk mewajibkan signature semua agent.
+    RANI_TOKENLESS_PUSH: bool = True
+    # Direktori artefak agent yang bisa diunduh dari halaman /agents (mount read-only).
+    RANI_AGENT_DIR: str = "/srv/release"
+    RANI_AGENT_SCRIPTS_DIR: str = "/srv/scripts"
+
     RANI_ENV: str = "dev"
     RANI_LOG_LEVEL: str = "info"
 

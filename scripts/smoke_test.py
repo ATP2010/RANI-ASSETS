@@ -15,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -78,10 +79,18 @@ def main() -> int:
                              "--enroll", token, base], capture_output=True, text=True)
     check("agent enroll (CLI)", enroll.returncode == 0, enroll.stdout.strip() or enroll.stderr.strip())
 
-    # 5. push payload hasil koleksi nyata
+    # 5. push payload hasil koleksi nyata (mode legacy HMAC, sudah enroll)
     push = subprocess.run([sys.executable, str(ROOT / "agent" / "raniPush.py"), base],
                           capture_output=True, text=True)
     check("agent push (CLI)", push.returncode == 0, push.stdout.strip() or push.stderr.strip())
+
+    # 5b. push tanpa token dari config kosong (alur default agent 0.2+)
+    with tempfile.TemporaryDirectory() as clean_dir:
+        push_free = subprocess.run([sys.executable, str(ROOT / "agent" / "raniPush.py"), base],
+                                   capture_output=True, text=True,
+                                   env=dict(os.environ, RANI_CONFIG_DIR=clean_dir))
+    check("agent push tanpa token (CLI)", push_free.returncode == 0 and "push ok" in push_free.stdout,
+          (push_free.stdout or push_free.stderr).strip()[-160:])
 
     # 6. worker memproses → asset muncul
     item = None
@@ -99,9 +108,16 @@ def main() -> int:
 
     # 7. halaman UI utama
     for path, marker in (("/", "Dashboard"), ("/assets", "Assets"),
-                         ("/agents", "Buat enrollment token")):
+                         ("/agents", "Download agent")):
         body = opener.open(base + path).read().decode("utf-8", "replace")
         check(f"UI {path} render", marker in body, f"{len(body)} bytes")
+
+    # 7b. unduhan artefak agent dari browser (login reader/admin)
+    for name in ("raniPush-signed.exe", "rani-push-signing.cer", "install-cert.ps1"):
+        resp = opener.open(base + "/downloads/" + name)
+        blob = resp.read()
+        check(f"download {name}", resp.status == 200 and len(blob) > 100,
+              f"{len(blob)} bytes")
 
     # 8. stats + CSV
     stats = json.loads(opener.open(base + "/api/v1/stats").read())

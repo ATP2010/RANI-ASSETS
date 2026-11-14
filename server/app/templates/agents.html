@@ -18,8 +18,10 @@
 <div class="row g-3">
   <div class="col-lg-5">
     <div class="card">
-      <div class="card-header">Buat enrollment token</div>
+      <div class="card-header">Enrollment token — opsional (legacy HMAC)</div>
       <div class="card-body">
+        <p class="small-muted">Tidak diperlukan untuk agent versi 0.2+ (mode langsung tanpa token).
+          Token hanya dipakai bila <span class="mono">RANI_TOKENLESS_PUSH=0</span>.</p>
         {% if user.role == 'admin' %}
         <form method="post" action="/agents/tokens" class="row g-2">
           <div class="col-7">
@@ -73,7 +75,9 @@
           <tbody>
             {% for a in agents %}
             <tr>
-              <td>{{ a.agent.name }}<div class="small-muted mono">{{ a.agent.id }}</div></td>
+              <td>{{ a.agent.name }}
+                {% if not a.agent.secret_enc %}<span class="badge text-bg-info ms-1">direct</span>{% endif %}
+                <div class="small-muted mono">{{ a.agent.id }}</div></td>
               <td class="mono">
                 {% if a.asset_id %}<a href="/assets/{{ a.asset_id }}">{{ a.hostname or '—' }}</a>{% else %}—{% endif %}
               </td>
@@ -101,15 +105,54 @@
     </div>
 
     <div class="card mt-3">
-      <div class="card-header">Setup agent (Windows)</div>
+      <div class="card-header">Download agent (Windows)</div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0 align-middle">
+          <thead class="table-light"><tr><th>File</th><th>Ukuran</th><th></th></tr></thead>
+          <tbody>
+            {% for f in downloads %}
+            <tr>
+              <td>{{ f.label }}<div class="small-muted mono">{{ f.name }}</div></td>
+              <td class="small-muted">{% if f.size_mb %}{{ f.size_mb }} MB{% else %}—{% endif %}</td>
+              <td class="text-end">
+                {% if f.available %}
+                <a class="btn btn-sm btn-primary" href="/downloads/{{ f.name }}">Download</a>
+                {% else %}
+                <span class="badge text-bg-secondary">belum dibuild</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer small-muted">
+        Pakai yang <span class="mono">-signed</span> (disarankan). Kalau Windows tetap memblokir,
+        pakai <span class="mono">raniPush-portable.zip</span>. Sertifikat publik + script
+        pemasangannya ada di daftar atas untuk PC yang memblokir “Unknown publisher”.
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">Pasang di PC Windows — tanpa token</div>
       <div class="card-body small">
         <ol class="mb-0 ps-3">
-          <li>Copy <span class="mono">raniPush.exe</span> ke <span class="mono">C:\Rani\</span>.</li>
-          <li>Enroll sekali: <span class="mono">raniPush --enroll &lt;token&gt; http://192.168.88.92:8091</span></li>
-          <li>Daftarkan Task Scheduler: <span class="mono">schtasks /create /tn RaniPush /sc hourly /tr "C:\Rani\raniPush.exe 192.168.88.92:8091"</span></li>
-          <li>Cek manual: <span class="mono">C:\Rani\raniPush.exe 192.168.88.92:8091</span> (exit code 0 = terkirim/terspool).</li>
-          <li>Log: <span class="mono">C:\ProgramData\Rani\raniPush.log</span> — panduan lengkap di <span class="mono">docs/agent-windows.md</span> (repo).</li>
+          <li>Download <span class="mono">raniPush-signed.exe</span> (tombol di atas).</li>
+          <li>PowerShell as Admin: <span class="mono">Unblock-File .\raniPush-signed.exe</span></li>
+          <li>Kirim inventaris sekali untuk tes:
+            <pre class="mb-1 mt-1 p-2 bg-body-secondary rounded mono">.\raniPush-signed.exe {{ server_url | replace('http://', '') | replace('https://', '') }}</pre>
+            Exit code 0 = data masuk. Cek di <a href="/assets">/assets</a> dan tabel agent di halaman ini.</li>
+          <li>Jadwalkan tiap jam:
+            <pre class="mb-1 mt-1 p-2 bg-body-secondary rounded mono">schtasks /create /tn RaniPush /sc hourly /ru SYSTEM /rl HIGHEST /f /tr "C:\Rani\raniPush-signed.exe {{ server_url | replace('http://', '') | replace('https://', '') }}"</pre></li>
+          <li>Log: <span class="mono">C:\ProgramData\Rani\raniPush.log</span>. Panduan lengkap:
+            <span class="mono">docs/agent-windows.md</span>.</li>
         </ol>
+        <div class="alert alert-secondary mt-3 mb-0 py-2">
+          Agent dikenali dari <span class="mono">machine_id</span> PC — tidak ada token, tidak ada
+          langkah enroll. Siapa pun yang bisa menjangkau port ini bisa mengirim inventaris; kalau
+          itu tidak diinginkan, set <span class="mono">RANI_TOKENLESS_PUSH=0</span> di
+          <span class="mono">.env</span> lalu semua agent wajib pakai token + HMAC.
+        </div>
       </div>
     </div>
   </div>
