@@ -9,7 +9,8 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 - UI: dashboard memakai **Apache ECharts 5.5** (vendored di `server/app/static/vendor/echarts.min.js`,
   tanpa CDN/online) dan sidebar AdminLTE `sidebar-mini` — status collapse disimpan di
   `localStorage` (`lte.sidebar.state`) sehingga tetap ringkas saat pindah menu.
-- Deploy dari Docker Hub: [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md) ·
+- Deploy dari Docker Hub: [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md)
+  (overview yang tampil di Docker Hub: [`docs/dockerhub-overview.md`](docs/dockerhub-overview.md)) ·
   compose siap pakai `docker-compose.hub.yml`, env contoh `.env.hub.example`,
   build+push `scripts/push-dockerhub.sh`.
 - Panduan lain: [`docs/reports.md`](docs/reports.md) (custom report SQL) ·

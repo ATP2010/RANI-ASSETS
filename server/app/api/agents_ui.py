@@ -44,6 +44,7 @@ DOCS = {
     "reports": "reports.md",
     "branding": "branding.md",
     "deploy-dockerhub": "deploy-dockerhub.md",
+    "dockerhub-overview": "dockerhub-overview.md",
 }
 
 
