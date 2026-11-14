@@ -11,7 +11,9 @@ dashboard AdminLTE realtime (WebSocket).
   `localStorage` (`lte.sidebar.state`) sehingga tetap ringkas saat pindah menu.
 - Ikon aplikasi: `server/app/static/img/` (`favicon.ico`, `icon-32/192/512.png`,
   `apple-touch-icon.png`) + `static/manifest.json`; logo sidebar memakai `icon.png` dan
-  versi kecil `icon-32.png` saat sidebar ringkas. Ganti logo = timpa file itu lalu rebuild image.
+  versi kecil `icon-32.png` saat sidebar ringkas. Ganti logo = jalankan
+  `python3 scripts/make-icons.py <logo.png>` lalu rebuild image — langkah lengkap di
+  [`docs/branding.md`](docs/branding.md).
 
 ## Status sekarang
 
