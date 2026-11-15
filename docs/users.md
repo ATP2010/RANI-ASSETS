@@ -1,9 +1,9 @@
 # Users & akses — lokal + Active Directory
 
-> **Status: desain (F5), belum diimplementasikan.** Versi sekarang baru punya login
-> lokal dengan 3 role tetap (`admin`/`operator`/`reader`). Dokumen ini menjadi acuan
-> implementasi menu **Users**, role/permission custom, dan sinkronisasi user dari
-> Active Directory. Referensi: [Lansweeper — Restrict access to the web console](https://docs.lansweeper.com/classic/docs/restrict-access-to-the-web-console),
+> **Status: F5.1–F5.7 diimplementasikan (F5.8 MFA/SSO menyusul).** Migrasi
+> `0006_users_ad` memperkenalkan role/permission custom; menu **Users**
+> (`/users`) tersedia untuk pemegang permission terkait. Dokumen ini tetap
+> menjadi acuan desain + operasi. Referensi: [Lansweeper — Restrict access to the web console](https://docs.lansweeper.com/classic/docs/restrict-access-to-the-web-console),
 > [Active Directory Connector](https://docs.lansweeper.com/docs/active-directory-connector),
 > [Authentication (SSO/MFA)](https://docs.lansweeper.com/docs/authentication).
 
@@ -186,6 +186,14 @@ hitung user/grup di base DN. Hasil dan error ditampilkan tanpa membocorkan passw
   terpetakan tidak bisa login (`no_mapped_group`).
 - Nested group: bila aktif, keanggotaan di sub-group ikut dihitung (AD matching rule
   `1.2.840.113556.1.4.1941`). Bila tidak, hanya anggota langsung.
+- Konektor membaca atribut yang ada di skema server (deteksi via `cn=subschema`),
+  sehingga AD dan OpenLDAP sama-sama bisa dipakai. `objectGUID`/`userAccountControl`/
+  `userPrincipalName` hanya ada di AD; di OpenLDAP, user dikenali dari
+  `sAMAccountName` dan status disabled tidak dibaca (filter `user_filter` bisa dipakai
+  untuk mengecualikan akun).
+- Pada AD, `memberOf` adalah backlink sehingga selalu mutakhir. Pada OpenLDAP, overlay
+  `memberof` harus diaktifkan agar pencarian `memberOf=<dn group>` bekerja
+  (`olcMemberOfGroupOC: groupOfNames`, `olcMemberOfMemberAD: member`).
 
 ### 4.4 Sync
 
@@ -198,7 +206,9 @@ Setiap run:
 2. Cari anggota tiap group (range retrieval untuk group > 1500 anggota).
 3. Upsert `app_users` dengan `auth_source='ad'`, `username='corp\sam'`, `object_guid`,
    `upn`, `email`, `display_name`.
-4. Hitung union role; tulis `app_user_roles`.
+4. Hitung union role; tulis `app_user_roles`. Untuk user AD, role adalah **murni
+   hasil mapping** (replace, bukan merge) — tambahkan permission lewat mapping group,
+   bukan lewat halaman user, karena perubahan manual akan tertimpa sync berikutnya.
 5. User AD yang **tidak lagi** ada di group terpetakan → `is_active=false`.
 6. Simpan ringkasan di `directory_sync_runs`.
 7. Audit `ad.sync` (jumlah created/updated/deactivated/roles_changed, durasi, error).
@@ -291,7 +301,7 @@ Password, bind password, dan token tidak pernah masuk audit/log.
 
 ---
 
-## 7. API (rencana)
+## 7. API
 
 | Method | Path | Fungsi |
 |---|---|---|
@@ -317,7 +327,7 @@ lagi perbandingan rank role.
 
 ---
 
-## 8. Skema DB (rencana, migration `0006_users_ad`)
+## 8. Skema DB (migration `0006_users_ad`)
 
 ```
 roles(id, slug UNIQUE, name, description, permissions JSONB, is_builtin, created_at, updated_at)
@@ -344,11 +354,11 @@ sebelum kolom string dihapus. Seed role bawaan harus idempotent.
 | Variable | Default | Status | Arti |
 |---|---|---|---|
 | `RANI_SESSION_TTL_H` | `12` | aktif | umur sesi login (jam) |
-| `RANI_AUTH_LOCAL_ENABLED` | `1` | rencana | izinkan login lokal |
-| `RANI_AD_ENABLED` | `0` | rencana | saklar global login AD |
-| `RANI_AD_SYNC_INTERVAL_S` | `3600` | rencana | interval sync default (0 = manual) |
-| `RANI_PASSWORD_MIN_LEN` | `12` | rencana | panjang minimum password lokal |
-| `RANI_LOGIN_MAX_ATTEMPTS` | `20` | rencana | percobaan per IP/principal per 5 menit |
+| `RANI_AUTH_LOCAL_ENABLED` | `1` | aktif | izinkan login lokal |
+| `RANI_AD_ENABLED` | `0` | aktif | saklar global login AD |
+| `RANI_AD_SYNC_INTERVAL_S` | `3600` | aktif | interval default untuk connector baru (0 = manual) |
+| `RANI_PASSWORD_MIN_LEN` | `12` | aktif | panjang minimum password lokal |
+| `RANI_LOGIN_MAX_ATTEMPTS` | `20` | aktif | percobaan per IP/principal per 5 menit |
 
 Bind password **tidak** diletakkan di `.env`; diisi lewat UI dan disimpan terenkripsi
 di DB. Variabel `RANI_INGEST_PEPPER` wajib sudah diatur sebelum menyimpan connector.
@@ -361,6 +371,10 @@ dipetakan ke role admin — akun lokal adalah jalan masuk darurat.
 
 | Gejala | Sebab / solusi |
 |---|---|
+| `invalid attribute type objectGUID` saat sync (OpenLDAP) | Atribut khusus AD tidak ada; konektor otomatis menyesuaikan via skema (`subschemaSubentry`). Bukan error di AD. |
+| Sync selalu `partial` | Bind service gagal / group tidak terbaca; `directory_sync_runs` menampilkan error per group. Perbaiki lalu sync ulang — run partial tidak menonaktifkan user. |
+| Group AD kosong tidak error tapi sync `success` 0 user | Filter/member salah; cek `memberOf` (AD: backlink otomatis; OpenLDAP: aktifkan overlay `memberof` — lihat `docs/users.md` §4.4) |
+| Login AD gagal padahal password benar | Akun di luar group terpetakan (`no_mapped_group`), disabled di AD, atau connector disabled; cek audit `reason`. |
 | `Test connection` gagal `invalid credentials` | bind DN/password salah, atau akun service terkunci. Coba `ldapsearch -H ldaps://… -D "<bind DN>" -W -b "<base DN>"` dari server |
 | Gagal TLS `certificate verify failed` | CA internal belum diunggah; unggah CA PEM atau (hanya lab) matikan verifikasi |
 | Login AD selalu `username/password salah` | pastikan memakai `DOMAIN\user`/UPN, bukan username polos; cek connector domain cocok |
@@ -393,11 +407,11 @@ dipetakan ke role admin — akun lokal adalah jalan masuk darurat.
 
 ## 12. Roadmap
 
-1. **F5.1** skema role/permission + seed + backfill + permission resolver.
-2. **F5.2** halaman Users + CRUD lokal + reset password + guard admin terakhir.
-3. **F5.3** halaman Role & akses + role custom + matriks permission.
-4. **F5.4** connector AD + enkripsi bind password + test/bind + browse group.
-5. **F5.5** mapping group → role + sync manual/terjadwal + riwayat sync.
-6. **F5.6** login AD (`DOMAIN\user`) + JIT provisioning + deny unmapped.
-7. **F5.7** halaman Sesi & audit.
-8. **F5.8** MFA TOTP dan SSO SAML/OIDC (di luar fase awal).
+1. **F5.1** ✅ skema role/permission + seed + backfill + permission resolver.
+2. **F5.2** ✅ halaman Users + CRUD lokal + reset password + guard admin terakhir.
+3. **F5.3** ✅ halaman Role & akses + role custom + matriks permission.
+4. **F5.4** ✅ connector AD + enkripsi bind password + test/bind + browse group.
+5. **F5.5** ✅ mapping group → role + sync manual/terjadwal + riwayat sync.
+6. **F5.6** ✅ login AD (`DOMAIN\user`) + JIT provisioning + deny unmapped.
+7. **F5.7** ✅ halaman Sesi & audit.
+8. **F5.8** MFA TOTP dan SSO SAML/OIDC (fase lanjutan, belum dijadwalkan).

@@ -91,7 +91,7 @@
           <div class="col-sm-6">
             <label class="form-label small" for="f-int">Interval sync (detik; 0 = manual)</label>
             <input class="form-control form-control-sm" id="f-int" name="sync_interval_s" type="number" min="0"
-                   value="{{ c.sync_interval_s if c else 3600 }}">
+                   value="{{ c.sync_interval_s if c else default_sync_interval_s }}">
           </div>
           <div class="col-12">
             <label class="form-label small" for="f-binddn">Bind DN (service account read-only)</label>

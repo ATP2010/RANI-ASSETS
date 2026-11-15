@@ -121,6 +121,7 @@ async def directory_page(request: Request, id: str | None = None, q: str | None 
         "can_manage": can_manage, "can_sync": can_sync,
         "roles": await _roles(session),
         "default_user_filter": ad.default_user_filter(),
+        "default_sync_interval_s": settings.RANI_AD_SYNC_INTERVAL_S,
         "creating": creating,
         "ad_login_enabled": settings.RANI_AD_ENABLED,
         "auth_local_enabled": settings.RANI_AUTH_LOCAL_ENABLED,

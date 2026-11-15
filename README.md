@@ -34,7 +34,7 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 | Custom reports SQL (`/reports`) | jalan — role DB read-only, grid + filter kolom, export CSV |
 | Scan SNMP (`/agents/scan`) | jalan — grup IP + custom OID, probe v1/v2c, asset `network` otomatis; jadwal otomatis belum |
 | Port map L2 (`/agents/portmap`) | jalan — MAC ↔ port switch dari bridge FDB (dot1d/dot1q, GETBULK), tab di asset network + lookup MAC; graf topologi (LLDP/CDP) belum |
-| Users & akses (lokal + AD) | **dokumen desain siap** ([`docs/users.md`](docs/users.md)) — menu Users, role/permission custom, sync group AD → role; implementasi belum (F5) |
+| Users & akses (lokal + AD) | **jalan (F5.1–F5.7)** — menu **Users** (`/users`): akun login lokal + AD (`DOMAIN\user`), role/permission custom (union multi-role, admin terkunci), connector LDAP/LDAPS, mapping group AD → role, sync delta + riwayat; desain di [`docs/users.md`](docs/users.md) |
 | Deploy Docker Hub | `adhityatp/raniassets:<tag>` — pull & run tanpa build ([`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md)) |
 | Unduhan agent di `/agents/push` | 2 jalur (portable = jalur A, exe signed = jalur B) + kartu “blocked by your organization” berisi SHA256 artefak & diagnostik SAC/ASR ([`docs/agent-windows.md` §8](docs/agent-windows.md#8-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control)) |
 | Sisa F2 (printer enrichment, jadwal scan) + installer exe/GNS (F3) | belum |
