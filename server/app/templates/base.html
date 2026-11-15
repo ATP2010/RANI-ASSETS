@@ -46,6 +46,7 @@
   <meta name="theme-color" content="#212529" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
   <link rel="stylesheet" href="/static/vendor/adminlte.min.css">
+  <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
   <style>
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .8125rem; }
     .kv td:first-child { width: 190px; color: var(--bs-secondary-color); }
@@ -157,37 +158,22 @@
             </li>
           </ul>
         </li>
-        <li class="nav-item">
-          <a class="nav-link d-flex align-items-center" href="#" id="language-menu"
-             data-bs-toggle="dropdown" aria-expanded="false" role="button"
-             aria-label="{{ t('lang.label') }}" title="{{ t('lang.label') }}">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M5 8h14M5 12h9M5 16h6"/><circle cx="18.5" cy="14" r="3.2"/><path d="M21.8 15.9 23 17"/>
-            </svg>
-            <span class="visually-hidden">{{ t('lang.label') }}</span>
+        <li class="nav-item dropdown">
+          <a class="nav-link" href="#" id="language-menu" data-bs-toggle="dropdown"
+             aria-expanded="false" aria-label="{{ t('lang.aria_current', current=t('lang.' ~ lang())) }}">
+            <i class="bi bi-translate" aria-hidden="true"></i>
           </a>
-          <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="language-menu">
+          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="language-menu">
             <li>
-              <a class="dropdown-item d-flex align-items-center justify-content-between gap-2 {{ 'active' if lang() == 'id' }}"
-                 href="/lang/id?next={{ current_path() }}">
-                <span>{{ t('lang.id') }}</span>
-                {% if lang() == 'id' %}
-                <svg class="bi-check-lg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                     stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 10"/></svg>
-                {% endif %}
+              <a class="dropdown-item{% if lang() == 'id' %} active{% endif %}" href="/lang/id?next={{ current_path() }}"
+                 hreflang="id"{% if lang() == 'id' %} aria-current="true"{% endif %}>
+                {{ t('lang.id') }}{% if lang() == 'id' %}<i class="bi bi-check-lg ms-2" aria-hidden="true"></i>{% endif %}
               </a>
             </li>
             <li>
-              <a class="dropdown-item d-flex align-items-center justify-content-between gap-2 {{ 'active' if lang() == 'en' }}"
-                 href="/lang/en?next={{ current_path() }}">
-                <span>{{ t('lang.en') }}</span>
-                {% if lang() == 'en' %}
-                <svg class="bi-check-lg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                     stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 10"/></svg>
-                {% endif %}
+              <a class="dropdown-item{% if lang() == 'en' %} active{% endif %}" href="/lang/en?next={{ current_path() }}"
+                 hreflang="en"{% if lang() == 'en' %} aria-current="true"{% endif %}>
+                {{ t('lang.en') }}{% if lang() == 'en' %}<i class="bi bi-check-lg ms-2" aria-hidden="true"></i>{% endif %}
               </a>
             </li>
           </ul>
