@@ -38,31 +38,25 @@ def upgrade() -> None:
                   models.DirectorySyncRun.__table__):
         table.create(bind=bind, checkfirst=True)
 
-    # 2) Kolom baru app_users
-    op.add_column("app_users", sa.Column("auth_source", sa.String(8), nullable=False,
-                                         server_default="local"), schema=SCHEMA)
-    op.add_column("app_users", sa.Column("domain", sa.String(64), nullable=True), schema=SCHEMA)
-    op.add_column("app_users", sa.Column("sam_account_name", sa.String(64), nullable=True),
-                  schema=SCHEMA)
-    op.add_column("app_users", sa.Column("upn", sa.String(255), nullable=True), schema=SCHEMA)
-    op.add_column("app_users", sa.Column("object_guid", sa.String(64), nullable=True),
-                  schema=SCHEMA)
-    op.add_column("app_users", sa.Column("email", sa.String(255), nullable=True),
-                  schema=SCHEMA)
-    op.add_column("app_users",
-                  sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False,
-                            server_default=sa.func.now()),
-                  schema=SCHEMA)
-    op.add_column("app_users",
-                  sa.Column("last_sync_at", sa.DateTime(timezone=True), nullable=True),
-                  schema=SCHEMA)
+    # 2) Kolom baru app_users (idempotent: tabel mungkin sudah dibuat dari models)
+    for stmt in (
+        "ALTER TABLE rani_inventory.app_users ADD COLUMN IF NOT EXISTS auth_source VARCHAR(8) NOT NULL DEFAULT 'local'",
+        "ALTER TABLE rani_inventory.app_users ADD COLUMN IF NOT EXISTS domain VARCHAR(64)",
+        "ALTER TABLE rani_inventory.app_users ADD COLUMN IF NOT EXISTS sam_account_name VARCHAR(64)",
+        "ALTER TABLE rani_inventory.app_users ADD COLUMN IF NOT EXISTS upn VARCHAR(255)",
+        "ALTER TABLE rani_inventory.app_users ADD COLUMN IF NOT EXISTS object_guid VARCHAR(64)",
+        "ALTER TABLE rani_inventory.app_users ADD COLUMN IF NOT EXISTS email VARCHAR(255)",
+        "ALTER TABLE rani_inventory.app_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()",
+        "ALTER TABLE rani_inventory.app_users ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ",
+    ):
+        op.execute(stmt)
     op.alter_column("app_users", "password_hash", nullable=True, schema=SCHEMA)
 
     # 3) auth_sessions.auth_source
-    op.add_column("auth_sessions",
-                  sa.Column("auth_source", sa.String(8), nullable=False,
-                            server_default="local"),
-                  schema=SCHEMA)
+    op.execute(
+        "ALTER TABLE rani_inventory.auth_sessions "
+        "ADD COLUMN IF NOT EXISTS auth_source VARCHAR(8) NOT NULL DEFAULT 'local'"
+    )
 
     # 4) Seed role bawaan (idempotent)
     now = datetime.now(timezone.utc)
@@ -81,22 +75,29 @@ def upgrade() -> None:
              "perms": json.dumps(spec["permissions"]), "now": now},
         )
 
-    # 5) Backfill app_users.role -> app_user_roles
+    # 5) Backfill app_users.role -> app_user_roles (hanya bila kolom legacy role ada)
     op.execute(
         f"""
-        INSERT INTO {SCHEMA}.app_user_roles (user_id, role_id)
-        SELECT u.id, r.id
-        FROM {SCHEMA}.app_users u
-        JOIN {SCHEMA}.roles r
-          ON r.slug = CASE u.role WHEN 'admin' THEN 'admin'
-                                  WHEN 'operator' THEN 'operator'
-                                  ELSE 'reader' END
-        ON CONFLICT DO NOTHING
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.columns
+                     WHERE table_schema = '{SCHEMA}' AND table_name = 'app_users'
+                       AND column_name = 'role') THEN
+            INSERT INTO {SCHEMA}.app_user_roles (user_id, role_id)
+            SELECT u.id, r.id
+            FROM {SCHEMA}.app_users u
+            JOIN {SCHEMA}.roles r
+              ON r.slug = CASE u.role WHEN 'admin' THEN 'admin'
+                                      WHEN 'operator' THEN 'operator'
+                                      ELSE 'reader' END
+            ON CONFLICT DO NOTHING;
+          END IF;
+        END $$;
         """
     )
 
-    # 6) Hapus kolom string role lama
-    op.drop_column("app_users", "role", schema=SCHEMA)
+    # 6) Hapus kolom string role lama (jika ada)
+    op.execute(f"ALTER TABLE {SCHEMA}.app_users DROP COLUMN IF EXISTS role")
 
 
 def downgrade() -> None:

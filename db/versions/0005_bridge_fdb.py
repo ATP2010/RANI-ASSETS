@@ -18,13 +18,15 @@ depends_on = None
 def upgrade() -> None:
     bind = op.get_bind()
     models.EndpointPortMapping.__table__.create(bind=bind, checkfirst=True)
-    op.add_column("scan_groups",
-                  sa.Column("fdb_enabled", sa.Boolean(), nullable=False,
-                            server_default=sa.true()),
-                  schema="rani_inventory")
-    op.add_column("scan_results",
-                  sa.Column("fdb_count", sa.Integer(), nullable=True),
-                  schema="rani_inventory")
+    # Idempotent: kolom mungkin sudah ada bila tabel dibuat dari models (0001).
+    op.execute(
+        "ALTER TABLE rani_inventory.scan_groups "
+        "ADD COLUMN IF NOT EXISTS fdb_enabled BOOLEAN NOT NULL DEFAULT true"
+    )
+    op.execute(
+        "ALTER TABLE rani_inventory.scan_results "
+        "ADD COLUMN IF NOT EXISTS fdb_count INTEGER"
+    )
     # Role report read-only dibuat saat api start (boleh belum ada saat migrasi).
     op.execute(
         """
