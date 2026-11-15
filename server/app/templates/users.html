@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block heading %}Users{% endblock %}
+{% block subheading %}akun login RANI — lokal + Active Directory{% endblock %}
+
+{% block content %}
+{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+
+<form method="get" class="row g-2 mb-2 align-items-end">
+  <div class="col-sm-4">
+    <label class="form-label small mb-0" for="q">Cari</label>
+    <input class="form-control form-control-sm" id="q" name="q" value="{{ q }}"
+           placeholder="username / nama / email">
+  </div>
+  <div class="col-sm-3">
+    <label class="form-label small mb-0" for="status">Status</label>
+    <select class="form-select form-select-sm" id="status" name="status">
+      <option value="" {% if not status %}selected{% endif %}>semua</option>
+      <option value="active" {% if status == 'active' %}selected{% endif %}>aktif</option>
+      <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>nonaktif</option>
+    </select>
+  </div>
+  <div class="col-sm-3">
+    <label class="form-label small mb-0" for="source">Sumber</label>
+    <select class="form-select form-select-sm" id="source" name="source">
+      <option value="" {% if not source %}selected{% endif %}>semua</option>
+      <option value="local" {% if source == 'local' %}selected{% endif %}>lokal</option>
+      <option value="ad" {% if source == 'ad' %}selected{% endif %}>Active Directory</option>
+    </select>
+  </div>
+  <div class="col-sm-2">
+    <button class="btn btn-sm btn-outline-secondary w-100" type="submit">Filter</button>
+  </div>
+</form>
+
+<div class="card mb-3">
+  <div class="card-header">Daftar user ({{ users | length }})</div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-tight mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Username</th>
+          <th>Nama</th>
+          <th>Sumber</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Login terakhir</th>
+          <th class="text-end"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <a class="mono" href="/users/{{ u.id }}">{{ u.username }}</a>
+            {% if u.username == seed_admin %}<span class="badge text-bg-dark ms-1" title="akun break-glass dari RANI_ADMIN_USER">seed</span>{% endif %}
+          </td>
+          <td>{{ u.display_name or '—' }}</td>
+          <td>
+            {% if u.auth_source == 'ad' %}<span class="badge text-bg-info">AD{% if u.domain %} {{ u.domain }}{% endif %}</span>
+            {% else %}<span class="badge text-bg-secondary">lokal</span>{% endif %}
+          </td>
+          <td>
+            {% for slug in roles_by_user.get(u.id, []) %}
+            <span class="badge text-bg-primary">{{ slug }}</span>
+            {% else %}<span class="small-muted">tanpa role</span>{% endfor %}
+          </td>
+          <td>
+            {% if u.is_active %}<span class="badge text-bg-success">aktif</span>
+            {% else %}<span class="badge text-bg-danger">nonaktif</span>{% endif %}
+          </td>
+          <td class="small-muted">{{ u.last_login_at | fmt_dt }}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary" href="/users/{{ u.id }}">Kelola</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="small-muted p-3">tidak ada user sesuai filter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if can_manage %}
+<div class="card">
+  <div class="card-header">Tambah user lokal</div>
+  <div class="card-body">
+    <form method="post" action="/users" class="row g-2">
+      <div class="col-sm-3">
+        <label class="form-label small" for="nu">Username</label>
+        <input class="form-control form-control-sm mono" id="nu" name="username" required
+               minlength="3" maxlength="64" pattern="[a-z0-9._\-]{3,64}"
+               placeholder="huruf kecil, mis. operator1">
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label small" for="nd">Nama tampilan</label>
+        <input class="form-control form-control-sm" id="nd" name="display_name" maxlength="128">
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label small" for="ne">Email</label>
+        <input class="form-control form-control-sm" id="ne" name="email" type="email" maxlength="255">
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label small" for="np">Password</label>
+        <input class="form-control form-control-sm" id="np" name="password" type="password"
+               required minlength="{{ password_min_len }}" autocomplete="new-password">
+        <div class="form-text">min {{ password_min_len }} karakter; simpan di tempat aman.</div>
+      </div>
+      <div class="col-12">
+        <label class="form-label small">Role</label><br>
+        {% for slug, role in roles_map.items() %}
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" name="roles" value="{{ slug }}"
+                 id="role-{{ slug }}" {% if slug == 'reader' %}checked{% endif %}>
+          <label class="form-check-label" for="role-{{ slug }}">{{ role.name }}</label>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="col-12">
+        <button class="btn btn-sm btn-primary" type="submit">Tambah user</button>
+        <span class="small-muted ms-2">Username AD (<code>DOMAIN\user</code>) tidak bisa dibuat di sini — akun AD dibuat otomatis saat login/sync.</span>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

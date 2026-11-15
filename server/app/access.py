@@ -60,3 +60,21 @@ async def revoke_sessions_for_user(session: AsyncSession, user_id) -> int:
         .values(revoked_at=datetime.now(timezone.utc))
     )
     return result.rowcount or 0
+
+
+async def would_lose_last_guard(session: AsyncSession, user: AppUser,
+                                new_role_slugs: list[str]) -> bool:
+    """True bila mengganti role `user` with `new_role_slugs` membuat tidak ada
+    user aktif dengan users.manage+roles.manage tersisa."""
+    caps = await _capabilities(session)
+    def capable(uid, perm_override=None):
+        s = perm_override if perm_override is not None else caps.get(uid, set())
+        return all(p in s for p in GUARD_PERMISSIONS)
+    currently = capable(user.id)
+    rows = (await session.execute(
+        select(Role.slug, Role.permissions)
+        .where(Role.slug.in_(set(new_role_slugs))))).all()
+    new_perms = union_permissions([r.permissions for r in rows],
+                                  [r.slug for r in rows])
+    others = sum(1 for uid in caps if uid != user.id and capable(uid))
+    return currently and not capable(user.id, new_perms) and others == 0

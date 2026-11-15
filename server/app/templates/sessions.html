@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Sesi & audit{% endblock %}
+{% block heading %}Users · Sesi &amp; audit{% endblock %}
+{% block subheading %}sesi aktif · jejak audit{% endblock %}
+
+{% block content %}
+{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+
+<div class="card mb-3">
+  <div class="card-header">Sesi aktif ({{ rows | length }})</div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-tight mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>User</th>
+          <th>Sumber</th>
+          <th>IP</th>
+          <th>Dibuat</th>
+          <th>Kedaluwarsa</th>
+          <th class="text-end"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="mono">{{ row.username }}</td>
+          <td>
+            {% if row.source == 'ad' %}<span class="badge text-bg-info">AD</span>
+            {% else %}<span class="badge text-bg-secondary">lokal</span>{% endif %}
+          </td>
+          <td class="mono">{{ row.session.request_ip or '—' }}</td>
+          <td class="small-muted">{{ row.session.created_at | fmt_dt }}</td>
+          <td class="small-muted">{{ row.session.expires_at | fmt_dt }}</td>
+          <td class="text-end">
+            {% if can_manage %}
+            <form method="post" action="/users/sessions/{{ row.sid }}/revoke" class="d-inline">
+              <button class="btn btn-sm btn-outline-warning" type="submit">Cabut</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="small-muted p-3">tidak ada sesi aktif.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Audit log (maks. 200 terakhir)</span>
+    <form method="get" class="d-flex gap-2">
+      <input class="form-control form-control-sm mono" name="action" value="{{ action }}" placeholder="action, mis. login" size="18">
+      <select class="form-select form-select-sm" name="outcome">
+        <option value="" {% if not outcome %}selected{% endif %}>semua outcome</option>
+        <option value="success" {% if outcome == 'success' %}selected{% endif %}>success</option>
+        <option value="failure" {% if outcome == 'failure' %}selected{% endif %}>failure</option>
+      </select>
+      <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
+    </form>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-tight mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Waktu</th>
+          <th>Actor</th>
+          <th>Aksi</th>
+          <th>Target</th>
+          <th>Outcome</th>
+          <th>IP</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="small-muted text-nowrap">{{ log.created_at | fmt_dt }}</td>
+          <td class="mono">{{ log.actor or '—' }}</td>
+          <td class="mono">{{ log.action }}</td>
+          <td class="mono small">{{ log.target or '—' }}</td>
+          <td>
+            {% if log.outcome == 'success' %}<span class="badge text-bg-success">success</span>
+            {% else %}<span class="badge text-bg-danger">{{ log.outcome }}</span>{% endif %}
+          </td>
+          <td class="mono small">{{ log.request_ip or '—' }}</td>
+          <td class="small mono">{{ log.details | tojson | truncate(120) if log.details else '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="small-muted p-3">audit log kosong.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

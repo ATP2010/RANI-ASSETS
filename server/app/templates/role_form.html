@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Role {{ role.slug }}{% endblock %}
+{% block heading %}Users · Role: {{ role.name }}{% endblock %}
+{% block subheading %}<span class="mono">{{ role.slug }}</span> · {{ users_count }} user{% if mappings_count %} · {{ mappings_count }} mapping AD{% endif %}{% endblock %}
+
+{% block content %}
+{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+{% if role.slug == 'admin' %}
+<div class="alert alert-dark py-2">Role <strong>admin</strong> terkunci: selalu punya semua permission, tidak bisa diubah atau dihapus.</div>
+{% elif role.is_builtin %}
+<div class="alert alert-secondary py-2">Role bawaan (<span class="mono">{{ role.slug }}</span>): boleh diubah permissionnya, tidak bisa dihapus.</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-9">
+    <form method="post" action="/users/roles/{{ role.id }}">
+      <div class="card mb-3">
+        <div class="card-header">Properti</div>
+        <div class="card-body">
+          <div class="row g-2">
+            <div class="col-sm-4">
+              <label class="form-label small" for="e-slug">Slug</label>
+              <input class="form-control form-control-sm mono" id="e-slug" value="{{ role.slug }}" disabled>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label small" for="e-name">Nama</label>
+              <input class="form-control form-control-sm" id="e-name" name="name" maxlength="96"
+                     value="{{ role.name }}" {% if locked %}disabled{% endif %} required>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label small" for="e-desc">Deskripsi</label>
+              <input class="form-control form-control-sm" id="e-desc" name="description" maxlength="500"
+                     value="{{ role.description or '' }}" {% if locked %}disabled{% endif %}>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between">
+          <span>Permission ({{ role_permissions | length }}{% if role.slug == 'admin' %} dari semua{% endif %})</span>
+          {% if not locked %}
+          <span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="check-all">Pilih semua</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="check-none">Kosongkan</button>
+          </span>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="row g-2">
+            {% for module, items in permission_groups.items() %}
+            <div class="col-md-4 col-lg-3">
+              <div class="border rounded p-2 h-100">
+                <div class="fw-semibold small mb-1">{{ module }}</div>
+                {% for key, desc in items %}
+                <div class="form-check">
+                  <input class="form-check-input perm-box" type="checkbox" name="permissions"
+                         value="{{ key }}" id="ep-{{ key }}"
+                         {% if role.slug == 'admin' or key in role_permissions %}checked{% endif %}
+                         {% if locked %}disabled{% endif %}>
+                  <label class="form-check-label small" for="ep-{{ key }}" title="{{ desc }}">{{ key.split('.', 1)[1] }}</label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      {% if not locked %}
+      <button class="btn btn-sm btn-primary" type="submit">Simpan perubahan</button>
+      <span class="small-muted ms-2">Permission berlaku pada request berikutnya.</span>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="col-lg-3">
+    <div class="card">
+      <div class="card-header">Aksi</div>
+      <div class="card-body d-grid gap-2">
+        {% if can_manage %}
+        <form method="post" action="/users/roles/{{ role.id }}/duplicate">
+          <button class="btn btn-sm btn-outline-primary w-100" type="submit">Duplikat role</button>
+        </form>
+        {% if not role.is_builtin %}
+        <form method="post" action="/users/roles/{{ role.id }}/delete"
+              onsubmit="return confirm('Hapus role {{ role.slug }}?');">
+          <button class="btn btn-sm btn-danger w-100" type="submit">Hapus role</button>
+        </form>
+        {% if users_count or mappings_count %}
+        <div class="small-muted">Hapus ditolak: masih dipakai {{ users_count }} user{% if mappings_count %} dan {{ mappings_count }} mapping AD{% endif %}.</div>
+        {% endif %}
+        {% endif %}
+        {% endif %}
+        <a class="btn btn-sm btn-outline-secondary" href="/users/roles">← kembali</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if not locked %}
+<script>
+  const boxes = () => Array.from(document.querySelectorAll('.perm-box'));
+  document.getElementById('check-all')?.addEventListener('click', () => boxes().forEach(b => { b.checked = true; }));
+  document.getElementById('check-none')?.addEventListener('click', () => boxes().forEach(b => { b.checked = false; }));
+</script>
+{% endif %}
+{% endblock %}

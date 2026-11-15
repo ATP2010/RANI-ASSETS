@@ -12,7 +12,7 @@ from redis.asyncio import Redis
 from sqlalchemy import func, select, text
 
 from app.api import (agents_ui, auth, data, downloads, enroll, ingest, network, reports,
-                     reports_ui, scan, system, ui)
+                     reports_ui, scan, system, ui, users)
 from app.config import get_settings
 from app.db import SessionLocal, dispose_engine
 from app.models import AppUser, AppUserRole, Role
@@ -120,6 +120,8 @@ def create_app() -> FastAPI:
     app.include_router(ui.router)
     app.include_router(reports_ui.router)
     app.include_router(reports.router)
+    app.include_router(users.router)
+    app.include_router(users.api_router)
     app.include_router(downloads.router)
 
     @app.exception_handler(HTTPException)

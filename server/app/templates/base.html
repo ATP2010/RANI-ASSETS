@@ -166,6 +166,35 @@
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg></span>
               <p>Reports</p></a>
           </li>
+          {% if user and ('users.view' in user.perm_set or 'roles.view' in user.perm_set or 'audit.view' in user.perm_set or 'directory.view' in user.perm_set) %}
+          <li class="nav-item {% if active == 'users' %}menu-open{% endif %}">
+            <a href="#" class="nav-link {% if active == 'users' %}active{% endif %}"
+               data-lte-toggle="treeview">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="10" r="2.6"/><path d="M15.5 14.6a4.6 4.6 0 0 1 5 4.4"/></svg></span>
+              <p>Users<i class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6"/></svg></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              {% if 'users.view' in user.perm_set %}
+              <li class="nav-item">
+                <a href="/users" class="nav-link {% if sub == 'users' %}active{% endif %}">
+                  <p>Daftar user</p></a>
+              </li>
+              {% endif %}
+              {% if 'roles.view' in user.perm_set %}
+              <li class="nav-item">
+                <a href="/users/roles" class="nav-link {% if sub == 'roles' %}active{% endif %}">
+                  <p>Role &amp; akses</p></a>
+              </li>
+              {% endif %}
+              {% if 'audit.view' in user.perm_set %}
+              <li class="nav-item">
+                <a href="/users/sessions" class="nav-link {% if sub == 'sessions' %}active{% endif %}">
+                  <p>Sesi &amp; audit</p></a>
+              </li>
+              {% endif %}
+            </ul>
+          </li>
+          {% endif %}
         </ul>
       </nav>
     </div>

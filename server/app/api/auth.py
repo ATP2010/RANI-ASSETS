@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit import audit, client_ip
 from app.config import get_settings
 from app.db import get_session
-from app.deps import COOKIE_NAME
+from app.deps import COOKIE_NAME, load_user_access
 from app.models import AppUser, AuthSession
 from app.security import new_token, sha256_hex, verify_password
 from app.templating import templates
@@ -48,6 +48,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
                                           {"next": next, "error": "username/password salah"},
                                           status_code=401)
 
+    await load_user_access(session, user)
     raw = new_token(32)
     now = datetime.now(timezone.utc)
     session.add(AuthSession(token_hash=sha256_hex(raw), user_id=user.id, created_at=now,
