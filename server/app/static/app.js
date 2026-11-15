@@ -21,8 +21,13 @@
   function setStatus(text, ok) {
     const node = el('ws-status');
     if (!node) return;
-    node.textContent = text;
-    node.style.color = ok ? 'var(--bs-success)' : 'var(--bs-secondary-color)';
+    const color = ok ? 'var(--bs-success)' : 'var(--bs-secondary-color)';
+    node.title = text;
+    node.innerHTML = '<span class="d-inline-flex align-items-center gap-1 fw-semibold"' +
+      ' style="color:' + color + '">' +
+      '<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">' +
+      '<circle cx="8" cy="8" r="6"/></svg>' +
+      '<span class="d-none d-sm-inline">Realtime</span></span>';
   }
 
   let retry = 0;
