@@ -4,10 +4,11 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
-from app.models import (Agent, Asset, AssetSource, AppUser, EnrollmentToken, HwComponent,
-                        NetworkInterface, Report, SecurityState, Software, SoftwareEvent,
-                        SoftwareReport, UserSeen)
+from app.models import (Agent, Asset, AssetSource, AppUser, EndpointPortMapping,
+                        EnrollmentToken, HwComponent, NetworkInterface, Report,
+                        SecurityState, Software, SoftwareEvent, SoftwareReport, UserSeen)
 
 DISPLAY_TZ = ZoneInfo("Asia/Jakarta")  # label jam/tanggal di UI selalu WIB
 
@@ -97,6 +98,15 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict |
         .order_by(AssetSource.ts.desc()).limit(20)
     )).scalars().all()
 
+    port_map: list[dict] = []
+    port_map_stale = 0
+    if asset.asset_type == "network":
+        port_map = await list_port_map(session, switch_id=asset_id, limit=2000)
+        port_map_stale = (await session.execute(
+            select(func.count(EndpointPortMapping.id))
+            .where(EndpointPortMapping.switch_asset_id == asset_id,
+                   EndpointPortMapping.present.is_(False)))).scalar_one()
+
     by_class: dict[str, list[HwComponent]] = {}
     for component in hw:
         by_class.setdefault(component.class_, []).append(component)
@@ -107,6 +117,8 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict |
         "software_absent": [s for s in software if not s.present],
         "hardware": by_class, "users": users, "security": security,
         "interfaces": interfaces, "reports": reports, "events": events, "sources": sources,
+        "port_map": port_map, "port_map_stale": port_map_stale,
+        "port_map_ports": len({r["mapping"].if_name for r in port_map if r["mapping"].if_name}),
     }
 
 
@@ -170,6 +182,62 @@ async def dashboard_stats(session: AsyncSession) -> dict:
                            "software_id": str(ev.software_id) if ev.software_id else None}
                           for ev, name, hostname in recent_events],
     }
+
+
+async def port_map_summary(session: AsyncSession) -> list[dict]:
+    """Ringkasan port map per switch: jumlah MAC aktif, port terpakai, endpoint dikenal."""
+    rows = (await session.execute(text(
+        """
+        SELECT a.id AS switch_asset_id, a.hostname, a.ip_last, a.vendor, a.model,
+               count(m.id) FILTER (WHERE m.present) AS macs,
+               count(DISTINCT m.if_name) FILTER (WHERE m.present AND m.if_name IS NOT NULL)
+                   AS ports,
+               count(DISTINCT m.endpoint_asset_id) FILTER (WHERE m.present) AS known,
+               max(m.last_seen) AS last_seen
+          FROM rani_inventory.assets a
+          JOIN rani_inventory.endpoint_port_mappings m ON m.switch_asset_id = a.id
+         GROUP BY a.id, a.hostname, a.ip_last, a.vendor, a.model
+         ORDER BY macs DESC, a.hostname
+        """
+    ))).all()
+    return [{"switch_asset_id": r.switch_asset_id, "hostname": r.hostname,
+             "ip_last": r.ip_last, "vendor": r.vendor, "model": r.model,
+             "macs": r.macs, "ports": r.ports, "known": r.known,
+             "last_seen": r.last_seen} for r in rows]
+
+
+async def list_port_map(session: AsyncSession, switch_id: uuid.UUID | None = None,
+                        q: str | None = None, present_only: bool = True,
+                        limit: int = 2000) -> list[dict]:
+    """Baris MAC↔port (opsional satu switch). `q` mencari MAC, nama port, hostname."""
+    switch = aliased(Asset)
+    endpoint = aliased(Asset)
+    stmt = (select(EndpointPortMapping,
+                   switch.hostname.label("switch_hostname"),
+                   switch.ip_last.label("switch_ip"),
+                   endpoint.hostname.label("endpoint_hostname"),
+                   endpoint.asset_type.label("endpoint_type"))
+            .join(switch, switch.id == EndpointPortMapping.switch_asset_id)
+            .outerjoin(endpoint, endpoint.id == EndpointPortMapping.endpoint_asset_id))
+    if switch_id is not None:
+        stmt = stmt.where(EndpointPortMapping.switch_asset_id == switch_id)
+    if present_only:
+        stmt = stmt.where(EndpointPortMapping.present.is_(True))
+    if q:
+        like = f"%{q.strip().lower()}%"
+        stmt = stmt.where(or_(EndpointPortMapping.mac.ilike(like),
+                              EndpointPortMapping.if_name.ilike(like),
+                              switch.hostname.ilike(like),
+                              switch.ip_last.ilike(like),
+                              endpoint.hostname.ilike(like)))
+    stmt = (stmt.order_by(switch.hostname.asc(), EndpointPortMapping.if_name.asc(),
+                          EndpointPortMapping.mac.asc())
+            .limit(min(max(limit, 1), 5000)))
+    rows = (await session.execute(stmt)).all()
+    return [{"mapping": mapping, "switch_hostname": switch_hostname,
+             "switch_ip": switch_ip, "endpoint_hostname": endpoint_hostname,
+             "endpoint_type": endpoint_type}
+            for mapping, switch_hostname, switch_ip, endpoint_hostname, endpoint_type in rows]
 
 
 async def list_agents(session: AsyncSession) -> list[dict]:

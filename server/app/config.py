@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     RANI_SCAN_CONCURRENCY: int = 16
     RANI_SCAN_TIMEOUT_S: float = 1.0
     RANI_SCAN_RETRIES: int = 1
+    # Port map (bridge FDB): MAC ↔ port switch. Bisa dimatikan per grup di UI.
+    RANI_SCAN_FDB_ENABLED: bool = True
+    RANI_SCAN_FDB_MAX: int = 2000
+    RANI_SCAN_FDB_UPLINK_MACS: int = 10
 
     # Direktori artefak agent yang bisa diunduh dari halaman /agents (mount read-only).
     RANI_AGENT_DIR: str = "/srv/release"

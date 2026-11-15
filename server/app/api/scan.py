@@ -74,7 +74,7 @@ async def scan_status(run_id: uuid.UUID, session: AsyncSession = Depends(get_ses
             "ip": r.ip, "status": r.status, "sys_name": r.sys_name,
             "sys_object_id": r.sys_object_id, "sys_descr": (r.sys_descr or "")[:160],
             "vendor": r.vendor, "model": r.model, "serial": r.serial,
-            "uptime_s": r.uptime_s, "if_count": r.if_count,
+            "uptime_s": r.uptime_s, "if_count": r.if_count, "fdb_count": r.fdb_count,
             "oid_values": r.oid_values or {}, "error": r.error,
             "asset_id": str(r.asset_id) if r.asset_id else None,
         } for r in rows],

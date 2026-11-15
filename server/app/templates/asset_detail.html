@@ -9,8 +9,10 @@
 {% endblock %}
 
 {% block content %}
+{% set tabs = [('overview','Overview'), ('hardware','Hardware'), ('software','Software'), ('users','Users'), ('security','Security'), ('network','Network'), ('reports','Reports'), ('sources','Sources')] %}
+{% if a.asset_type == 'network' %}{% set tabs = tabs + [('portmap','Port map')] %}{% endif %}
 <ul class="nav nav-tabs mb-3" role="tablist">
-  {% for key, label in [('overview','Overview'), ('hardware','Hardware'), ('software','Software'), ('users','Users'), ('security','Security'), ('network','Network'), ('reports','Reports'), ('sources','Sources')] %}
+  {% for key, label in tabs %}
   <li class="nav-item" role="presentation">
     <button class="nav-link {% if loop.first %}active{% endif %}" data-bs-toggle="tab"
             data-bs-target="#tab-{{ key }}" type="button" role="tab">{{ label }}</button>
@@ -54,6 +56,47 @@
         </div>
       </div>
     </div>
+    {% if a.asset_type == 'network' %}
+    {% set snmp = a.attrs.get('snmp') or {} %}
+    {% set bridge = snmp.get('bridge') or {} %}
+    <div class="row g-3 mt-1">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header">SNMP</div>
+          <div class="card-body p-0">
+            <table class="table table-sm table-tight kv mb-0">
+              <tr><td>sysObjectID</td><td class="mono small">{{ snmp.get('sys_object_id') or '—' }}</td></tr>
+              <tr><td>sysDescr</td><td class="small">{{ snmp.get('sys_descr') or '—' }}</td></tr>
+              <tr><td>Interface</td><td class="mono">{{ snmp.get('if_count') if snmp.get('if_count') is not none else '—' }}</td></tr>
+              <tr><td>Scan terakhir</td><td class="small-muted">{{ snmp.get('scanned_at') | fmt_dt if snmp.get('scanned_at') else '—' }}</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Port map</span>
+            <a class="btn btn-sm btn-outline-secondary" href="/agents/portmap?switch={{ a.id }}">Buka</a>
+          </div>
+          <div class="card-body p-0">
+            <table class="table table-sm table-tight kv mb-0">
+              <tr><td>Sumber tabel</td><td class="mono">{{ bridge.get('kind') or '—' }}</td></tr>
+              <tr><td>MAC aktif</td><td class="mono">{{ d.port_map | length }}</td></tr>
+              <tr><td>Port terpakai</td><td class="mono">{{ d.port_map_ports }}</td></tr>
+              <tr><td>MAC hilang (riwayat)</td><td class="mono">{{ d.port_map_stale }}</td></tr>
+              <tr><td>Status</td><td class="small">
+                {% if bridge.get('truncated') %}<span class="badge text-bg-warning">dipotong di batas scan</span>
+                {% elif bridge.get('kind') %}<span class="badge text-bg-success">terkumpul</span>
+                {% else %}<span class="badge text-bg-secondary">belum ada</span>{% endif %}
+                {% if bridge.get('error') %}<div class="text-danger">{{ bridge.get('error') }}</div>{% endif %}
+              </td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <div class="tab-pane fade" id="tab-hardware" role="tabpanel">
@@ -210,6 +253,53 @@
       </div>
     </div>
   </div>
+
+  {% if a.asset_type == 'network' %}
+  <div class="tab-pane fade" id="tab-portmap" role="tabpanel">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Port map · {{ d.port_map | length }} MAC aktif · {{ d.port_map_ports }} port</span>
+        <span class="small-muted">
+          {% if d.port_map_stale %}{{ d.port_map_stale }} MAC hilang (riwayat){% endif %}
+          <a class="ms-2" href="/agents/portmap?switch={{ a.id }}">halaman penuh</a>
+        </span>
+      </div>
+      <div class="card-body p-0" style="max-height: 520px; overflow: auto;">
+        <table class="table table-sm table-tight mb-0 align-middle">
+          <thead class="table-light">
+            <tr><th>Port</th><th>VLAN</th><th>MAC</th><th>Endpoint</th><th>Status</th><th>Terakhir</th></tr>
+          </thead>
+          <tbody>
+            {% for row in d.port_map %}
+            {% set m = row.mapping %}
+            <tr>
+              <td class="mono">{{ m.if_name or (m.bridge_port if m.bridge_port is not none else '—') }}</td>
+              <td class="mono small">{{ m.vlan if m.vlan else '—' }}</td>
+              <td class="mono small">{{ m.mac }}</td>
+              <td class="small">
+                {% if m.endpoint_asset_id %}
+                  <a href="/assets/{{ m.endpoint_asset_id }}">{{ row.endpoint_hostname or 'asset' }}</a>
+                {% else %}<span class="small-muted">tidak dikenal</span>{% endif %}
+              </td>
+              <td>
+                {% if m.status == 'self' %}<span class="badge text-bg-info">self</span>
+                {% elif m.status == 'mgmt' %}<span class="badge text-bg-secondary">mgmt</span>
+                {% else %}<span class="badge text-bg-success">learned</span>{% endif %}
+              </td>
+              <td class="small-muted">{{ m.last_seen | fmt_dt }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="small-muted p-3">
+              Belum ada data port map. Jalankan scan SNMP dengan opsi “Kumpulkan port map”
+              aktif untuk grup ini.
+            </td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="tab-pane fade" id="tab-reports" role="tabpanel">
     <div class="card">

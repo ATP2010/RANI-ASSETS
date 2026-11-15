@@ -18,15 +18,19 @@ import uuid
 from datetime import datetime, timezone
 
 from redis.asyncio import Redis
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.crypto import decrypt_secret
 from app.db import SessionLocal
-from app.models import Asset, ScanGroup, ScanOid, ScanResult, ScanRun
-from app.snmp import (ENTITY_MODEL, ENTITY_SERIAL, ENTITY_VENDOR, IF_NUMBER, SYS_DESCR,
-                      SYS_NAME, SYS_OBJECT_ID, SYS_UPTIME, SnmpClient, SnmpError)
+from app.ingest.reconciler import normalize_mac
+from app.models import Asset, EndpointPortMapping, ScanGroup, ScanOid, ScanResult, ScanRun
+from app.snmp import (DOT1D_BASE_PORT_IFINDEX, DOT1D_TP_FDB_PORT,
+                      DOT1D_TP_FDB_STATUS, DOT1Q_TP_FDB_PORT, DOT1Q_TP_FDB_STATUS,
+                      DOT1Q_VLAN_FDB_ID, ENTITY_MODEL, ENTITY_SERIAL, ENTITY_VENDOR,
+                      FDB_STATUS, IF_DESCR, IF_NAME, IF_NUMBER, SYS_DESCR, SYS_NAME,
+                      SYS_OBJECT_ID, SYS_UPTIME, SnmpClient, SnmpError)
 from app.ws import publish
 
 log = logging.getLogger("rani.scan")
@@ -152,9 +156,157 @@ def guess_model(sys_descr: str | None, entity_model: str | None) -> str | None:
     return text.splitlines()[0][:128]
 
 
+# ----------------------------------------------------------- bridge FDB (F2.4) --
+def index_suffix(oid: str, base: str) -> list[int] | None:
+    """Ambil bagian indeks dari OID tabel, mis. ...1.2.3.4.5.6 → [1,2,3,4,5,6]."""
+    prefix = base.rstrip(".") + "."
+    if not oid.startswith(prefix):
+        return None
+    parts = oid[len(prefix):].split(".")
+    try:
+        return [int(p) for p in parts if p != ""]
+    except ValueError:
+        return None
+
+
+def parse_fdb_index(oid: str, base: str) -> tuple[int, str] | None:
+    """Indeks tabel FDB → (vlan/fdb-id, mac).
+
+    dot1dTpFdbPort:  <mac 6 oktet>              → vlan 0
+    dot1qTpFdbPort:  <fdb-id>.<mac 6 oktet>     → vlan = fdb-id (dipetakan nanti)
+    """
+    parts = index_suffix(oid, base)
+    if not parts or len(parts) not in (6, 7):
+        return None
+    octets = parts[-6:]
+    if any(b < 0 or b > 255 for b in octets):
+        return None
+    if octets[0] & 0x01:          # bit multicast/broadcast → bukan MAC endpoint
+        return None
+    mac = ":".join(f"{b:02x}" for b in octets)
+    if normalize_mac(mac) is None:      # zero MAC dsb.
+        return None
+    vlan = parts[0] if len(parts) == 7 else 0
+    return vlan, mac
+
+
+def _if_names(client: SnmpClient, cap: int = 512) -> dict[int, str]:
+    """ifIndex → nama port. ifName (IF-MIB) dulu, fallback ifDescr."""
+    for root in (IF_NAME, IF_DESCR):
+        names: dict[int, str] = {}
+        try:
+            for vb in client.walk_bulk(root, max_rows=cap):
+                idx = index_suffix(vb.oid, root)
+                if idx and len(idx) == 1 and vb.value not in (None, ""):
+                    names[idx[0]] = str(vb.value).strip()[:96]
+        except SnmpError:
+            continue
+        if names:
+            return names
+    return {}
+
+
+def _bridge_port_map(client: SnmpClient, cap: int = 512) -> dict[int, int]:
+    """Bridge port number → ifIndex (dot1dBasePortIfIndex)."""
+    out: dict[int, int] = {}
+    try:
+        for vb in client.walk_bulk(DOT1D_BASE_PORT_IFINDEX, max_rows=cap):
+            idx = index_suffix(vb.oid, DOT1D_BASE_PORT_IFINDEX)
+            if idx and len(idx) == 1 and isinstance(vb.value, int):
+                out[idx[0]] = vb.value
+    except SnmpError:
+        pass
+    return out
+
+
+def _vlan_names(client: SnmpClient, cap: int = 128) -> dict[int, int]:
+    """fdb-id → VLAN (dot1qVlanFdbId; di banyak switch fdb-id == VLAN id)."""
+    out: dict[int, int] = {}
+    try:
+        for vb in client.walk_bulk(DOT1Q_VLAN_FDB_ID, max_rows=cap):
+            idx = index_suffix(vb.oid, DOT1Q_VLAN_FDB_ID)
+            if idx and len(idx) == 1 and isinstance(vb.value, int):
+                out.setdefault(vb.value, idx[0])
+    except SnmpError:
+        pass
+    return out
+
+
+def collect_bridge_fdb(client: SnmpClient, max_rows: int = 2000) -> dict:
+    """Baca tabel forwarding bridge: MAC → port switch.
+
+    Coba BRIDGE-MIB (dot1d) dulu karena paling universal; kalau kosong pakai
+    Q-BRIDGE-MIB (dot1q, VLAN-aware). Perangkat non-switch tidak menjawab → hasil kosong.
+    """
+    empty = {"kind": None, "rows": [], "count": 0, "truncated": False, "ports": 0}
+    vlan_map: dict[int, int] | None = None
+    for kind, port_oid, status_oid in (
+            ("dot1d", DOT1D_TP_FDB_PORT, DOT1D_TP_FDB_STATUS),
+            ("dot1q", DOT1Q_TP_FDB_PORT, DOT1Q_TP_FDB_STATUS)):
+        try:
+            port_rows = client.walk_bulk(port_oid, max_rows=max_rows)
+        except SnmpError:
+            continue
+        if not port_rows:
+            continue
+        if kind == "dot1q" and vlan_map is None:
+            vlan_map = _vlan_names(client)
+        status_by_index: dict[tuple[int, ...], object] = {}
+        try:
+            for vb in client.walk_bulk(status_oid, max_rows=max_rows):
+                idx = index_suffix(vb.oid, status_oid)
+                if idx:
+                    status_by_index[tuple(idx)] = vb.value
+        except SnmpError:
+            pass
+        port_if = _bridge_port_map(client)
+        if_names = _if_names(client)
+        rows: list[dict] = []
+        seen: set[tuple[int, str]] = set()
+        for vb in port_rows:
+            parsed = parse_fdb_index(vb.oid, port_oid)
+            if parsed is None:
+                continue
+            vlan, mac = parsed
+            if kind == "dot1q" and vlan_map:
+                vlan = vlan_map.get(vlan, vlan)
+            if (vlan, mac) in seen:
+                continue
+            try:
+                bridge_port = int(vb.value)
+            except (TypeError, ValueError):
+                continue
+            idx = index_suffix(vb.oid, port_oid)
+            status_code = status_by_index.get(tuple(idx)) if idx else None
+            status = FDB_STATUS.get(status_code, "learned") if isinstance(status_code, int) \
+                else "learned"
+            if status == "invalid":
+                continue
+            if_index = port_if.get(bridge_port)
+            rows.append({
+                "mac": mac,
+                "vlan": vlan,
+                "bridge_port": bridge_port,
+                "if_index": if_index,
+                "if_name": if_names.get(if_index) if if_index else None,
+                "status": status,
+            })
+            seen.add((vlan, mac))
+        return {
+            "kind": kind,
+            "rows": rows,
+            "count": len(rows),
+            # truncated bila tabel mentah menyentuh batas (masih ada baris tak terbaca)
+            "truncated": len(port_rows) >= max_rows,
+            "ports": len({r["if_name"] or r["bridge_port"] for r in rows}),
+        }
+    return empty
+
+
 # ---------------------------------------------------------------------- probe --
 def probe_host(ip: str, *, community: str, version: int, port: int, timeout: float,
-               retries: int, custom_oids: list[dict]) -> dict:
+               retries: int, custom_oids: list[dict], collect_fdb: bool = True,
+               fdb_max: int = 2000) -> dict:
     """Probe satu IP (blocking; dipanggil via asyncio.to_thread)."""
     client = SnmpClient(ip, community, port=port, version=version,
                         timeout=timeout, retries=retries)
@@ -200,6 +352,17 @@ def probe_host(ip: str, *, community: str, version: int, port: int, timeout: flo
         except SnmpError as exc:
             oid_values[label] = f"(error: {exc})"
 
+    bridge = {"kind": None, "rows": [], "count": 0, "truncated": False, "ports": 0}
+    if collect_fdb:
+        # Data port map tidak boleh menggagalkan scan: device lambat / tabel rusak = kosong.
+        try:
+            bridge = collect_bridge_fdb(client, max_rows=fdb_max)
+        except SnmpError as exc:
+            bridge["error"] = str(exc)[:200]
+        except Exception as exc:  # noqa: BLE001
+            log.warning("port map %s gagal: %s", ip, exc)
+            bridge["error"] = str(exc)[:200]
+
     return {
         "ip": ip,
         "status": "ok",
@@ -212,6 +375,8 @@ def probe_host(ip: str, *, community: str, version: int, port: int, timeout: flo
         "uptime_s": int(base.get(SYS_UPTIME) // 100) if isinstance(base.get(SYS_UPTIME), int) else None,
         "if_count": base.get(IF_NUMBER) if isinstance(base.get(IF_NUMBER), int) else None,
         "oid_values": oid_values,
+        "bridge": bridge,
+        "fdb": bridge["rows"],
     }
 
 
@@ -243,6 +408,17 @@ async def upsert_network_asset(session: AsyncSession, result: dict) -> tuple[uui
         "run_id": result.get("run_id"),
         "scanned_at": datetime.now(timezone.utc).isoformat(),
     }
+    bridge = result.get("bridge") or {}
+    if bridge.get("kind"):
+        # FDB mentah tidak disimpan di attrs (bisa ribuan baris) — hanya ringkasan.
+        # Detail MAC↔port ada di tabel endpoint_port_mappings.
+        snmp_attrs["bridge"] = {
+            "kind": bridge.get("kind"),
+            "count": bridge.get("count", 0),
+            "ports": bridge.get("ports", 0),
+            "truncated": bool(bridge.get("truncated")),
+            "error": bridge.get("error"),
+        }
     created = asset is None
     if created:
         asset = Asset(asset_type="network", hostname=hostname, serial=serial,
@@ -264,6 +440,71 @@ async def upsert_network_asset(session: AsyncSession, result: dict) -> tuple[uui
         asset.attrs = attrs
     await session.flush()
     return asset.id, ("new" if created else "update")
+
+
+async def upsert_port_mappings(session: AsyncSession, asset_id: uuid.UUID,
+                               run_id: uuid.UUID | None, rows: list[dict]) -> dict:
+    """Upsert MAC↔port untuk satu switch; MAC hilang → `present=false` (bukan dihapus).
+
+    `endpoint_asset_id` diisi bila MAC cocok dengan `assets.primary_mac` yang sudah ada.
+    TIDAK membuat asset baru dari FDB — FDB hanya membuktikan MAC ada di port, bukan
+    identitas lengkap (aturan DEVGUIDE §4.2).
+    """
+    if not rows:
+        return {"inserted": 0, "updated": 0, "stale": 0, "linked": 0}
+    now = datetime.now(timezone.utc)
+    existing = (await session.execute(
+        select(EndpointPortMapping)
+        .where(EndpointPortMapping.switch_asset_id == asset_id))).scalars().all()
+    by_key = {(row.vlan, row.mac): row for row in existing}
+
+    macs = sorted({r["mac"] for r in rows if r.get("mac")})
+    endpoint_by_mac: dict[str, uuid.UUID] = {}
+    if macs:
+        for aid, pmac in (await session.execute(
+                select(Asset.id, Asset.primary_mac)
+                .where(func.lower(Asset.primary_mac).in_(macs),
+                       Asset.id != asset_id))).all():
+            if pmac:
+                endpoint_by_mac[pmac.lower()] = aid
+
+    seen: set[tuple[int, str]] = set()
+    inserted = updated = 0
+    for item in rows:
+        mac = item.get("mac")
+        if not mac:
+            continue
+        key = (int(item.get("vlan") or 0), mac)
+        if key in seen:
+            continue
+        seen.add(key)
+        obj = by_key.get(key)
+        if obj is None:
+            obj = EndpointPortMapping(switch_asset_id=asset_id, run_id=run_id,
+                                      vlan=key[0], mac=key[1], first_seen=now)
+            session.add(obj)
+            inserted += 1
+        else:
+            obj.run_id = run_id or obj.run_id
+            updated += 1
+        bridge_port = item.get("bridge_port")
+        obj.bridge_port = int(bridge_port) if bridge_port is not None else None
+        if_index = item.get("if_index")
+        obj.if_index = int(if_index) if if_index is not None else None
+        obj.if_name = (item.get("if_name") or None)
+        obj.status = item.get("status") or "learned"
+        obj.endpoint_asset_id = endpoint_by_mac.get(mac)
+        obj.present = True
+        obj.last_seen = now
+
+    stale = 0
+    for key, obj in by_key.items():
+        if key not in seen and obj.present:
+            obj.present = False
+            stale += 1
+    await session.flush()
+    return {"inserted": inserted, "updated": updated, "stale": stale,
+            "linked": len(endpoint_by_mac)}
 
 
 # --------------------------------------------------------------------- run scan --
@@ -310,6 +551,7 @@ async def execute_scan(run_id: uuid.UUID) -> None:
 
             semaphore = asyncio.Semaphore(settings.RANI_SCAN_CONCURRENCY)
             done = found = 0
+            fdb_rows = bridges = 0
             cancelled = False
 
             async def one(ip: str) -> dict | None:
@@ -319,7 +561,10 @@ async def execute_scan(run_id: uuid.UUID) -> None:
                             probe_host, ip, community=community,
                             version=1 if group.snmp_version == "1" else 2,
                             port=group.port or 161, timeout=settings.RANI_SCAN_TIMEOUT_S,
-                            retries=settings.RANI_SCAN_RETRIES, custom_oids=custom)
+                            retries=settings.RANI_SCAN_RETRIES, custom_oids=custom,
+                            collect_fdb=bool(settings.RANI_SCAN_FDB_ENABLED
+                                             and group.fdb_enabled),
+                            fdb_max=settings.RANI_SCAN_FDB_MAX)
                     except SnmpError as exc:
                         return {"ip": ip, "status": "timeout", "error": str(exc)[:255]}
                     except Exception as exc:  # noqa: BLE001
@@ -336,6 +581,12 @@ async def execute_scan(run_id: uuid.UUID) -> None:
                     outcome["run_id"] = str(run_id)
                     asset_id, action = await upsert_network_asset(session, outcome)
                     outcome["asset_id"] = asset_id
+                    if asset_id is not None and outcome.get("fdb"):
+                        mapping = await upsert_port_mappings(session, asset_id, run_id,
+                                                             outcome["fdb"])
+                        outcome["fdb_count"] = mapping["inserted"] + mapping["updated"]
+                        fdb_rows += outcome["fdb_count"] or 0
+                        bridges += 1
                     pending_events.append({
                         "type": "asset.new" if action == "new" else "asset.update",
                         "hostname": outcome.get("sys_name") or outcome["ip"],
@@ -351,6 +602,7 @@ async def execute_scan(run_id: uuid.UUID) -> None:
                                        serial=outcome.get("serial"),
                                        uptime_s=outcome.get("uptime_s"),
                                        if_count=outcome.get("if_count"),
+                                       fdb_count=outcome.get("fdb_count"),
                                        oid_values=outcome.get("oid_values") or {},
                                        error=outcome.get("error"),
                                        asset_id=outcome.get("asset_id")))
@@ -377,12 +629,16 @@ async def execute_scan(run_id: uuid.UUID) -> None:
             run.finished_at = datetime.now(timezone.utc)
             run.hosts_done = done
             run.hosts_found = found
+            stats = dict(run.stats or {})
+            stats.update({"bridges": bridges, "port_map_rows": fdb_rows})
+            run.stats = stats
             group.last_scan_at = datetime.now(timezone.utc)
             group.last_scan_status = f"{run.status}: {found}/{done}"
             await session.commit()
             await publish(redis, {"type": "scan.done", "run_id": str(run_id),
                                   "group": group.name, "status": run.status,
-                                  "done": done, "total": len(hosts), "found": found})
+                                  "done": done, "total": len(hosts), "found": found,
+                                  "bridges": bridges, "port_map_rows": fdb_rows})
     except asyncio.CancelledError:
         await _mark(run_id, "cancelled", "dibatalkan")
         raise

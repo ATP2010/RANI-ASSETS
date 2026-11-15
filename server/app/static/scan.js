@@ -36,7 +36,7 @@
     if (!results.length) {
       var tr = document.createElement('tr');
       var cell = td('belum ada hasil scan', 'small-muted p-3');
-      cell.colSpan = 7;
+      cell.colSpan = 8;
       tr.appendChild(cell);
       body.appendChild(tr);
     }
@@ -61,6 +61,7 @@
                         'small-muted'));
       tr.appendChild(td(row.serial, 'mono small'));
       tr.appendChild(td(row.if_count, 'mono small'));
+      tr.appendChild(td(row.fdb_count, 'mono small'));
 
       var oidCell = document.createElement('td');
       oidCell.className = 'small';

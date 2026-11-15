@@ -9,6 +9,8 @@ binaries.
 - **Realtime dashboard** (AdminLTE 4 + Apache ECharts + WebSocket)
 - **Custom reports** — user-written `SELECT` executed by a separate read-only DB role
 - **Network scan** — SNMP v1/v2c sweeps per IP group, with Lansweeper-style custom OIDs
+- **Layer-2 port map** — MAC ↔ switch port from the bridge forwarding table (dot1d/dot1q),
+  linked to known assets, with a MAC lookup
 - **No cloud dependency** — everything stays on your LAN; Postgres + Redis only
 
 ---
@@ -139,6 +141,11 @@ UI → **Agents → Grup IP & OID**: add a group (CIDR / range / single IP, SNMP
 community, port), optionally add custom OIDs (`label` + OID, suffix `.*` walks a table),
 then **Agents → Scan** → start. Devices that answer become `network` assets.
 
+For switches, leave **Kumpulkan port map** checked: the scan reads the bridge forwarding
+table (BRIDGE-MIB / Q-BRIDGE-MIB) and fills **Agents → Port map** with MAC ↔ port rows.
+MACs that match a known asset's primary MAC are linked; unknown MACs are shown but never
+turned into new assets.
+
 ## Configuration
 
 | Variable | Default | Description |
@@ -151,6 +158,7 @@ then **Agents → Scan** → start. Devices that answer become `network` assets.
 | `RANI_REPORT_DB_PASSWORD` | — | password for the read-only report role; empty disables `/reports` execution |
 | `RANI_TOKENLESS_PUSH` | `1` | `0` = force enrollment token + HMAC |
 | `RANI_SCAN_MAX_HOSTS` / `RANI_SCAN_CONCURRENCY` / `RANI_SCAN_TIMEOUT_S` | `512` / `16` / `1.0` | SNMP scan limits |
+| `RANI_SCAN_FDB_ENABLED` / `RANI_SCAN_FDB_MAX` / `RANI_SCAN_FDB_UPLINK_MACS` | `1` / `2000` / `10` | port map: global switch, MAC cap per device, uplink hint threshold |
 | `RANI_REPORT_MAX_ROWS` / `RANI_REPORT_TIMEOUT_MS` | `1000` / `8000` | custom report limits |
 | `RANI_ENV` | `production` | `production` hides `/api/docs` |
 | `TZ` | `Asia/Jakarta` | container timezone (UI shows WIB) |
@@ -176,7 +184,8 @@ openssl rand -hex 16   # RANI_REPORT_DB_PASSWORD, POSTGRES_PASSWORD
   when the agent was enrolled. Tokenless mode trusts the LAN (toggle with `RANI_TOKENLESS_PUSH`).
 - Custom reports run as a separate Postgres role with `default_transaction_read_only=on`,
   SELECT-only grants, statement timeout, row cap; credential tables are revoked.
-- SNMP credentials are encrypted at rest; the scanner only issues GET/GETNEXT.
+- SNMP credentials are encrypted at rest; the scanner only issues GET/GETNEXT/GETBULK
+  (no SET/write). Bridge FDB rows are stored as MAC ↔ port summaries, not raw dumps.
 - Every write action and scan/report run is written to `audit_logs`.
 
 ## Tags

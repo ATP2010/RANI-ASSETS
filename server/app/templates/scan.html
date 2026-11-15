@@ -98,7 +98,7 @@
         <thead class="table-light">
           <tr>
             <th>IP</th><th>Status</th><th>Nama</th><th>Vendor / model</th>
-            <th>Serial</th><th>IF</th><th>Custom OID</th>
+            <th>Serial</th><th>IF</th><th>Port map</th><th>Custom OID</th>
           </tr>
         </thead>
         <tbody>
@@ -117,6 +117,7 @@
             <td class="small-muted">{{ r.vendor or '—' }}{% if r.model %} · {{ r.model }}{% endif %}</td>
             <td class="mono small">{{ r.serial or '—' }}</td>
             <td class="mono small">{{ r.if_count if r.if_count is not none else '—' }}</td>
+            <td class="mono small">{{ r.fdb_count if r.fdb_count is not none else '—' }}</td>
             <td class="small">
               {% if r.oid_values %}
                 {% for k, v in r.oid_values.items() %}
@@ -127,7 +128,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="7" class="small-muted p-3">belum ada hasil scan</td></tr>
+          <tr><td colspan="8" class="small-muted p-3">belum ada hasil scan</td></tr>
           {% endfor %}
         </tbody>
       </table>

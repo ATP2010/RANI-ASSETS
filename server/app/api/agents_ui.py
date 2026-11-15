@@ -17,7 +17,7 @@ from app.crypto import encrypt_secret
 from app.db import get_session
 from app.deps import require_user
 from app.models import AppUser, ScanGroup, ScanOid, ScanResult, ScanRun
-from app.queries import list_agents, list_tokens
+from app.queries import list_agents, list_port_map, list_tokens, port_map_summary
 from app.scanner import ScanError, expand_hosts, normalize_range, parse_ranges, running_for
 from app.security import role_allows
 from app.templating import templates
@@ -148,6 +148,34 @@ async def agents_scan(request: Request, run: str | None = None,
     })
 
 
+@router.get("/agents/portmap")
+async def agents_portmap(request: Request, switch: str | None = None, q: str | None = None,
+                         stale: int = 0,
+                         session: AsyncSession = Depends(get_session),
+                         user: AppUser = Depends(require_user("reader"))):
+    """Port map L2: MAC terlihat di port switch mana (hasil bridge FDB)."""
+    switch_id = None
+    if switch:
+        try:
+            switch_id = uuid.UUID(switch)
+        except ValueError:
+            switch_id = None
+    rows = await list_port_map(session, switch_id=switch_id, q=q,
+                               present_only=not bool(stale), limit=2000)
+    per_port: dict[str, int] = {}
+    for row in rows:
+        name = row["mapping"].if_name or "(tanpa nama port)"
+        per_port[name] = per_port.get(name, 0) + 1
+    return templates.TemplateResponse(request, "portmap.html", {
+        "user": user, "active": "agents", "sub": "portmap",
+        "summary": await port_map_summary(session), "rows": rows,
+        "q": q or "", "switch": switch or "", "stale": bool(stale),
+        "per_port": per_port,
+        "uplink_min": settings.RANI_SCAN_FDB_UPLINK_MACS,
+        "fdb_max": settings.RANI_SCAN_FDB_MAX,
+    })
+
+
 @router.get("/agents/groups")
 async def scan_groups_page(request: Request, edit: str | None = None,
                            oid_error: str | None = None,
@@ -175,9 +203,9 @@ async def scan_groups_page(request: Request, edit: str | None = None,
 
 
 def _form_values(name: str, description: str, ranges: str, snmp_version: str,
-                 port: str) -> dict:
+                 port: str, fdb_enabled: bool = True) -> dict:
     return {"name": name, "description": description, "ranges": ranges,
-            "snmp_version": snmp_version, "port": port}
+            "snmp_version": snmp_version, "port": port, "fdb_enabled": fdb_enabled}
 
 
 @router.post("/agents/groups/save")
@@ -185,12 +213,14 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
                           name: str = Form(""), description: str = Form(""),
                           ranges: str = Form(""), snmp_version: str = Form("2c"),
                           community: str = Form(""), port: str = Form("161"),
+                          fdb_enabled: str = Form(""),
                           session: AsyncSession = Depends(get_session),
                           user: AppUser = Depends(require_user("operator"))):
     error = None
     parsed_ranges: list[str] = []
     port_num = 161
     clean_name = name.strip()[:MAX_NAME]
+    fdb_on = fdb_enabled.strip().lower() not in ("", "0", "false", "off", "no")
     try:
         if not clean_name:
             raise ScanError("nama grup wajib diisi")
@@ -222,7 +252,7 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
             "user": user, "active": "agents", "sub": "groups",
             "groups": [{"group": g, "stats": _group_stats(g)} for g in groups],
             "oids": oids, "editing": target, "error": error,
-            "values": _form_values(name, description, ranges, snmp_version, port),
+            "values": _form_values(name, description, ranges, snmp_version, port, fdb_on),
             "can_manage": True, "max_hosts": settings.RANI_SCAN_MAX_HOSTS,
         }, status_code=400)
 
@@ -238,7 +268,7 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
             "user": user, "active": "agents", "sub": "groups",
             "groups": [{"group": g, "stats": _group_stats(g)} for g in groups],
             "oids": oids, "editing": target, "error": error,
-            "values": _form_values(name, description, ranges, snmp_version, port),
+            "values": _form_values(name, description, ranges, snmp_version, port, fdb_on),
             "can_manage": True, "max_hosts": settings.RANI_SCAN_MAX_HOSTS,
         }, status_code=400)
 
@@ -250,6 +280,7 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
     target.ranges = parsed_ranges
     target.snmp_version = snmp_version
     target.port = port_num
+    target.fdb_enabled = fdb_on
     if community.strip():
         target.community_enc = encrypt_secret(community.strip(),
                                               settings.RANI_INGEST_PEPPER)

@@ -308,6 +308,7 @@ class ScanGroup(Base):
     community_enc: Mapped[str | None] = mapped_column(Text)
     port: Mapped[int] = mapped_column(Integer, default=161)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    fdb_enabled: Mapped[bool] = mapped_column(Boolean, default=True)  # port map (bridge FDB)
     created_at = _now()
     last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_scan_status: Mapped[str | None] = mapped_column(String(32))
@@ -372,7 +373,41 @@ class ScanResult(Base):
     serial: Mapped[str | None] = mapped_column(String(128))
     uptime_s: Mapped[int | None] = mapped_column(Integer)
     if_count: Mapped[int | None] = mapped_column(Integer)
+    fdb_count: Mapped[int | None] = mapped_column(Integer)  # baris port map dari bridge FDB
     oid_values: Mapped[dict] = mapped_column(JSONB, default=dict)
     error: Mapped[str | None] = mapped_column(String(255))
     asset_id: Mapped[uuid.UUID | None] = mapped_column(UUID_PK, index=True)
     created_at = _now()
+
+
+class EndpointPortMapping(Base):
+    """MAC ↔ port switch dari BRIDGE-MIB (dot1d) / Q-BRIDGE-MIB (dot1q).
+
+    Satu baris = satu MAC yang dipelajari di satu port switch. MAC yang hilang tidak
+    dihapus: `present=false` (delta, pola sama dengan hw_components).
+    """
+    __tablename__ = "endpoint_port_mappings"
+    __table_args__ = (
+        UniqueConstraint("switch_asset_id", "vlan", "mac",
+                         name="uq_endpoint_port_switch_vlan_mac"),
+        Index(f"ix_{SCHEMA}_epm_mac", "mac"),
+        Index(f"ix_{SCHEMA}_epm_switch", "switch_asset_id"),
+        Index(f"ix_{SCHEMA}_epm_endpoint", "endpoint_asset_id"),
+        {"schema": SCHEMA},
+    )
+
+    id = _uuid_pk()
+    switch_asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{SCHEMA}.assets.id", ondelete="CASCADE"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey(f"{SCHEMA}.scan_runs.id", ondelete="SET NULL"))
+    vlan: Mapped[int] = mapped_column(Integer, default=0)  # 0 = tidak diketahui (dot1d)
+    mac: Mapped[str] = mapped_column(String(32))
+    bridge_port: Mapped[int | None] = mapped_column(Integer)
+    if_index: Mapped[int | None] = mapped_column(Integer)
+    if_name: Mapped[str | None] = mapped_column(String(96))
+    status: Mapped[str] = mapped_column(String(16), default="learned")
+    endpoint_asset_id: Mapped[uuid.UUID | None] = mapped_column(UUID_PK)
+    present: Mapped[bool] = mapped_column(Boolean, default=True)
+    first_seen = _now()
+    last_seen = _now()

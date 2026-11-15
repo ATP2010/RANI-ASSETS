@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Port map{% endblock %}
+{% block heading %}Agents · Port map L2{% endblock %}
+{% block subheading %}MAC ↔ port switch (bridge FDB){% endblock %}
+
+{% block content %}
+<div class="alert alert-secondary py-2 d-flex flex-wrap gap-2 align-items-center">
+  <span>Data berasal dari tabel forwarding switch (<span class="mono">BRIDGE-MIB</span> /
+    <span class="mono">Q-BRIDGE-MIB</span>) saat scan SNMP. Perangkat non-switch tidak punya tabel ini.</span>
+  <a class="btn btn-sm btn-outline-secondary ms-auto" href="/agents/scan">Mulai scan</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Switch terpantau ({{ summary | length }})</span>
+    <span class="small-muted">maks {{ fdb_max }} MAC per perangkat per scan</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-tight mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Switch</th><th>IP</th><th>Vendor / model</th><th>MAC aktif</th>
+            <th>Port terpakai</th><th>Endpoint dikenal</th><th>Scan terakhir</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in summary %}
+          <tr>
+            <td>
+              <a href="/assets/{{ s.switch_asset_id }}">{{ s.hostname or s.switch_asset_id }}</a>
+            </td>
+            <td class="mono small">{{ s.ip or '—' }}</td>
+            <td class="small-muted">{{ s.vendor or '—' }}{% if s.model %} · {{ s.model }}{% endif %}</td>
+            <td class="mono">{{ s.macs }}</td>
+            <td class="mono">{{ s.ports }}</td>
+            <td class="mono">{{ s.known }}</td>
+            <td class="small-muted">{{ s.last_seen | fmt_dt }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary"
+                 href="/agents/portmap?switch={{ s.switch_asset_id }}">Lihat port</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="small-muted p-3">
+            belum ada data port map — jalankan scan SNMP ke grup yang berisi switch, dan pastikan
+            <strong>Kumpulkan port map</strong> aktif di grup tersebut.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>MAC ↔ port{% if switch %} · satu switch{% endif %} ({{ rows | length }} baris)</span>
+    <span class="small-muted">tanda <span class="badge text-bg-warning">uplink?</span>
+      = port dengan ≥ {{ uplink_min }} MAC</span>
+  </div>
+  <div class="card-body">
+    <form class="row g-2 align-items-end" method="get" action="/agents/portmap">
+      <div class="col-md-4">
+        <label class="form-label small" for="pm-switch">Switch</label>
+        <select class="form-select form-select-sm" id="pm-switch" name="switch">
+          <option value="">semua switch</option>
+          {% for s in summary %}
+          <option value="{{ s.switch_asset_id }}" {% if switch == s.switch_asset_id | string %}selected{% endif %}>
+            {{ s.hostname or s.switch_asset_id }}{% if s.ip %} · {{ s.ip }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small" for="pm-q">Cari MAC / hostname / port</label>
+        <input class="form-control form-control-sm mono" id="pm-q" name="q" value="{{ q }}"
+               placeholder="bc:24:11: atau Gi0/1 atau DESKTOP-">
+      </div>
+      <div class="col-md-2">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="pm-stale" name="stale" value="1"
+                 {% if stale %}checked{% endif %}>
+          <label class="form-check-label small" for="pm-stale">termasuk MAC hilang</label>
+        </div>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-sm btn-primary" type="submit">Terapkan</button>
+      </div>
+    </form>
+
+    <div class="table-responsive mt-3" style="max-height: 620px; overflow: auto;">
+      <table class="table table-sm table-tight mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Port</th><th>VLAN</th><th>MAC</th><th>Endpoint</th><th>Status</th>
+            <th>Switch</th><th>Terakhir terlihat</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          {% set m = row.mapping %}
+          {% set port_key = m.if_name or '(tanpa nama port)' %}
+          <tr class="{% if not m.present %}text-decoration-line-through small-muted{% endif %}">
+            <td class="mono">
+              {{ m.if_name or (m.bridge_port if m.bridge_port is not none else '—') }}
+              {% if per_port.get(port_key, 0) >= uplink_min %}
+              <span class="badge text-bg-warning" title="banyak MAC di port ini — kemungkinan uplink/trunk">uplink?</span>
+              {% endif %}
+            </td>
+            <td class="mono small">{{ m.vlan if m.vlan else '—' }}</td>
+            <td class="mono small">{{ m.mac }}</td>
+            <td class="small">
+              {% if m.endpoint_asset_id %}
+                <a href="/assets/{{ m.endpoint_asset_id }}">{{ row.endpoint_hostname or 'asset' }}</a>
+                <span class="small-muted">{{ row.endpoint_type or '' }}</span>
+              {% else %}<span class="small-muted">tidak dikenal</span>{% endif %}
+            </td>
+            <td>
+              {% if m.status == 'self' %}<span class="badge text-bg-info">self</span>
+              {% elif m.status == 'mgmt' %}<span class="badge text-bg-secondary">mgmt</span>
+              {% elif m.status == 'static' %}<span class="badge text-bg-secondary">static</span>
+              {% else %}<span class="badge text-bg-success">learned</span>{% endif %}
+            </td>
+            <td class="small-muted">{{ row.switch_hostname or '—' }}</td>
+            <td class="small-muted">{{ m.last_seen | fmt_dt }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="small-muted p-3">
+            {% if q or switch %}tidak ada baris yang cocok{% else %}belum ada data port map{% endif %}
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer small-muted">
+    Port dengan banyak MAC biasanya port uplink/trunk — MAC di belakangnya bukan perangkat
+    yang menempel langsung di port itu. MAC acak (Wi-Fi privat) akan hilang sendiri dan
+    ditandai tidak aktif pada scan berikutnya.
+  </div>
+</div>
+{% endblock %}

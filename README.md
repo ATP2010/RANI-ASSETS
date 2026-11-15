@@ -32,9 +32,10 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 | Agent `raniPush` Windows (WMI/registry/PowerShell) | kode ada (**0.2.1**: pindah server tanpa hapus config), **belum diuji di PC Windows nyata** |
 | Custom reports SQL (`/reports`) | jalan — role DB read-only, grid + filter kolom, export CSV |
 | Scan SNMP (`/agents/scan`) | jalan — grup IP + custom OID, probe v1/v2c, asset `network` otomatis; jadwal otomatis belum |
+| Port map L2 (`/agents/portmap`) | jalan — MAC ↔ port switch dari bridge FDB (dot1d/dot1q, GETBULK), tab di asset network + lookup MAC; graf topologi (LLDP/CDP) belum |
 | Deploy Docker Hub | `adhityatp/raniassets:<tag>` — pull & run tanpa build ([`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md)) |
 | Unduhan agent di `/agents/push` | 2 jalur (portable = jalur A, exe signed = jalur B) + kartu “blocked by your organization” berisi SHA256 artefak & diagnostik SAC/ASR ([`docs/agent-windows.md` §8](docs/agent-windows.md#8-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control)) |
-| SNMP scanning (F2), installer exe + GNS (F3) | belum |
+| Sisa F2 (printer enrichment, jadwal scan) + installer exe/GNS (F3) | belum |
 
 ## Quick start (dev LXC 192.168.88.92)
 

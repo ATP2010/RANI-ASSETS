@@ -22,6 +22,7 @@ log = logging.getLogger("rani.snmp")
 GET = 0xA0
 GETNEXT = 0xA1
 RESPONSE = 0xA2
+GETBULK = 0xA5
 
 # varbind exceptions (SNMPv2)
 EXCEPTIONS = {0x80: "noSuchObject", 0x81: "noSuchInstance", 0x82: "endOfMibView"}
@@ -41,6 +42,18 @@ IF_HC_IN_OCTETS = "1.3.6.1.2.1.31.1.1.1.6"
 ENTITY_SERIAL = "1.3.6.1.2.1.47.1.1.1.1.11"
 ENTITY_MODEL = "1.3.6.1.2.1.47.1.1.1.1.2"
 ENTITY_VENDOR = "1.3.6.1.2.1.47.1.1.1.1.12"
+
+# BRIDGE-MIB / Q-BRIDGE-MIB: MAC-per-port (tabel forwarding switch).
+# Indeks dot1dTpFdbPort = 6 oktet MAC; indeks dot1qTpFdbPort = fdb-id + 6 oktet MAC.
+DOT1D_TP_FDB_PORT = "1.3.6.1.2.1.17.4.3.1.2"
+DOT1D_TP_FDB_STATUS = "1.3.6.1.2.1.17.4.3.1.3"
+DOT1D_BASE_PORT_IFINDEX = "1.3.6.1.2.1.17.1.4.1.2"
+DOT1Q_TP_FDB_PORT = "1.3.6.1.2.1.17.7.1.2.2.1.2"
+DOT1Q_TP_FDB_STATUS = "1.3.6.1.2.1.17.7.1.2.2.1.3"
+DOT1Q_VLAN_FDB_ID = "1.3.6.1.2.1.17.7.1.4.2.1.3"
+IF_NAME = "1.3.6.1.2.1.31.1.1.1.1"
+
+FDB_STATUS = {1: "other", 2: "invalid", 3: "learned", 4: "self", 5: "mgmt"}
 
 
 class SnmpError(RuntimeError):
@@ -179,10 +192,13 @@ class SnmpClient:
         self._request_id = random.randint(1, 0x7FFFFFFF)
 
     # -- wire ---------------------------------------------------------------
-    def _packet(self, pdu_tag: int, oids: list[str]) -> tuple[int, bytes]:
+    def _packet(self, pdu_tag: int, oids: list[str],
+                max_repetitions: int = 0) -> tuple[int, bytes]:
         self._request_id = (self._request_id + 1) & 0x7FFFFFFF
         varbinds = b"".join(_tlv(0x30, enc_oid(oid) + enc_null()) for oid in oids)
-        pdu = _tlv(pdu_tag, enc_int(self._request_id) + enc_int(0) + enc_int(0)
+        # Field ke-2 PDU = error-status/non-repeaters, ke-3 = error-index/max-repetitions.
+        second = max_repetitions if pdu_tag == GETBULK else 0
+        pdu = _tlv(pdu_tag, enc_int(self._request_id) + enc_int(0) + enc_int(second)
                    + _tlv(0x30, varbinds))
         message = _tlv(0x30, enc_int(self.version) + enc_str(self.community) + pdu)
         return self._request_id, message
@@ -258,4 +274,43 @@ class SnmpClient:
                 break
             rows.append(vb)
             current = vb.oid
+        return rows
+
+    def walk_bulk(self, base_oid: str, max_rows: int = 256,
+                  max_repetitions: int = 15) -> list[VariBind]:
+        """Walk cepat pakai GETBULK (SNMPv2c). v1 / agen bermasalah → fallback GETNEXT.
+
+        Satu request membawa sampai `max_repetitions` baris, jadi tabel switch berisi
+        ribuan MAC tidak butuh ribuan round-trip.
+        """
+        if self.version == 0 or max_repetitions < 1 or max_rows <= 0:
+            return self.walk(base_oid, max_rows=max_rows)
+        rows: list[VariBind] = []
+        current = base_oid
+        prefix = base_oid.rstrip(".") + "."
+        while len(rows) < max_rows:
+            try:
+                request_id, packet = self._packet(GETBULK, [current],
+                                                  max_repetitions=max_repetitions)
+                result = self._exchange(packet, request_id)
+            except SnmpError as exc:
+                if "timeout" in str(exc):
+                    raise
+                # agen lama/kaku menolak GETBULK (tooBig/genErr) → pakai GETNEXT
+                return rows or self.walk(base_oid, max_rows=max_rows)
+            if not result:
+                break
+            progressed = False
+            for vb in result:
+                if vb.value is None or not vb.oid.startswith(prefix):
+                    return rows
+                if vb.oid == current:
+                    continue
+                rows.append(vb)
+                current = vb.oid
+                progressed = True
+                if len(rows) >= max_rows:
+                    break
+            if not progressed:
+                break
         return rows

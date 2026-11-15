@@ -1,4 +1,5 @@
 """Template engine + global template variables."""
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -18,6 +19,11 @@ def fmt_dt(value) -> str:
     """Format waktu untuk UI dalam Asia/Jakarta (datetime naive dianggap sudah lokal)."""
     if not value:
         return "—"
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return value
     try:
         if hasattr(value, "astimezone") and value.tzinfo is not None:
             value = value.astimezone(DISPLAY_TZ)
