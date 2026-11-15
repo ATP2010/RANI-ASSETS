@@ -59,11 +59,12 @@
 </div>
 
 <style>
-.asset-hover-wrap { position: relative; }
-.asset-popup { position: absolute; top: calc(100% + 6px); left: 0; z-index: 1080;
+.asset-hover-wrap { position: static; }
+.asset-popup { position: fixed; top: 0; left: 0; z-index: 1080;
   width: 340px; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
   border-radius: .5rem; box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35);
-  padding: .6rem .7rem; display: none; font-size: .85rem; font-weight: 400; }
+  padding: .6rem .7rem; display: none; font-size: .85rem; font-weight: 400;
+  max-height: 70vh; overflow: auto; }
 .asset-popup.show { display: block; }
 .ap-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding-bottom: .35rem; }
 .ap-name { font-weight: 600; }
@@ -212,7 +213,21 @@
     var show = function () {
       var t = timers.get(popup);
       if (t) { clearTimeout(t); timers.delete(popup); }
+      // ukur dulu (di luar viewport) supaya tahu tinggi asli
+      popup.style.visibility = 'hidden';
       popup.classList.add('show');
+      var rect = link.getBoundingClientRect();
+      var pw = popup.offsetWidth;
+      var ph = popup.offsetHeight;
+      var gap = 6;
+      var vh = window.innerHeight;
+      var vw = window.innerWidth;
+      var below = rect.bottom + gap + ph <= vh - 8;
+      popup.style.top = below ? (rect.bottom + gap) + 'px'
+                              : Math.max(8, rect.top - gap - ph) + 'px';
+      popup.style.left = Math.min(Math.max(8, rect.left),
+                                  Math.max(8, vw - pw - 8)) + 'px';
+      popup.style.visibility = '';
     };
     var scheduleHide = function () {
       var t = setTimeout(function () { popup.classList.remove('show'); }, HIDE_DELAY);
@@ -226,6 +241,14 @@
     wrap.addEventListener('focusout', scheduleHide);
   }
   document.querySelectorAll('.asset-hover-wrap').forEach(attachHover);
+  // jangan gantung saat scroll/resize — posisi fixed akan lepas dari baris
+  ['scroll', 'resize'].forEach(function (evt) {
+    window.addEventListener(evt, function () {
+      document.querySelectorAll('.asset-popup.show').forEach(function (p) {
+        p.classList.remove('show');
+      });
+    }, { capture: true, passive: true });
+  });
 
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) {
