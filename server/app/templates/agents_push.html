@@ -113,22 +113,6 @@ cd C:\Rani-portable\raniPush-portable
     </div>
 
     <div class="card mt-3">
-      <div class="card-header">RANI Actions — aksi cepat dari web di PC Anda</div>
-      <div class="card-body small">
-        <p class="mb-2">Klik tombol <strong>Actions</strong> di halaman Assets (mis. RDP, SSH, skrip)
-          tanpa pindah aplikasi — seperti Lansweeper Shell Execute. Sekali pasang per PC:</p>
-        <ol class="mb-2 ps-3">
-          <li>Download <a class="btn btn-sm btn-outline-primary py-0" href="/downloads/rani-action-host.exe">rani-action-host.exe</a></li>
-          <li>Download + unzip <a class="btn btn-sm btn-outline-secondary py-0" href="/downloads/rani-actions-extension.zip">rani-actions-extension.zip</a></li>
-          <li>Dari folder hasil unzip: <code>powershell -ExecutionPolicy Bypass -File .\install-extension.ps1 <span class="text-primary">-ServerUrl {{ server_url }}</span></code></li>
-          <li>Buka <code>edge://extensions</code> → aktifkan <em>Developer mode</em> →
-            <em>Load unpacked</em> → pilih folder hasil unzip</li>
-        </ol>
-        <div class="small-muted">Detail lengkap + troubleshooting: <a href="/docs/actions">/docs/actions</a> §7.</div>
-      </div>
-    </div>
-
-    <div class="card mt-3">
       <div class="card-header">Cek cepat</div>
       <div class="card-body small">
         <pre class="mb-0 p-2 bg-body-secondary rounded mono">Test-NetConnection {{ server_host }} -Port {{ server_port }}</pre>
