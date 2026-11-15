@@ -258,10 +258,10 @@ async def list_agents(session: AsyncSession) -> list[dict]:
 
 
 async def list_reports(session: AsyncSession, user: AppUser) -> list[dict]:
-    """Report yang boleh dilihat user: shared, miliknya, atau semua bila admin."""
+    """Report yang boleh dilihat user: shared, miliknya, atau semua bila reports.manage."""
     stmt = (select(Report, AppUser.username)
             .outerjoin(AppUser, AppUser.id == Report.owner_id))
-    if user.role != "admin":
+    if "reports.manage" not in getattr(user, "perm_set", set()):
         stmt = stmt.where(or_(Report.is_shared.is_(True), Report.owner_id == user.id))
     rows = (await session.execute(stmt.order_by(Report.updated_at.desc()))).all()
     return [{"report": report, "owner": owner} for report, owner in rows]
@@ -277,7 +277,8 @@ async def get_report(session: AsyncSession, report_id: uuid.UUID,
     if row is None:
         return None
     report, owner = row
-    if not (report.is_shared or report.owner_id == user.id or user.role == "admin"):
+    if not (report.is_shared or report.owner_id == user.id
+                or "reports.manage" in getattr(user, "perm_set", set())):
         return None
     return {"report": report, "owner": owner}
 

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import audit
 from app.db import get_session
-from app.deps import require_user
+from app.deps import require_perm
 from app.models import AppUser
 from app.queries import get_report
 from app.reporting import ReportError, run_report_sql
@@ -23,7 +23,7 @@ router = APIRouter(tags=["reports"])
 @router.post("/api/v1/reports/{report_id}/run")
 async def run_report(report_id: uuid.UUID, request: Request,
                      session: AsyncSession = Depends(get_session),
-                     user: AppUser = Depends(require_user("reader"))) -> dict:
+                     user: AppUser = Depends(require_perm("reports.run"))) -> dict:
     found = await get_report(session, report_id, user)
     if found is None:
         raise HTTPException(status_code=404, detail="report tidak ditemukan")

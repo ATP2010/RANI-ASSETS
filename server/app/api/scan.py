@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import audit
 from app.db import get_session
-from app.deps import require_user
+from app.deps import require_perm
 from app.models import AppUser, ScanGroup, ScanResult, ScanRun
 from app.scanner import ScanError, execute_scan, register_run, running_for
 
@@ -23,7 +23,7 @@ _TASKS: set[asyncio.Task] = set()
 @router.post("/api/v1/scan/groups/{group_id}/run")
 async def start_scan(group_id: uuid.UUID, request: Request,
                      session: AsyncSession = Depends(get_session),
-                     user: AppUser = Depends(require_user("operator"))) -> dict:
+                     user: AppUser = Depends(require_perm("scan.run"))) -> dict:
     group = (await session.execute(
         select(ScanGroup).where(ScanGroup.id == group_id))).scalar_one_or_none()
     if group is None:
@@ -51,7 +51,7 @@ async def start_scan(group_id: uuid.UUID, request: Request,
 
 @router.get("/api/v1/scan/runs/{run_id}")
 async def scan_status(run_id: uuid.UUID, session: AsyncSession = Depends(get_session),
-                      user: AppUser = Depends(require_user("reader"))) -> dict:
+                      user: AppUser = Depends(require_perm("scan.view"))) -> dict:
     run = (await session.execute(
         select(ScanRun).where(ScanRun.id == run_id))).scalar_one_or_none()
     if run is None:
@@ -84,7 +84,7 @@ async def scan_status(run_id: uuid.UUID, session: AsyncSession = Depends(get_ses
 @router.post("/api/v1/scan/runs/{run_id}/cancel")
 async def cancel_scan(run_id: uuid.UUID, request: Request,
                       session: AsyncSession = Depends(get_session),
-                      user: AppUser = Depends(require_user("operator"))) -> dict:
+                      user: AppUser = Depends(require_perm("scan.run"))) -> dict:
     run = (await session.execute(
         select(ScanRun).where(ScanRun.id == run_id))).scalar_one_or_none()
     if run is None:

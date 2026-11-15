@@ -15,11 +15,10 @@ from app.audit import audit
 from app.config import get_settings
 from app.crypto import encrypt_secret
 from app.db import get_session
-from app.deps import require_user
+from app.deps import require_perm, require_user
 from app.models import AppUser, ScanGroup, ScanOid, ScanResult, ScanRun
 from app.queries import list_agents, list_port_map, list_tokens, port_map_summary
 from app.scanner import ScanError, expand_hosts, normalize_range, parse_ranges, running_for
-from app.security import role_allows
 from app.templating import templates
 
 log = logging.getLogger("rani.agents.ui")
@@ -51,7 +50,7 @@ DOCS = {
 
 @router.get("/docs/{slug}")
 async def docs_view(slug: str, request: Request,
-                    user: AppUser = Depends(require_user("reader"))):
+                    user: AppUser = Depends(require_user())):
     name = DOCS.get(slug)
     if name is None:
         raise HTTPException(status_code=404, detail="dokumen tidak ditemukan")
@@ -72,7 +71,7 @@ async def agents_root():
 @router.get("/agents/push")
 async def agents_push(request: Request, token: str | None = None,
                       session: AsyncSession = Depends(get_session),
-                      user: AppUser = Depends(require_user("reader"))):
+                      user: AppUser = Depends(require_perm("agents.view"))):
     signed_name = "raniPush-signed.exe"
     signed_label = ARTIFACTS[signed_name][0]
     path = Path(settings.RANI_AGENT_DIR) / signed_name
@@ -100,14 +99,14 @@ async def agents_push(request: Request, token: str | None = None,
         "server_url": str(request.base_url).rstrip("/"),
         "server_host": urlsplit(str(request.base_url)).hostname or "127.0.0.1",
         "server_port": urlsplit(str(request.base_url)).port or 8091,
-        "can_admin": user.role == "admin",
+        "can_admin": "agents.manage" in getattr(user, "perm_set", set()),
     })
 
 
 @router.get("/agents/scan")
 async def agents_scan(request: Request, run: str | None = None,
                       session: AsyncSession = Depends(get_session),
-                      user: AppUser = Depends(require_user("reader"))):
+                      user: AppUser = Depends(require_perm("scan.view"))):
     groups = (await session.execute(
         select(ScanGroup).order_by(ScanGroup.name))).scalars().all()
     history = (await session.execute(
@@ -142,7 +141,7 @@ async def agents_scan(request: Request, run: str | None = None,
                     "running": running_for(g.id)} for g in groups],
         "history": [{"run": r, "group_name": name} for r, name in history],
         "selected": selected, "results": results, "oids": oids,
-        "can_run": role_allows(user.role, "operator"),
+        "can_run": "scan.run" in getattr(user, "perm_set", set()),
         "max_hosts": settings.RANI_SCAN_MAX_HOSTS,
         "timeout_s": settings.RANI_SCAN_TIMEOUT_S,
         "concurrency": settings.RANI_SCAN_CONCURRENCY,
@@ -153,7 +152,7 @@ async def agents_scan(request: Request, run: str | None = None,
 async def agents_portmap(request: Request, switch: str | None = None, q: str | None = None,
                          stale: int = 0,
                          session: AsyncSession = Depends(get_session),
-                         user: AppUser = Depends(require_user("reader"))):
+                         user: AppUser = Depends(require_perm("portmap.view"))):
     """Port map L2: MAC terlihat di port switch mana (hasil bridge FDB)."""
     switch_id = None
     if switch:
@@ -181,7 +180,7 @@ async def agents_portmap(request: Request, switch: str | None = None, q: str | N
 async def scan_groups_page(request: Request, edit: str | None = None,
                            oid_error: str | None = None,
                            session: AsyncSession = Depends(get_session),
-                           user: AppUser = Depends(require_user("reader"))):
+                           user: AppUser = Depends(require_perm("scan.view"))):
     groups = (await session.execute(
         select(ScanGroup).order_by(ScanGroup.name))).scalars().all()
     oids = (await session.execute(
@@ -198,7 +197,7 @@ async def scan_groups_page(request: Request, edit: str | None = None,
         "groups": [{"group": g, "stats": _group_stats(g)} for g in groups],
         "oids": oids, "editing": editing, "error": None, "values": {},
         "oid_error": oid_error,
-        "can_manage": role_allows(user.role, "operator"),
+        "can_manage": "scan.manage" in getattr(user, "perm_set", set()),
         "max_hosts": settings.RANI_SCAN_MAX_HOSTS,
     })
 
@@ -216,7 +215,7 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
                           community: str = Form(""), port: str = Form("161"),
                           fdb_enabled: str = Form(""),
                           session: AsyncSession = Depends(get_session),
-                          user: AppUser = Depends(require_user("operator"))):
+                          user: AppUser = Depends(require_perm("scan.manage"))):
     error = None
     parsed_ranges: list[str] = []
     port_num = 161
@@ -300,7 +299,7 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
 @router.post("/agents/groups/{group_id}/delete")
 async def scan_group_delete(group_id: uuid.UUID, request: Request,
                             session: AsyncSession = Depends(get_session),
-                            user: AppUser = Depends(require_user("operator"))):
+                            user: AppUser = Depends(require_perm("scan.manage"))):
     group = (await session.execute(
         select(ScanGroup).where(ScanGroup.id == group_id))).scalar_one_or_none()
     if group is None:
@@ -316,7 +315,7 @@ async def scan_group_delete(group_id: uuid.UUID, request: Request,
 
 @router.post("/agents/groups/{group_id}/toggle")
 async def scan_group_toggle(group_id: uuid.UUID, session: AsyncSession = Depends(get_session),
-                            user: AppUser = Depends(require_user("operator"))):
+                            user: AppUser = Depends(require_perm("scan.manage"))):
     group = (await session.execute(
         select(ScanGroup).where(ScanGroup.id == group_id))).scalar_one_or_none()
     if group is None:
@@ -331,7 +330,7 @@ async def scan_oid_new(request: Request, label: str = Form(""), oid: str = Form(
                        description: str = Form(""), vendor: str = Form(""),
                        model: str = Form(""),
                        session: AsyncSession = Depends(get_session),
-                       user: AppUser = Depends(require_user("operator"))):
+                       user: AppUser = Depends(require_perm("scan.manage"))):
     label = label.strip()[:96]
     oid = oid.strip()
     error = None
@@ -363,7 +362,7 @@ async def scan_oid_new(request: Request, label: str = Form(""), oid: str = Form(
 @router.post("/agents/oids/{oid_id}/delete")
 async def scan_oid_delete(oid_id: uuid.UUID, request: Request,
                           session: AsyncSession = Depends(get_session),
-                          user: AppUser = Depends(require_user("operator"))):
+                          user: AppUser = Depends(require_perm("scan.manage"))):
     row = (await session.execute(
         select(ScanOid).where(ScanOid.id == oid_id))).scalar_one_or_none()
     if row is None:

@@ -2,6 +2,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -14,7 +15,8 @@ from app.api import (agents_ui, auth, data, downloads, enroll, ingest, network, 
                      reports_ui, scan, system, ui)
 from app.config import get_settings
 from app.db import SessionLocal, dispose_engine
-from app.models import AppUser
+from app.models import AppUser, AppUserRole, Role
+from app.permissions import DEFAULT_ROLES
 from app.reporting import dispose_report_engine, ensure_report_role, seed_sample_reports
 from app.security import hash_password, new_token
 from app.version import VERSION
@@ -25,24 +27,57 @@ settings = get_settings()
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
+async def ensure_builtin_roles(session) -> None:
+    """Seed role bawaan (idempotent) — jaring pengaman selain migration 0006."""
+    now = datetime.now(timezone.utc)
+    for spec in DEFAULT_ROLES:
+        exists = (await session.execute(
+            select(Role.id).where(Role.slug == spec["slug"]))).scalar_one_or_none()
+        if exists is None:
+            session.add(Role(slug=spec["slug"], name=spec["name"],
+                             description=spec["description"],
+                             permissions=spec["permissions"], is_builtin=True,
+                             created_at=now, updated_at=now))
+
+
 async def seed_admin() -> None:
     async with SessionLocal() as session:
         # Serialisasi antar proses uvicorn: tanpa ini dua worker bisa balapan insert.
         await session.execute(text("select pg_advisory_xact_lock(918273465)"))
+        await ensure_builtin_roles(session)
         count = (await session.execute(select(func.count(AppUser.id)))).scalar_one()
-        if count:
+        admin_role = (await session.execute(
+            select(Role).where(Role.slug == "admin"))).scalar_one()
+        if count == 0:
+            password = settings.RANI_ADMIN_PASSWORD or new_token(12)
+            user = AppUser(username=settings.RANI_ADMIN_USER,
+                           display_name="Administrator",
+                           password_hash=hash_password(password),
+                           auth_source="local")
+            session.add(user)
+            await session.flush()
+            session.add(AppUserRole(user_id=user.id, role_id=admin_role.id))
             await session.commit()
+            if settings.RANI_ADMIN_PASSWORD:
+                log.warning("seeded admin user %r (password dari RANI_ADMIN_PASSWORD)",
+                            settings.RANI_ADMIN_USER)
+            else:
+                log.warning("seeded admin user %r dengan password acak: %s  ← simpan sekarang",
+                            settings.RANI_ADMIN_USER, password)
             return
-        password = settings.RANI_ADMIN_PASSWORD or new_token(12)
-        session.add(AppUser(username=settings.RANI_ADMIN_USER, display_name="Administrator",
-                            password_hash=hash_password(password), role="admin"))
-        await session.commit()
-        if settings.RANI_ADMIN_PASSWORD:
-            log.warning("seeded admin user %r (password dari RANI_ADMIN_PASSWORD)",
-                        settings.RANI_ADMIN_USER)
+        # Instalasi lama: pastikan minimal satu user punya role admin (jaring backfill).
+        has_admin = (await session.execute(
+            select(func.count(AppUserRole.user_id))
+            .join(Role, Role.id == AppUserRole.role_id)
+            .where(Role.slug == "admin"))).scalar_one()
+        if not has_admin:
+            first = (await session.execute(
+                select(AppUser).order_by(AppUser.created_at).limit(1))).scalar_one()
+            session.add(AppUserRole(user_id=first.id, role_id=admin_role.id))
+            await session.commit()
+            log.warning("installed default: user pertama %r diberi role admin", first.username)
         else:
-            log.warning("seeded admin user %r dengan password acak: %s  ← simpan sekarang",
-                        settings.RANI_ADMIN_USER, password)
+            await session.commit()
 
 
 @asynccontextmanager

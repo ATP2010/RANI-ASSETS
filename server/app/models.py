@@ -26,13 +26,20 @@ class AppUser(Base):
     __table_args__ = {"schema": SCHEMA}
 
     id = _uuid_pk()
-    username: Mapped[str] = mapped_column(String(64), unique=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True)  # AD: 'domain\\sam' (lowercase)
     display_name: Mapped[str | None] = mapped_column(String(128))
-    password_hash: Mapped[str] = mapped_column(Text)
-    role: Mapped[str] = mapped_column(String(16), default="reader")  # admin|operator|reader
+    password_hash: Mapped[str | None] = mapped_column(Text)  # NULL untuk user AD
+    auth_source: Mapped[str] = mapped_column(String(8), default="local")  # local|ad
+    domain: Mapped[str | None] = mapped_column(String(64))  # NetBIOS, hanya AD
+    sam_account_name: Mapped[str | None] = mapped_column(String(64))
+    upn: Mapped[str | None] = mapped_column(String(255))
+    object_guid: Mapped[str | None] = mapped_column(String(64))
+    email: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at = _now()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AuthSession(Base):
@@ -46,6 +53,103 @@ class AuthSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     request_ip: Mapped[str | None] = mapped_column(String(64))
+    auth_source: Mapped[str] = mapped_column(String(8), default="local")  # local|ad
+
+
+class Role(Base):
+    """Role login RANI (bawaan atau custom). Permission = list kunci `modul.aksi`."""
+    __tablename__ = "roles"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = _uuid_pk()
+    slug: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(96))
+    description: Mapped[str | None] = mapped_column(Text)
+    permissions: Mapped[list] = mapped_column(JSONB, default=list)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at = _now()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AppUserRole(Base):
+    __tablename__ = "app_user_roles"
+    __table_args__ = {"schema": SCHEMA}
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{SCHEMA}.app_users.id", ondelete="CASCADE"), primary_key=True)
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{SCHEMA}.roles.id", ondelete="CASCADE"), primary_key=True)
+
+
+class DirectoryConnector(Base):
+    """Connector AD/LDAP (satu baris = satu domain). Bind password terenkripsi Fernet."""
+    __tablename__ = "directory_connectors"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = _uuid_pk()
+    name: Mapped[str] = mapped_column(String(96))
+    domain: Mapped[str] = mapped_column(String(64))  # NetBIOS, mis. CORP
+    domain_fqdn: Mapped[str] = mapped_column(String(255))  # mis. corp.local
+    url: Mapped[str] = mapped_column(String(255))  # ldaps://dc01:636
+    use_ldaps: Mapped[bool] = mapped_column(Boolean, default=True)
+    tls_verify: Mapped[bool] = mapped_column(Boolean, default=True)
+    ca_cert_pem: Mapped[str | None] = mapped_column(Text)
+    bind_dn: Mapped[str] = mapped_column(String(255))
+    bind_password_enc: Mapped[str | None] = mapped_column(Text)  # Fernet(pepper), write-only
+    base_dn: Mapped[str] = mapped_column(String(255))
+    user_filter: Mapped[str] = mapped_column(String(512), default=(
+        "(&(objectCategory=person)(objectClass=user)"
+        "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"))
+    group_filter: Mapped[str] = mapped_column(String(255), default="(objectClass=group)")
+    nested_groups: Mapped[bool] = mapped_column(Boolean, default=False)
+    sync_interval_s: Mapped[int] = mapped_column(Integer, default=3600)  # 0 = manual saja
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_sync_status: Mapped[str | None] = mapped_column(String(16))  # success|partial|failed
+    last_sync_error: Mapped[str | None] = mapped_column(Text)
+    created_at = _now()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DirectoryGroupRole(Base):
+    """Mapping group AD -> role RANI."""
+    __tablename__ = "directory_group_roles"
+    __table_args__ = (
+        UniqueConstraint("connector_id", "group_dn", name="uq_directory_group_roles_conn_dn"),
+        Index(f"ix_{SCHEMA}_dgr_role", "role_id"),
+        {"schema": SCHEMA},
+    )
+
+    id = _uuid_pk()
+    connector_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{SCHEMA}.directory_connectors.id", ondelete="CASCADE"), index=True)
+    group_dn: Mapped[str] = mapped_column(String(512))
+    group_name: Mapped[str] = mapped_column(String(255))
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{SCHEMA}.roles.id", ondelete="RESTRICT"))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class DirectorySyncRun(Base):
+    __tablename__ = "directory_sync_runs"
+    __table_args__ = (
+        Index(f"ix_{SCHEMA}_dsr_connector_started", "connector_id", "started_at"),
+        {"schema": SCHEMA},
+    )
+
+    id = _uuid_pk()
+    connector_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(f"{SCHEMA}.directory_connectors.id", ondelete="CASCADE"))
+    mode: Mapped[str] = mapped_column(String(16), default="manual")  # manual|interval
+    status: Mapped[str] = mapped_column(String(16), default="running")  # running|success|partial|failed
+    users_seen: Mapped[int] = mapped_column(Integer, default=0)
+    created: Mapped[int] = mapped_column(Integer, default=0)
+    updated: Mapped[int] = mapped_column(Integer, default=0)
+    deactivated: Mapped[int] = mapped_column(Integer, default=0)
+    roles_changed: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text)
+    started_at = _now()
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AuditLog(Base):

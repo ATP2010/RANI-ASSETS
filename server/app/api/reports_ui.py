@@ -15,11 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit import audit
 from app.config import get_settings
 from app.db import get_session
-from app.deps import require_user
+from app.deps import require_perm
 from app.models import AppUser, Report
 from app.queries import get_report, list_reports
 from app.reporting import ReportError, run_report_sql, to_csv, validate_sql
-from app.security import role_allows
 from app.templating import templates
 
 settings = get_settings()
@@ -64,7 +63,7 @@ EXAMPLE_QUERIES = [
 
 
 def _can_edit(report: Report | None, user: AppUser) -> bool:
-    if user.role == "admin":
+    if "reports.manage" in getattr(user, "perm_set", set()):
         return True
     return report is not None and report.owner_id == user.id
 
@@ -90,7 +89,7 @@ def _page(request: Request, user: AppUser, report: Report | None, owner: str | N
     return templates.TemplateResponse(request, "report_form.html", {
         "user": user, "active": "reports", "report": report, "owner": owner,
         "examples": EXAMPLE_QUERIES, "run_now": run, "error": error,
-        "can_edit": _can_edit(report, user) if report else role_allows(user.role, "operator"),
+        "can_edit": _can_edit(report, user) if report else "reports.manage" in getattr(user, "perm_set", set()),
         "values": values or {},
         "max_rows": settings.RANI_REPORT_MAX_ROWS,
         "timeout_ms": settings.RANI_REPORT_TIMEOUT_MS,
@@ -99,16 +98,16 @@ def _page(request: Request, user: AppUser, report: Report | None, owner: str | N
 
 @router.get("/reports")
 async def reports_page(request: Request, session: AsyncSession = Depends(get_session),
-                       user: AppUser = Depends(require_user("reader"))):
+                       user: AppUser = Depends(require_perm("reports.view"))):
     return templates.TemplateResponse(request, "reports.html", {
         "user": user, "active": "reports", "rows": await list_reports(session, user),
-        "can_create": role_allows(user.role, "operator"),
+        "can_create": "reports.manage" in getattr(user, "perm_set", set()),
     })
 
 
 @router.get("/reports/new")
 async def report_new(request: Request,
-                     user: AppUser = Depends(require_user("operator"))):
+                     user: AppUser = Depends(require_perm("reports.manage"))):
     return _page(request, user, None, None, values={"name": "", "description": "",
                                                     "sql_text": ""})
 
@@ -117,7 +116,7 @@ async def report_new(request: Request,
 async def report_create(request: Request, name: str = Form(""), description: str = Form(""),
                         sql_text: str = Form(""), action: str = Form("save"),
                         session: AsyncSession = Depends(get_session),
-                        user: AppUser = Depends(require_user("operator"))):
+                        user: AppUser = Depends(require_perm("reports.manage"))):
     clean_name, clean_desc, body, errors = _parse_form(name, description, sql_text)
     if errors:
         return _page(request, user, None, None, error=" ".join(errors),
@@ -143,7 +142,7 @@ async def report_create(request: Request, name: str = Form(""), description: str
 @router.get("/reports/{report_id}")
 async def report_detail(report_id: uuid.UUID, request: Request, run: int = 0,
                         session: AsyncSession = Depends(get_session),
-                        user: AppUser = Depends(require_user("reader"))):
+                        user: AppUser = Depends(require_perm("reports.view"))):
     found = await get_report(session, report_id, user)
     if found is None:
         raise HTTPException(status_code=404, detail="report tidak ditemukan")
@@ -155,7 +154,7 @@ async def report_save(report_id: uuid.UUID, request: Request,
                       name: str = Form(""), description: str = Form(""),
                       sql_text: str = Form(""), action: str = Form("save"),
                       session: AsyncSession = Depends(get_session),
-                      user: AppUser = Depends(require_user("operator"))):
+                      user: AppUser = Depends(require_perm("reports.view"))):
     found = await get_report(session, report_id, user)
     if found is None:
         raise HTTPException(status_code=404, detail="report tidak ditemukan")
@@ -188,7 +187,7 @@ async def report_save(report_id: uuid.UUID, request: Request,
 @router.post("/reports/{report_id}/delete")
 async def report_delete(report_id: uuid.UUID, request: Request,
                         session: AsyncSession = Depends(get_session),
-                        user: AppUser = Depends(require_user("operator"))):
+                        user: AppUser = Depends(require_perm("reports.view"))):
     found = await get_report(session, report_id, user)
     if found is None:
         raise HTTPException(status_code=404, detail="report tidak ditemukan")
@@ -206,7 +205,7 @@ async def report_delete(report_id: uuid.UUID, request: Request,
 @router.get("/reports/{report_id}/export.csv")
 async def report_export(report_id: uuid.UUID,
                         session: AsyncSession = Depends(get_session),
-                        user: AppUser = Depends(require_user("reader"))):
+                        user: AppUser = Depends(require_perm("reports.export"))):
     found = await get_report(session, report_id, user)
     if found is None:
         raise HTTPException(status_code=404, detail="report tidak ditemukan")

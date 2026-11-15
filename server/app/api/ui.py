@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit import audit
 from app.api.downloads import artifact_rows
 from app.db import get_session
-from app.deps import get_current_user_ws, require_user
+from app.deps import get_current_user_ws, require_perm
 from app.models import AppUser, Asset, Software
 from app.queries import (dashboard_stats, get_asset_detail, list_agents, list_assets,
                          list_tokens)
@@ -25,7 +25,7 @@ router = APIRouter(include_in_schema=False)
 
 @router.get("/")
 async def dashboard(request: Request, session: AsyncSession = Depends(get_session),
-                    user: AppUser = Depends(require_user("reader"))):
+                    user: AppUser = Depends(require_perm("dashboard.view"))):
     stats = await dashboard_stats(session)
     return templates.TemplateResponse(request, "dashboard.html",
                                       {"user": user, "stats": stats, "active": "dashboard"})
@@ -36,7 +36,7 @@ async def assets_page(request: Request, q: str | None = None, status: str | None
                       os_family: str | None = None, sort: str = "hostname",
                       order: str = "asc", page: int = Query(1, ge=1),
                       session: AsyncSession = Depends(get_session),
-                      user: AppUser = Depends(require_user("reader"))):
+                      user: AppUser = Depends(require_perm("assets.view"))):
     result = await list_assets(session, q, status, os_family, sort, order, page)
     return templates.TemplateResponse(request, "assets.html",
                                       {"user": user, "result": result, "active": "assets"})
@@ -45,7 +45,7 @@ async def assets_page(request: Request, q: str | None = None, status: str | None
 @router.get("/assets/{asset_id}")
 async def asset_detail_page(asset_id: str, request: Request,
                             session: AsyncSession = Depends(get_session),
-                            user: AppUser = Depends(require_user("reader"))):
+                            user: AppUser = Depends(require_perm("assets.view"))):
     try:
         parsed = uuid.UUID(asset_id)
     except ValueError:
@@ -61,7 +61,7 @@ async def asset_detail_page(asset_id: str, request: Request,
 async def create_token_form(request: Request, label: str = Form(""),
                             ttl_hours: int = Form(24),
                             session: AsyncSession = Depends(get_session),
-                            user: AppUser = Depends(require_user("admin"))):
+                            user: AppUser = Depends(require_perm("agents.manage"))):
     row, raw = await create_enrollment_token(session, label.strip() or None, user.username,
                                              max(1, min(ttl_hours, 720)))
     await audit(session, request, actor=user.username, action="token.create",
@@ -73,7 +73,7 @@ async def create_token_form(request: Request, label: str = Form(""),
 @router.post("/agents/{agent_id}/revoke")
 async def revoke_agent_form(agent_id: uuid.UUID, request: Request,
                             session: AsyncSession = Depends(get_session),
-                            user: AppUser = Depends(require_user("admin"))):
+                            user: AppUser = Depends(require_perm("agents.manage"))):
     agent = await revoke_agent(session, agent_id, user.username)
     if agent is None:
         raise HTTPException(status_code=404, detail="agent tidak ditemukan")
@@ -87,7 +87,7 @@ async def revoke_agent_form(agent_id: uuid.UUID, request: Request,
 async def export_assets(q: str | None = None, status: str | None = None,
                         os_family: str | None = None,
                         session: AsyncSession = Depends(get_session),
-                        user: AppUser = Depends(require_user("reader"))):
+                        user: AppUser = Depends(require_perm("assets.export"))):
     """CSV mengikuti filter yang sama dengan halaman /assets (tanpa pagination)."""
     result = await list_assets(session, q, status, os_family, sort="hostname", order="asc",
                                page=1, per_page=5000)

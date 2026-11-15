@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
-from app.deps import require_user
+from app.deps import require_perm
 from app.models import AppUser
 
 router = APIRouter(include_in_schema=False, tags=["downloads"])
@@ -77,7 +77,7 @@ def artifact_rows() -> list[dict]:
 
 
 @router.get("/downloads/{name}")
-async def download(name: str, user: AppUser = Depends(require_user("reader"))):
+async def download(name: str, user: AppUser = Depends(require_perm("agents.view"))):
     entry = ARTIFACTS.get(name)
     if entry is None:
         raise HTTPException(status_code=404, detail="artefak tidak dikenal")

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import audit
 from app.db import get_session
-from app.deps import require_user
+from app.deps import require_perm
 from app.models import AppUser
 from app.queries import dashboard_stats, get_asset_detail, list_agents, list_assets
 from app.services import create_enrollment_token, revoke_agent
@@ -22,7 +22,7 @@ async def api_assets(q: str | None = None, status: str | None = None,
                      order: str = "asc", page: int = Query(1, ge=1),
                      per_page: int = Query(25, ge=1, le=200),
                      session: AsyncSession = Depends(get_session),
-                     user: AppUser = Depends(require_user("reader"))) -> dict:
+                     user: AppUser = Depends(require_perm("assets.view"))) -> dict:
     result = await list_assets(session, q, status, os_family, sort, order, page, per_page)
     return {
         "total": result["total"], "page": result["page"], "pages": result["pages"],
@@ -39,7 +39,7 @@ async def api_assets(q: str | None = None, status: str | None = None,
 @router.get("/assets/{asset_id}")
 async def api_asset_detail(asset_id: uuid.UUID,
                            session: AsyncSession = Depends(get_session),
-                           user: AppUser = Depends(require_user("reader"))) -> dict:
+                           user: AppUser = Depends(require_perm("assets.view"))) -> dict:
     detail = await get_asset_detail(session, asset_id)
     if detail is None:
         raise HTTPException(status_code=404, detail="asset tidak ditemukan")
@@ -66,13 +66,13 @@ async def api_asset_detail(asset_id: uuid.UUID,
 
 @router.get("/stats")
 async def api_stats(session: AsyncSession = Depends(get_session),
-                    user: AppUser = Depends(require_user("reader"))) -> dict:
+                    user: AppUser = Depends(require_perm("dashboard.view"))) -> dict:
     return await dashboard_stats(session)
 
 
 @router.get("/agents")
 async def api_agents(session: AsyncSession = Depends(get_session),
-                     user: AppUser = Depends(require_user("reader"))) -> list[dict]:
+                     user: AppUser = Depends(require_perm("agents.view"))) -> list[dict]:
     return [{"id": str(a["agent"].id), "name": a["agent"].name,
              "machine_id": a["agent"].machine_id, "revoked_at": a["agent"].revoked_at,
              "last_seen": a["last_seen"].isoformat() if a["last_seen"] else None,
@@ -88,7 +88,7 @@ class TokenRequest(BaseModel):
 @router.post("/enrollment-tokens")
 async def api_create_token(body: TokenRequest, request: Request,
                            session: AsyncSession = Depends(get_session),
-                           user: AppUser = Depends(require_user("admin"))) -> dict:
+                           user: AppUser = Depends(require_perm("agents.manage"))) -> dict:
     row, raw = await create_enrollment_token(session, body.label, user.username,
                                              max(1, min(body.ttl_hours, 720)))
     await audit(session, request, actor=user.username, action="token.create",
@@ -101,7 +101,7 @@ async def api_create_token(body: TokenRequest, request: Request,
 @router.post("/agents/{agent_id}/revoke")
 async def api_revoke_agent(agent_id: uuid.UUID, request: Request,
                            session: AsyncSession = Depends(get_session),
-                           user: AppUser = Depends(require_user("admin"))) -> dict:
+                           user: AppUser = Depends(require_perm("agents.manage"))) -> dict:
     agent = await revoke_agent(session, agent_id, user.username)
     if agent is None:
         raise HTTPException(status_code=404, detail="agent tidak ditemukan")

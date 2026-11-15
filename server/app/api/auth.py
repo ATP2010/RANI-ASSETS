@@ -55,7 +55,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
                             request_ip=ip))
     user.last_login_at = now
     await audit(session, request, actor=user.username, action="login",
-                details={"role": user.role})
+                details={"roles": list(getattr(user, "role_slugs", []))})
     await session.commit()
     await redis.delete(f"rani:login:{ip}")
 

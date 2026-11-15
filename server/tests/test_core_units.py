@@ -11,7 +11,9 @@ from jsonschema import Draft202012Validator
 
 from app.ingest.reconciler import (clean_identifier, norm_software, normalize_mac,
                                    pick_primary_interface)
-from app.security import (constant_eq, hash_password, hmac_hex, role_allows,
+from app.permissions import (ALL_PERMISSIONS, DEFAULT_ROLES, normalize_permissions,
+                             union_permissions)
+from app.security import (constant_eq, hash_password, hmac_hex,
                           sha256_hex, verify_password)
 
 SCHEMA = Path("/srv/schema/agent_payload_v1.json")
@@ -56,11 +58,21 @@ class SecurityTest(unittest.TestCase):
         self.assertTrue(constant_eq(digest, digest))
         self.assertFalse(constant_eq(digest, digest[:-1]))
 
-    def test_role_ranking(self):
-        self.assertTrue(role_allows("admin", "operator"))
-        self.assertTrue(role_allows("operator", "reader"))
-        self.assertFalse(role_allows("reader", "operator"))
-        self.assertFalse(role_allows("unknown", "reader"))
+    def test_permission_union(self):
+        reader = next(r["permissions"] for r in DEFAULT_ROLES if r["slug"] == "reader")
+        operator = next(r["permissions"] for r in DEFAULT_ROLES if r["slug"] == "operator")
+        union = union_permissions([reader, operator])
+        self.assertIn("scan.manage", union)
+        self.assertIn("dashboard.view", union)
+        self.assertNotIn("users.manage", union)
+        # admin terkunci: slug admin memaksa semua permission
+        self.assertEqual(union_permissions([reader], ["admin"]), set(ALL_PERMISSIONS))
+
+    def test_normalize_permissions(self):
+        self.assertEqual(normalize_permissions(["assets.view", "bogus.perm",
+                                                "assets.view", "dashboard.view"]),
+                         ["dashboard.view", "assets.view"])
+        self.assertEqual(normalize_permissions(None), [])
 
     def test_sha256(self):
         self.assertEqual(sha256_hex(b"rani"), sha256_hex("rani"))

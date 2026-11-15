@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     RANI_OFFLINE_AFTER_S: int = 3 * 3600
     RANI_RATE_LIMIT_PER_MIN: int = 30
     RANI_SESSION_TTL_H: int = 12
+    # Users & akses (F5): login lokal/AD, kebijakan password, sync default
+    RANI_AUTH_LOCAL_ENABLED: bool = True
+    RANI_AD_ENABLED: bool = False
+    RANI_AD_SYNC_INTERVAL_S: int = 3600
+    RANI_PASSWORD_MIN_LEN: int = 12
+    RANI_LOGIN_MAX_ATTEMPTS: int = 20
 
     # Push tanpa enroll/HMAC (agent dikenali dari machine_id/hostname payload).
     # Matikan (0) untuk mewajibkan signature semua agent.

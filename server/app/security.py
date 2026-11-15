@@ -41,10 +41,3 @@ def hmac_hex(secret: str, message: bytes) -> str:
 
 def constant_eq(a: str, b: str) -> bool:
     return hmac.compare_digest(a, b)
-
-
-ROLE_RANK = {"reader": 10, "operator": 20, "admin": 30}
-
-
-def role_allows(role: str, minimum: str) -> bool:
-    return ROLE_RANK.get(role, 0) >= ROLE_RANK.get(minimum, 999)
