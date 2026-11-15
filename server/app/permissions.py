@@ -26,6 +26,8 @@ PERMISSIONS: dict[str, str] = {
     "directory.manage": "Mengubah connector, test koneksi, mapping group",
     "directory.sync": "Menjalankan sync manual",
     "audit.view": "Melihat sesi aktif dan audit log",
+    "setup.view": "Membuka menu Setup dan melihat konfigurasinya",
+    "setup.manage": "Mengubah konfigurasi, mengelola actions asset",
 }
 
 ALL_PERMISSIONS: tuple[str, ...] = tuple(PERMISSIONS)

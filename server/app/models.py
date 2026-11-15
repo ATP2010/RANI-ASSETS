@@ -484,6 +484,26 @@ class ScanResult(Base):
     created_at = _now()
 
 
+class AssetAction(Base):
+    """Aksi asset gaya Lansweeper — hyperlink/copy dengan parameter asset."""
+    __tablename__ = "asset_actions"
+    __table_args__ = (
+        Index(f"ix_{SCHEMA}_asset_actions_order", "sort_order"),
+        {"schema": SCHEMA},
+    )
+
+    id = _uuid_pk()
+    name: Mapped[str] = mapped_column(String(96))
+    command: Mapped[str] = mapped_column(Text)  # "rdp://{ipaddress}" atau teks copy
+    kind: Mapped[str] = mapped_column(String(16), default="link")  # link|copy
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    advanced: Mapped[bool] = mapped_column(Boolean, default=False)
+    confirm: Mapped[bool] = mapped_column(Boolean, default=False)  # tanya konfirmasi dulu
+    sort_order: Mapped[int] = mapped_column(Integer, default=100)
+    created_at = _now()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class EndpointPortMapping(Base):
     """MAC ↔ port switch dari BRIDGE-MIB (dot1d) / Q-BRIDGE-MIB (dot1q).
 

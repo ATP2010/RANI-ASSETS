@@ -6,17 +6,29 @@
   {% if a.status == 'online' %}<span class="badge text-bg-success">online</span>
   {% else %}<span class="badge text-bg-secondary">offline</span>{% endif %}
   · last seen {{ a.last_seen | fmt_dt }}
-  {% if asset_actions(a) %}
+  {% set acts = asset_actions(actions, a) %}
+  {% if acts %}
   <span class="dropdown d-inline-block ms-2">
     <button class="btn btn-sm btn-primary dropdown-toggle" type="button"
             data-bs-toggle="dropdown" aria-expanded="false">Actions</button>
     <ul class="dropdown-menu dropdown-menu-end shadow">
-      {% for act in asset_actions(a) %}
+      {% for act in acts if not act.advanced %}
       <li>
-        {% if act.href %}<a class="dropdown-item small" href="{{ act.href }}" rel="noopener">{{ act.label }}</a>
-        {% else %}<button class="dropdown-item small ap-copy" type="button" data-copy="{{ act['copy'] }}">{{ act.label }}</button>{% endif %}
+        {% if act.href %}<a class="dropdown-item small" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
+        {% else %}<button class="dropdown-item small ap-copy" type="button" data-copy="{{ act['copy'] }}" data-label="{{ act.label }}">{{ act.label }}</button>{% endif %}
       </li>
       {% endfor %}
+      {% set adv = acts | selectattr('advanced') | list %}
+      {% if adv %}
+      <li><hr class="dropdown-divider my-1"></li>
+      <li><span class="dropdown-header">Advanced</span></li>
+      {% for act in adv %}
+      <li>
+        {% if act.href %}<a class="dropdown-item small" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
+        {% else %}<button class="dropdown-item small ap-copy" type="button" data-copy="{{ act['copy'] }}" data-label="{{ act.label }}">{{ act.label }}</button>{% endif %}
+      </li>
+      {% endfor %}
+      {% endif %}
     </ul>
   </span>
   {% endif %}
@@ -393,6 +405,11 @@
       document.body.removeChild(ta);
     });
   }
+  document.querySelectorAll('[data-confirm]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      if (!window.confirm(el.dataset.confirm)) { e.preventDefault(); e.stopPropagation(); }
+    });
+  });
   document.querySelectorAll('.ap-copy').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var original = btn.textContent;

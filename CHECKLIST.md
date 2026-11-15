@@ -90,6 +90,8 @@
 - [ ] Discovery pasif tambahan: mDNS/SSDP/UPnP, HTTP banner
 - [x] Software normalization dasar (trim/lowercase/collapse space, `name_norm` unik per asset)
 - [x] F4.4 **Actions (gaya Lansweeper)** di menu Assets & detail asset: hover hostname → popup overview (IP, MAC, OS, domain, serial, port/switch) + menu **Actions** (Buka HTTP/HTTPS, share `file:///IP/c$`, RDP `rdp://`, SSH, VNC; tombol salin `mstsc /v:…`/IP/MAC/hostname) — `app/actions.py` satu sumber, parameter `{ipaddress}/{fqdn}/{mac}/…`; tab Overview menampilkan **Terhubung ke** (switch + port + VLAN); docs [`docs/actions.md`](docs/actions.md)
+- [x] F4.5 **Menu Setup → Actions** (ala Lansweeper Configuration > Asset Pages): kelola action dari UI — buat/ubah/duplikat/hapus, naik-turunkan urutan, enable/disable, grup *Basic/Advanced*, saklar *Tanyakan konfirmasi* (dialog sebelum aksi berjalan), validasi skema + placeholder di server, pratinjau substitution, permission baru `setup.view`/`setup.manage`; `asset_actions` di-seed migration `0007_asset_actions` (10 default); history `setup.action.*` di audit_logs
+  - Bukti F4.5 (2026-11-15, dev LXC): migration `0007_asset_actions` terpasang; `/setup/actions` 200 (47 KB); buat `Buka di Zabbix` (`advanced ✓, confirm ✓`) → muncul di popup `/assets` (grup Advanced) & dropdown detail asset, dengan `Advanced` header; matikan → hilang dari popup; `javascript:` → ditolak dengan pesan skema; placeholder `{bogus}` → ditolak; duplikat/hapus/move/toggle bekerja, kembali ke 10 action default; reader (`permreader1`) → `/setup/actions` 403; `rani_report` SELECT `asset_actions` → permission denied
 - [ ] License/SAM module
 - [ ] SSO (OIDC/AD LDAPS) — lihat F5.8
 

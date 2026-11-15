@@ -162,6 +162,7 @@ async def ensure_report_role() -> bool:
         f"REVOKE ALL ON {schema}.directory_connectors FROM {user}",
         f"REVOKE ALL ON {schema}.directory_group_roles FROM {user}",
         f"REVOKE ALL ON {schema}.directory_sync_runs FROM {user}",
+        f"REVOKE ALL ON {schema}.asset_actions FROM {user}",
     ]
     # batas keras di level database: sesi read-only + timeout
     role_settings = [

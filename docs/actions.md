@@ -13,6 +13,7 @@ target; klien (browser Anda) yang men-trigger handler protokol atau halaman web.
 
 | Tempat | Bentuk |
 |---|---|
+| Menu **Setup → Actions** (`/setup/actions`) | halaman untuk **mengelola** daftar action (khusus `setup.manage`) |
 | `/assets` — hover di hostname | popup overview (IP, MAC, OS, serial, port/switch) + daftar Actions |
 | Halaman detail asset `/assets/{id}` | tombol **Actions** di kanan atas (di samping badge status) |
 
@@ -37,18 +38,33 @@ Parameter diisi otomatis dari field asset (pola Lansweeper: `{ipaddress}`,
 
 Action yang membutuhkan IP disembunyikan otomatis bila asset tidak punya `ip_last`.
 
-## 3. Menambah action sendiri
+## 3. Mengelola action — menu Setup → Actions
 
-Semua action didefinisikan satu tempat: `server/app/actions.py`
-(`ACTION_LINKS` = hyperlink, `ACTION_COPIES` = tombol copy ke clipboard).
-Contoh menambah action `ping` via `cmd` tidak masuk akal untuk hyperlink lintas
-platform; untuk tool internal, tambahkan entri baru, mis.:
+Buka **Setup → Actions** (perlu permission `setup.manage`; `setup.view` hanya
+melihat). Dari sini Anda bisa:
 
-```python
-("zabbix", "Buka di Zabbix", "https://zabbix.corp.local/host.php?hostid={ipaddress}"),
-```
+- **Membuat action baru**: nama, jenis `link` (URL/protokol) atau `copy` (teks ke
+  clipboard), perintah/URL dengan placeholder, urutan, dan tiga saklar: *Enabled*,
+  *Advanced*, *Tanyakan konfirmasi*.
+- **Ubah, duplikat, hapus**, **naik/turunkan urutan**, dan **enable/disable** cepat.
+- **Advanced** memisahkan action ke grup "Advanced" di popup/dropdown (Lansweeper:
+  advanced actions untuk tugas berisiko, basic untuk yang ringan).
+- **Tanyakan konfirmasi** memicu dialog konfirmasi browser sebelum action berjalan
+  (dipakai untuk RDP/SSH/VNC/share).
+- Pratinjau substitution action dengan asset contoh langsung di halaman.
 
-Lalu build ulang image. Tidak ada konfigurasi di `.env` dan tidak ada penyimpanan
+Validasi sisi server: skema link harus diizinkan (`http`, `https`, `ftp`, `file`,
+`rdp`, `ssh`, `telnet`, `vnc`, `winbox`, `mqtt`, `ldap`, `ldaps`), placeholder harus
+dikenal (`{ipaddress}`, `{assetname}`, `{hostname}`, `{dnsname}`, `{fqdn}`,
+`{domain}`, `{mac}`, `{tag}`, `{assetid}`). `javascript:`/`data:` ditolak.
+
+Action default (seed migration `0007_asset_actions`): HTTP, HTTPS, share C$, RDP,
+SSH, VNC, `mstsc /v:…`, salin IP/MAC/hostname — bisa diubah atau dimatikan.
+
+Contoh action internal kantor (Zabbix): nama `Buka di Zabbix`, URL
+`https://zabbix.corp.local/host.php?host={ipaddress}`, centang **Advanced**.
+
+Action disimpan di tabel `asset_actions`; tidak ada konfigurasi di `.env`, tidak ada
 credential.
 
 ## 4. Handler protokol (rdp://, ssh://, vnc://, file://)
@@ -84,6 +100,7 @@ diam saja — action tetap tersedia di mesin yang punya handler.
 |---|---|
 | Klik action tidak melakukan apa-apa | Handler protokol belum terdaftar di OS; pakai *Salin `mstsc /v:…`* atau *Salin IP* |
 | `file:///IP/c$` menolak akses | User Windows Anda tidak punya hak admin ke share; gunakan akun domain |
-| Action hilang di daftar | Asset tidak punya `ip_last` — agent belum pernah push atau asset hasil scan tanpa host terdeteksi |
+| Action hilang di daftar | Asset tidak punya `ip_last` — agent belum pernah push atau asset hasil scan tanpa host terdeteksi; atau action dimatikan di **Setup → Actions** (kolom Aktif) |
+| Menu Setup tidak muncul | Role Anda tidak punya `setup.view`; minta admin beri permission `setup.view`/`setup.manage` di **Users → Role & akses** |
 | Popup tidak muncul saat hover | Hanya perangkat dengan mouse; di touch/keyboard gunakan tab order + Enter pada hostname |
 | Popup memotong tepi layar | Geser horizontal; popup otomatis menyesuaikan (max-width 340px) |

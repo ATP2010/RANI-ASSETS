@@ -16,6 +16,7 @@ from app.deps import get_current_user_ws, require_perm
 from app.models import AppUser, Asset, Software
 from app.queries import (dashboard_stats, get_asset_detail, list_agents, list_assets,
                          list_tokens)
+from app.actions import load_action_rows
 from app.services import create_enrollment_token, revoke_agent
 from app.templating import templates
 from app.ws import manager
@@ -39,7 +40,8 @@ async def assets_page(request: Request, q: str | None = None, status: str | None
                       user: AppUser = Depends(require_perm("assets.view"))):
     result = await list_assets(session, q, status, os_family, sort, order, page)
     return templates.TemplateResponse(request, "assets.html",
-                                      {"user": user, "result": result, "active": "assets"})
+                                      {"user": user, "result": result, "active": "assets",
+                                       "actions": await load_action_rows(session)})
 
 
 @router.get("/assets/{asset_id}")
@@ -54,7 +56,8 @@ async def asset_detail_page(asset_id: str, request: Request,
     if detail is None:
         raise HTTPException(status_code=404, detail="asset tidak ditemukan")
     return templates.TemplateResponse(request, "asset_detail.html",
-                                      {"user": user, "d": detail, "active": "assets"})
+                                      {"user": user, "d": detail, "active": "assets",
+                                       "actions": await load_action_rows(session)})
 
 
 @router.post("/agents/tokens")

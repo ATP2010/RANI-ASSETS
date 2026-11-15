@@ -34,6 +34,7 @@ admin). Submenu direncanakan:
 | Role & akses | `/users/roles` | daftar role, matriks permission, buat/duplikat/hapus role custom | `roles.view` / `roles.manage` |
 | Direktori (AD) | `/users/directory` | connector LDAP/LDAPS, test koneksi, mapping group → role, tombol sync + riwayat | `directory.view` / `directory.manage` / `directory.sync` |
 | Sesi & audit | `/users/sessions` | sesi aktif (user, IP, waktu), cabut sesi; audit login/perubahan akses | `audit.view` |
+| Actions | `/setup/actions` | mengelola aksi cepat asset (URL/perintah dengan placeholder) | `setup.view` / `setup.manage` |
 
 Submenu baru bisa ditambahkan tanpa mengubah top-level **Users**.
 
@@ -73,6 +74,8 @@ Format `modul.aksi`. Action `view` untuk melihat, `manage` untuk mengubah konfig
 | | `directory.manage` | ubah connector, test koneksi, mapping group |
 | | `directory.sync` | jalankan sync manual |
 | Audit | `audit.view` | halaman sesi & audit |
+| Setup | `setup.view` | membuka menu Setup (Actions) |
+| | `setup.manage` | mengelola actions asset |
 
 ### 2.2 Default role bawaan
 
@@ -87,7 +90,7 @@ Format `modul.aksi`. Action `view` untuk melihat, `manage` untuk mengubah konfig
 | `portmap.view` | ✓ | ✓ | ✓ |
 | `agents.view` | ✓ | ✓ | ✓ |
 | `agents.manage` | — | ✓ | ✓ |
-| `users.*` / `roles.*` / `directory.*` / `audit.view` | — | — | ✓ |
+| `users.*` / `roles.*` / `directory.*` / `audit.view` / `setup.*` | — | — | ✓ |
 
 `admin` adalah role **terkunci**: selalu punya semua permission, tidak bisa dihapus,
 tidak bisa diubah lewat UI. Tujuannya menjamin selalu ada jalan masuk.

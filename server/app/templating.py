@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi.templating import Jinja2Templates
 
-from app.actions import asset_actions
+from app.actions import asset_actions as _asset_actions
 from app.version import VERSION
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
@@ -36,4 +36,4 @@ def fmt_dt(value) -> str:
 for name, fn in {"fmt_dt": fmt_dt}.items():
     templates.env.filters[name] = fn
 
-templates.env.globals["asset_actions"] = asset_actions
+templates.env.globals["asset_actions"] = _asset_actions

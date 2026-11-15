@@ -125,10 +125,19 @@
                 </span>
                 <span class="ap-actions">
                   <span class="ap-actions-title">Actions</span>
-                  {% for act in asset_actions(a) %}
-                    {% if act.href %}<a class="ap-item" href="{{ act.href }}" rel="noopener">{{ act.label }}</a>
+                  {% set acts = asset_actions(actions, a) %}
+                  {% for act in acts if not act.advanced %}
+                    {% if act.href %}<a class="ap-item" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
                     {% else %}<button type="button" class="ap-item ap-copy" data-copy="{{ act['copy'] }}" data-label="{{ act.label }}">{{ act.label }}</button>{% endif %}
                   {% endfor %}
+                  {% set adv = acts | selectattr('advanced') | list %}
+                  {% if adv %}
+                  <span class="ap-actions-title">Advanced</span>
+                  {% for act in adv %}
+                    {% if act.href %}<a class="ap-item" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
+                    {% else %}<button type="button" class="ap-item ap-copy" data-copy="{{ act['copy'] }}" data-label="{{ act.label }}">{{ act.label }}</button>{% endif %}
+                  {% endfor %}
+                  {% endif %}
                 </span>
                 <a class="ap-detail" href="/assets/{{ a.id }}">Buka detail lengkap →</a>
               </span>
@@ -233,6 +242,11 @@
       document.body.removeChild(ta);
     });
   }
+  document.querySelectorAll('[data-confirm]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      if (!window.confirm(el.dataset.confirm)) { e.preventDefault(); e.stopPropagation(); }
+    });
+  });
   document.querySelectorAll('.ap-copy').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var original = btn.dataset.label || btn.textContent;

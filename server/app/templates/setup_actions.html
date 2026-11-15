@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Setup · Actions{% endblock %}
+{% block heading %}Setup · Actions{% endblock %}
+{% block subheading %}aksi asset ala Lansweeper — klik dieksekusi di mesin klien{% endblock %}
+
+{% block content %}
+{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Daftar action ({{ rows | length }})</span>
+        <span class="small-muted">urutan tampil di menu Assets</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="text-center" style="width:64px">Urut</th>
+              <th>Action</th>
+              <th>Jenis</th>
+              <th class="text-center">Aktif</th>
+              <th class="text-center">Adv</th>
+              <th class="text-center">Confirm</th>
+              <th class="text-end">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in rows %}
+            <tr class="{{ '' if a.enabled else 'table-secondary' }}">
+              <td class="text-center text-nowrap">
+                {% if can_manage %}
+                <form method="post" action="/setup/actions/{{ a.id }}/move" class="d-inline">
+                  <input type="hidden" name="dir" value="up">
+                  <button class="btn btn-sm btn-outline-secondary px-1 py-0" type="submit" title="Naikkan">↑</button>
+                </form>
+                <form method="post" action="/setup/actions/{{ a.id }}/move" class="d-inline">
+                  <input type="hidden" name="dir" value="down">
+                  <button class="btn btn-sm btn-outline-secondary px-1 py-0" type="submit" title="Turunkan">↓</button>
+                </form>
+                {% else %}{{ a.sort_order }}{% endif %}
+              </td>
+              <td>
+                <span class="fw-medium">{{ a.name }}</span>
+                <div class="small mono text-break">{{ a.command }}</div>
+              </td>
+              <td>
+                {% if a.kind == 'link' %}<span class="badge text-bg-info">link</span>
+                {% else %}<span class="badge text-bg-warning">copy</span>{% endif %}
+              </td>
+              <td class="text-center">
+                {% if can_manage %}
+                <form method="post" action="/setup/actions/{{ a.id }}/toggle" class="d-inline">
+                  <button class="btn btn-sm {{ 'btn-success' if a.enabled else 'btn-outline-secondary' }} py-0 px-2"
+                          type="submit" title="Klik untuk {{ 'nonaktifkan' if a.enabled else 'aktifkan' }}">
+                    {{ '✓' if a.enabled else '✗' }}
+                  </button>
+                </form>
+                {% else %}{{ 'ya' if a.enabled else 'tidak' }}{% endif %}
+              </td>
+              <td class="text-center">{% if a.advanced %}<span class="badge text-bg-secondary">adv</span>{% else %}<span class="small-muted">—</span>{% endif %}</td>
+              <td class="text-center">{% if a.confirm %}<span class="badge text-bg-warning">ya</span>{% else %}<span class="small-muted">—</span>{% endif %}</td>
+              <td class="text-end text-nowrap">
+                {% if can_manage %}
+                <a class="btn btn-sm btn-outline-secondary" href="/setup/actions?edit={{ a.id }}">Ubah</a>
+                <form method="post" action="/setup/actions/{{ a.id }}/duplicate" class="d-inline">
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Duplikat</button>
+                </form>
+                <form method="post" action="/setup/actions/{{ a.id }}/delete" class="d-inline"
+                      onsubmit="return confirm('Hapus action {{ a.name }}?');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="small-muted p-3">belum ada action. Buat yang pertama di kanan.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><button class="btn btn-sm btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#placeholders">Placeholder &amp; skema URL yang diizinkan</button></div>
+      <div class="collapse show" id="placeholders">
+        <div class="card-body small">
+          <div class="mb-2"><strong>Placeholder:</strong>
+            {% for p in placeholders %}<code class="me-1">{{ '{' ~ p ~ '}' }}</code>{% endfor %}
+          </div>
+          <div class="mb-2"><strong>Skema untuk action link:</strong>
+            {% for s in schemes %}<code class="me-1">{{ s }}:</code>{% endfor %}
+          </div>
+          <div class="small-muted">Eksekusi di mesin klien — server tidak membuka koneksi ke asset dan tidak menyimpan credential. Untuk <code>rdp://</code>/<code>ssh://</code>/<code>vnc://</code> klien butuh handler protokol terdaftar; alternatif paling andal untuk RDP adalah tombol salin <code>mstsc /v:…</code> lalu tempel di Run.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">{{ 'Ubah action' if editing else 'Action baru' }}</div>
+      <div class="card-body">
+        {% if not can_manage %}<div class="small-muted mb-2">Anda hanya bisa melihat. Butuh permission <code>setup.manage</code> untuk mengubah.</div>{% endif %}
+        <form method="post" action="/setup/actions" class="row g-2">
+          {% if editing %}<input type="hidden" name="action_id" value="{{ editing.id }}">{% endif %}
+          <div class="col-12">
+            <label class="form-label small" for="f-name">Nama (deskripsi)</label>
+            <input class="form-control form-control-sm" id="f-name" name="name" required maxlength="96"
+                   value="{{ editing.name if editing else '' }}" placeholder="Remote Desktop (RDP)"
+                   {% if not can_manage %}disabled{% endif %}>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label small" for="f-kind">Jenis</label>
+            <select class="form-select form-select-sm" id="f-kind" name="kind" {% if not can_manage %}disabled{% endif %}>
+              <option value="link" {% if not editing or editing.kind == 'link' %}selected{% endif %}>link (URL)</option>
+              <option value="copy" {% if editing and editing.kind == 'copy' %}selected{% endif %}>copy (clipboard)</option>
+            </select>
+          </div>
+          <div class="col-sm-8">
+            <label class="form-label small" for="f-sort">Urutan (sort_order)</label>
+            <input class="form-control form-control-sm" id="f-sort" name="sort_order" type="number" min="0"
+                   value="{{ editing.sort_order if editing else (rows | length) * 10 + 10 }}"
+                   {% if not can_manage %}disabled{% endif %}>
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-cmd">Perintah / URL</label>
+            <input class="form-control form-control-sm mono" id="f-cmd" name="command" required maxlength="512"
+                   value="{{ editing.command if editing else '' }}"
+                   placeholder="rdp://{ipaddress}" {% if not can_manage %}disabled{% endif %}>
+            <div class="form-text">Gunakan <code>{ipaddress}</code>, <code>{fqdn}</code>, <code>{mac}</code>, dst. Contoh link: <code>https://{fqdn}</code> · contoh copy: <code>ssh {{ '{' }}ipaddress{{ '}' }}</code></div>
+          </div>
+          <div class="col-12">
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" id="f-en" name="enabled" value="1"
+                     {{ 'checked' if (editing.enabled if editing else True) else '' }} {% if not can_manage %}disabled{% endif %}>
+              <label class="form-check-label small" for="f-en">Enabled</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" id="f-adv" name="advanced" value="1"
+                     {{ 'checked' if (editing.advanced if editing else False) else '' }} {% if not can_manage %}disabled{% endif %}>
+              <label class="form-check-label small" for="f-adv">Advanced</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" id="f-cfm" name="confirm" value="1"
+                     {{ 'checked' if (editing.confirm if editing else False) else '' }} {% if not can_manage %}disabled{% endif %}>
+              <label class="form-check-label small" for="f-cfm">Tanyakan konfirmasi</label>
+            </div>
+          </div>
+          {% if can_manage %}
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" type="submit">{{ 'Simpan perubahan' if editing else 'Tambah action' }}</button>
+            {% if editing %}<a class="btn btn-sm btn-outline-secondary" href="/setup/actions">Batal</a>{% endif %}
+          </div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Pratinjau (asset contoh: {{ sample.hostname }} · {{ sample.ip_last }})</div>
+      <div class="card-body">
+        {% for p in preview %}
+        <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-1 gap-2">
+          <span class="text-nowrap">{{ p.label }}{% if p.advanced %} <span class="badge text-bg-secondary">adv</span>{% endif %}</span>
+          <span class="mono small text-break">{{ p.href or p.copy }}</span>
+        </div>
+        {% else %}
+        <div class="small-muted">tidak ada yang bisa dipratinjau.</div>
+        {% endfor %}
+        <div class="small-muted mt-2">Pratinjau memakai substitution yang sama dengan produksi.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
