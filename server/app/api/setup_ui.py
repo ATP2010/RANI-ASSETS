@@ -73,7 +73,8 @@ async def setup_actions_page(request: Request, edit: str | None = None,
             editing = next((r for r in rows if str(r.id) == edit), None)
         except Exception:  # noqa: BLE001
             editing = None
-    preview = render_actions([editing] if editing else rows, _sample_asset())
+    preview = render_actions([editing] if editing else rows, _sample_asset(),
+                              str(request.base_url).rstrip("/"))
     can_manage = "setup.manage" in user.perm_set
     return templates.TemplateResponse(request, "setup_actions.html", {
         "user": user, "active": "setup", "sub": "actions",
@@ -97,7 +98,7 @@ async def setup_actions_save(request: Request,
                              user: AppUser = Depends(require_perm("setup.manage"))):
     name = (name or "").strip()[:96]
     command = (command or "").strip()
-    kind = kind if kind in ("link", "copy") else "link"
+    kind = kind if kind in ("link", "copy", "script") else "link"
     error = validate_action(name, command, kind)
     if error:
         return RedirectResponse(f"/setup/actions?error={error[:150]}", status_code=303)

@@ -11,8 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 from sqlalchemy import func, select, text
 
-from app.api import (agents_ui, auth, data, directory_ui, downloads, enroll, ingest,
-                     network, reports, reports_ui, scan, setup_ui, system, ui, users)
+from app.api import (actfiles, agents_ui, auth, data, directory_ui, downloads, enroll,
+                     ingest, network, reports, reports_ui, scan, setup_ui, system, ui, users)
 from app.config import get_settings
 from app.db import SessionLocal, dispose_engine
 from app.models import AppUser, AppUserRole, Role
@@ -149,6 +149,7 @@ def create_app() -> FastAPI:
     app.include_router(directory_ui.router)
     app.include_router(directory_ui.api_router)
     app.include_router(setup_ui.router)
+    app.include_router(actfiles.router)
     app.include_router(users.router)
     app.include_router(users.api_router)
     app.include_router(downloads.router)

@@ -48,6 +48,7 @@
               </td>
               <td>
                 {% if a.kind == 'link' %}<span class="badge text-bg-info">link</span>
+                {% elif a.kind == 'script' %}<span class="badge text-bg-dark">script</span>
                 {% else %}<span class="badge text-bg-warning">copy</span>{% endif %}
               </td>
               <td class="text-center">
@@ -115,12 +116,17 @@
           <div class="col-sm-4">
             <label class="form-label small" for="f-kind">Jenis</label>
             <select class="form-select form-select-sm" id="f-kind" name="kind" {% if not can_manage %}disabled{% endif %}>
-              <option value="link" {% if not editing or editing.kind == 'link' %}selected{% endif %}>link (URL)</option>
+              <option value="link" {% if not editing or editing.kind == 'link' %}selected{% endif %}>link (URL/protokol)</option>
               <option value="copy" {% if editing and editing.kind == 'copy' %}selected{% endif %}>copy (clipboard)</option>
+              <option value="script" {% if editing and editing.kind == 'script' %}selected{% endif %}>script (file server, klik → PC pengguna)</option>
             </select>
           </div>
           <div class="col-sm-8">
-            <label class="form-label small" for="f-sort">Urutan (sort_order)</label>
+            <label class="form-label small" for="f-kind">&nbsp;</label>
+            <div class="form-text pt-1"><strong>script</strong>: file di-download klien dari <code>/actions/files/</code> (token HMAC 5 menit) lalu dijalankan PC pengguna.</div>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label small" for="f-sort">Urutan</label>
             <input class="form-control form-control-sm" id="f-sort" name="sort_order" type="number" min="0"
                    value="{{ editing.sort_order if editing else (rows | length) * 10 + 10 }}"
                    {% if not can_manage %}disabled{% endif %}>
@@ -130,7 +136,7 @@
             <input class="form-control form-control-sm mono" id="f-cmd" name="command" required maxlength="512"
                    value="{{ editing.command if editing else '' }}"
                    placeholder="rdp://{ipaddress}" {% if not can_manage %}disabled{% endif %}>
-            <div class="form-text">Gunakan <code>{ipaddress}</code>, <code>{fqdn}</code>, <code>{mac}</code>, dst. Contoh link: <code>https://{fqdn}</code> · contoh copy: <code>ssh {{ '{' }}ipaddress{{ '}' }}</code></div>
+            <div class="form-text">Gunakan <code>{ipaddress}</code>, <code>{fqdn}</code>, <code>{mac}</code>, dst. Contoh: link <code>rdp://{ipaddress}</code> · copy <code>ssh {ipaddress}</code> · <strong>script</strong>: nama file di folder actions server + args, mis. <code>rdp.bat {ipaddress}</code> (file harus ada di <span class="mono">./actions/</span> server — diklik → PC pengguna men-download & menjalankan via handler <code>raniaction://</code>)</div>
           </div>
           <div class="col-12">
             <div class="form-check form-check-inline">

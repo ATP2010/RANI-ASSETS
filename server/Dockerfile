@@ -24,7 +24,8 @@ COPY alembic.ini /srv/alembic.ini
 COPY db /srv/db
 COPY server/app /srv/app
 COPY server/worker /srv/worker
-COPY server/tests /srv/tests
+COPY server/tests /srv
+COPY actions /srv/actions/tests
 COPY schema /srv/schema
 COPY docs /srv/docs
 # Artefak agent + skrip unduhan ikut di image supaya deployment "pull & run"

@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     RANI_OFFLINE_AFTER_S: int = 3 * 3600
     RANI_RATE_LIMIT_PER_MIN: int = 30
     RANI_SESSION_TTL_H: int = 12
+    # Folder Actions scripts (menu Setup → Actions, kind=script) + umur token download
+    RANI_ACTIONS_DIR: str = "/srv/actions"
+    RANI_ACTIONS_URLTTL_S: int = 300
     # Users & akses (F5): login lokal/AD, kebijakan password, sync default
     RANI_AUTH_LOCAL_ENABLED: bool = True
     RANI_AD_ENABLED: bool = False

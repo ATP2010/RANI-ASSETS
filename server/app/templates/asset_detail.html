@@ -6,7 +6,7 @@
   {% if a.status == 'online' %}<span class="badge text-bg-success">online</span>
   {% else %}<span class="badge text-bg-secondary">offline</span>{% endif %}
   · last seen {{ a.last_seen | fmt_dt }}
-  {% set acts = asset_actions(actions, a) %}
+  {% set acts = d.actions %}
   {% if acts %}
   <span class="dropdown d-inline-block ms-2">
     <button class="btn btn-sm btn-primary dropdown-toggle" type="button"

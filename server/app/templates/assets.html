@@ -126,7 +126,7 @@
                 </span>
                 <span class="ap-actions">
                   <span class="ap-actions-title">Actions</span>
-                  {% set acts = asset_actions(actions, a) %}
+                  {% set acts = item.actions %}
                   {% for act in acts if not act.advanced %}
                     {% if act.href %}<a class="ap-item" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
                     {% else %}<button type="button" class="ap-item ap-copy" data-copy="{{ act['copy'] }}" data-label="{{ act.label }}">{{ act.label }}</button>{% endif %}

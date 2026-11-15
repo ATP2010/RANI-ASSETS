@@ -16,7 +16,7 @@ from app.deps import get_current_user_ws, require_perm
 from app.models import AppUser, Asset, Software
 from app.queries import (dashboard_stats, get_asset_detail, list_agents, list_assets,
                          list_tokens)
-from app.actions import load_action_rows
+from app.actions import load_action_rows, render_actions
 from app.services import create_enrollment_token, revoke_agent
 from app.templating import templates
 from app.ws import manager
@@ -39,9 +39,12 @@ async def assets_page(request: Request, q: str | None = None, status: str | None
                       session: AsyncSession = Depends(get_session),
                       user: AppUser = Depends(require_perm("assets.view"))):
     result = await list_assets(session, q, status, os_family, sort, order, page)
+    action_rows = await load_action_rows(session)
+    base_url = str(request.base_url).rstrip("/")
+    for item in result["rows"]:
+        item["actions"] = render_actions(action_rows, item["asset"], base_url)
     return templates.TemplateResponse(request, "assets.html",
-                                      {"user": user, "result": result, "active": "assets",
-                                       "actions": await load_action_rows(session)})
+                                      {"user": user, "result": result, "active": "assets"})
 
 
 @router.get("/assets/{asset_id}")
@@ -55,9 +58,11 @@ async def asset_detail_page(asset_id: str, request: Request,
     detail = await get_asset_detail(session, parsed)
     if detail is None:
         raise HTTPException(status_code=404, detail="asset tidak ditemukan")
+    action_rows = await load_action_rows(session)
+    base_url = str(request.base_url).rstrip("/")
+    detail["actions"] = render_actions(action_rows, detail["asset"], base_url)
     return templates.TemplateResponse(request, "asset_detail.html",
-                                      {"user": user, "d": detail, "active": "assets",
-                                       "actions": await load_action_rows(session)})
+                                      {"user": user, "d": detail, "active": "assets"})
 
 
 @router.post("/agents/tokens")
