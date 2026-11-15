@@ -54,7 +54,7 @@ def _parse_ts(value: str) -> datetime:
 
 
 async def _resolve_agent(session: AsyncSession, request: Request, payload: dict,
-                         agent_id: str | None) -> tuple[Agent, str]:
+                         headers: dict) -> tuple[Agent, str]:
     """Kembalikan (agent, mode). Mode `signed` bila agent dikenali dari header id.
 
     Mode `direct`: agent dicari lewat machine_id, lalu hostname untuk agent yang
@@ -62,14 +62,39 @@ async def _resolve_agent(session: AsyncSession, request: Request, payload: dict,
     pertama membuat baris agent baru supaya report punya FK yang sah.
     """
     now = datetime.now(timezone.utc)
+    agent_id = headers.get("agent_id")
 
     if agent_id:
         agent = (await session.execute(
             select(Agent).where(Agent.id == agent_id)
         )).scalar_one_or_none()
-        if agent is None or agent.revoked_at is not None:
+        if agent is not None and agent.revoked_at is not None:
+            identity = payload.get("identity") or {}
+            log.warning(
+                "push ditolak 401: agent %s sudah direvoke — machine_id=%s hostname=%s",
+                agent_id, identity.get("machine_id"), identity.get("hostname"))
             raise HTTPException(status_code=401, detail="agent tidak dikenal/direvoke")
-        return agent, "signed"
+        if agent is not None:
+            return agent, "signed"
+        # agent_id milik server lain (hasil enroll di instance berbeda). Jangan langsung
+        # tolak: bila mode tanpa token aktif, lanjut ke pencocokan machine_id di bawah
+        # supaya satu PC boleh push ke beberapa server. Revoke tetap ditolak di atas, dan
+        # bila RANI_TOKENLESS_PUSH=0 header id asing tetap 401 (tidak bisa jadi bypass HMAC).
+        identity = payload.get("identity") or {}
+        if not settings.RANI_TOKENLESS_PUSH:
+            log.warning(
+                "push ditolak 401: X-Rani-Agent-Id %s tidak dikenal di server ini dan "
+                "mode tanpa token dimatikan — machine_id=%s hostname=%s",
+                agent_id, identity.get("machine_id"), identity.get("hostname"))
+            raise HTTPException(status_code=401, detail="agent tidak dikenal/direvoke")
+        log.warning(
+            "agent_id %s tidak dikenal di server ini — diproses sebagai push tanpa token "
+            "(machine_id=%s hostname=%s)",
+            agent_id, identity.get("machine_id"), identity.get("hostname"))
+        # signature milik server lain tidak bisa diverifikasi di sini; buang keduanya
+        # supaya request diperlakukan sebagai push tanpa token yang sah.
+        headers["agent_id"] = None
+        headers["signature"] = None
 
     if not settings.RANI_TOKENLESS_PUSH:
         raise HTTPException(status_code=401,
@@ -160,7 +185,7 @@ async def ingest_push(request: Request, response: Response,
                   for e in errors[:10]]
         raise HTTPException(status_code=422, detail={"schema_errors": detail})
 
-    agent, mode = await _resolve_agent(session, request, payload, headers["agent_id"])
+    agent, mode = await _resolve_agent(session, request, payload, headers)
 
     ts = _parse_ts(headers["timestamp"])
     skew = abs((datetime.now(timezone.utc) - ts).total_seconds())
