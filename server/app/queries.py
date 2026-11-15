@@ -1,4 +1,5 @@
 """Query baca (dipakai UI server-rendered dan JSON API — satu sumber kebenaran)."""
+import re
 import uuid
 from zoneinfo import ZoneInfo
 
@@ -28,6 +29,112 @@ def _software_count_subquery():
             .scalar_subquery())
 
 
+def port_name_sort_key(name: str | None):
+    """Natural sort nama port: Gi0/2 < Gi0/10 (bukan leksikografis)."""
+    text = str(name or "").lower()
+    match = re.match(r"^(.*?)(\d+)\s*$", text)
+    if not match:
+        return (text, 0)
+    return (match.group(1), int(match.group(2)))
+
+
+async def _l2_locations(session: AsyncSession,
+                        assets: list) -> tuple[dict, dict]:
+    """Lokasi L2 (endpoint) + utilisasi port (switch) untuk sekumpulan asset.
+
+    Return (by_endpoint, by_switch):
+      by_endpoint[asset_id] -> [{"port","vlan","mac","status","switch_id","switch_hostname","switch_ip"}]
+      by_switch[asset_id]   -> {"macs","ports","known"}
+
+    Endpoint dicocokkan dua jalur: (1) `endpoint_asset_id` hasil scan/reconcile,
+    (2) MAC asset (primary_mac + MAC di network_interfaces) yang belum tertaut —
+    supaya PC yang baru di-enroll langsung terlihat posisinya.
+    """
+    ids = [a.id for a in assets]
+    if not ids:
+        return {}, {}
+    switch = aliased(Asset)
+
+    def _add(out, seen, asset_id, row):
+        key = (asset_id, row["switch_id"], row["port"], row["mac"])
+        if key in seen:
+            return
+        seen.add(key)
+        out.setdefault(asset_id, []).append(row)
+
+    def _row(if_name, vlan, mac, status, sid, shostname, s_ip):
+        return {"port": if_name or "—", "vlan": vlan, "mac": mac, "status": status,
+                "switch_id": sid, "switch_hostname": shostname, "switch_ip": s_ip}
+
+    rows = (await session.execute(
+        select(EndpointPortMapping.endpoint_asset_id,
+               EndpointPortMapping.if_name, EndpointPortMapping.vlan,
+               EndpointPortMapping.mac, EndpointPortMapping.status,
+               switch.id.label("switch_id"),
+               switch.hostname.label("switch_hostname"),
+               switch.ip_last.label("switch_ip"))
+        .join(switch, switch.id == EndpointPortMapping.switch_asset_id)
+        .where(EndpointPortMapping.endpoint_asset_id.in_(ids),
+               EndpointPortMapping.present.is_(True))
+        .order_by(switch.hostname.asc(), EndpointPortMapping.if_name.asc())
+    )).all()
+    by_endpoint: dict = {}
+    seen: set = set()
+    for endpoint_id, if_name, vlan, mac, status, sid, shostname, s_ip in rows:
+        _add(by_endpoint, seen, endpoint_id,
+             _row(if_name, vlan, mac, status, sid, shostname, s_ip))
+
+    # Fallback: MAC asset yang belum tertaut ke endpoint_asset_id
+    macs_by_asset: dict = {}
+    for a in assets:
+        if a.primary_mac:
+            macs_by_asset.setdefault(a.id, set()).add(str(a.primary_mac).lower())
+    iface_rows = (await session.execute(
+        select(NetworkInterface.asset_id, NetworkInterface.mac)
+        .where(NetworkInterface.asset_id.in_(ids), NetworkInterface.mac.isnot(None))
+    )).all()
+    for asset_id, mac in iface_rows:
+        if mac:
+            macs_by_asset.setdefault(asset_id, set()).add(str(mac).lower())
+    mac_owner: dict = {}
+    for asset_id, macs in macs_by_asset.items():
+        for mac in macs:
+            mac_owner.setdefault(mac, []).append(asset_id)
+    if mac_owner:
+        mac_rows = (await session.execute(
+            select(EndpointPortMapping.mac,
+                   EndpointPortMapping.if_name, EndpointPortMapping.vlan,
+                   EndpointPortMapping.status,
+                   switch.id.label("switch_id"),
+                   switch.hostname.label("switch_hostname"),
+                   switch.ip_last.label("switch_ip"))
+            .join(switch, switch.id == EndpointPortMapping.switch_asset_id)
+            .where(EndpointPortMapping.present.is_(True),
+                   EndpointPortMapping.endpoint_asset_id.is_(None),
+                   EndpointPortMapping.mac.in_(sorted(mac_owner)))
+            .order_by(switch.hostname.asc(), EndpointPortMapping.if_name.asc())
+        )).all()
+        for mac, if_name, vlan, status, sid, shostname, s_ip in mac_rows:
+            for asset_id in mac_owner.get(str(mac).lower(), []):
+                _add(by_endpoint, seen, asset_id,
+                     _row(if_name, vlan, mac, status, sid, shostname, s_ip))
+
+    counts = (await session.execute(
+        select(EndpointPortMapping.switch_asset_id,
+               func.count(func.distinct(EndpointPortMapping.mac)).label("macs"),
+               func.count(func.distinct(EndpointPortMapping.if_name)).label("ports"),
+               func.count(func.distinct(EndpointPortMapping.endpoint_asset_id))
+               .label("known"))
+        .where(EndpointPortMapping.switch_asset_id.in_(ids),
+               EndpointPortMapping.present.is_(True))
+        .group_by(EndpointPortMapping.switch_asset_id)
+    )).all()
+    by_switch: dict = {}
+    for switch_id, macs, ports, known in counts:
+        by_switch[switch_id] = {"macs": macs, "ports": ports, "known": known}
+    return by_endpoint, by_switch
+
+
 async def list_assets(session: AsyncSession, q: str | None = None, status: str | None = None,
                       os_family: str | None = None, sort: str = "hostname", order: str = "asc",
                       page: int = 1, per_page: int = 25) -> dict:
@@ -53,8 +160,11 @@ async def list_assets(session: AsyncSession, q: str | None = None, status: str |
     stmt = stmt.offset((page - 1) * per_page).limit(per_page)
     rows = (await session.execute(stmt)).all()
     pages = max((total + per_page - 1) // per_page, 1)
+    by_endpoint, by_switch = await _l2_locations(session, [a for a, _ in rows])
     return {
-        "rows": [{"asset": asset, "software_count": count} for asset, count in rows],
+        "rows": [{"asset": asset, "software_count": count,
+                  "l2": by_endpoint.get(asset.id, []),
+                  "occ": by_switch.get(asset.id)} for asset, count in rows],
         "total": total, "page": page, "per_page": per_page, "pages": pages,
         "q": q or "", "status": status or "", "os_family": os_family or "",
         "sort": sort, "order": order,
@@ -102,6 +212,7 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict |
     port_map_stale = 0
     if asset.asset_type == "network":
         port_map = await list_port_map(session, switch_id=asset_id, limit=2000)
+        port_map.sort(key=lambda r: port_name_sort_key(r["mapping"].if_name))
         port_map_stale = (await session.execute(
             select(func.count(EndpointPortMapping.id))
             .where(EndpointPortMapping.switch_asset_id == asset_id,

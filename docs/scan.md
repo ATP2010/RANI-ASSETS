@@ -133,6 +133,19 @@ Membaca hasilnya:
 - Status `self` biasanya MAC milik switch itu sendiri (CPU/management interface).
 - VLAN `—` berarti perangkat hanya mengisi dot1d (tanpa info VLAN); `0` = tidak diketahui.
 
+Di menu **Assets** ada kolom **Port / Switch**:
+
+- Asset komputer/endpoint: `Gi0/2 · 192.168.88.5` — port tempat PC menempel + IP switch
+  (klik untuk membuka detail switch). Beberapa NIC/port ditampilkan maksimal dua baris.
+- Asset `network` (switch): `N MAC · M known · P port` — ringkasan isi tabel forwarding;
+  klik untuk detail port → hostname per port di tab **Port map** pada detail asset.
+- Kolom ini terisi dari `endpoint_port_mappings` hasil scan SNMP terakhir: PC yang baru
+  di-enroll langsung terdeteksi via MAC (`primary_mac` + `network_interfaces.mac`),
+  switch dikenali dari asset `asset_type='network'`.
+- Export CSV (`/export/assets.csv`) menambahkan kolom `l2_location`
+  (`Gi0/2 @ 192.168.88.5; Gi0/3 @ 192.168.88.6`) dan `/api/v1/assets` mengembalikan
+  `l2_location` array per item.
+
 Query SQL (menu **Reports**) untuk port map:
 
 ```sql

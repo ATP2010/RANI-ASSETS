@@ -94,16 +94,19 @@ async def export_assets(q: str | None = None, status: str | None = None,
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(["hostname", "ip", "os", "os_version", "vendor", "model", "serial", "mac",
-                     "domain", "status", "first_seen", "last_seen", "software_count"])
+                     "domain", "status", "first_seen", "last_seen", "software_count",
+                     "l2_location"])
     for item in result["rows"]:
         asset = item["asset"]
+        l2 = "; ".join(f"{x['port']} @ {x['switch_ip'] or x['switch_hostname'] or 'switch'}"
+                       for x in item.get("l2") or [])
         writer.writerow([asset.hostname or "", asset.ip_last or "", asset.os_caption or "",
                          asset.os_version or "", asset.vendor or "", asset.model or "",
                          asset.serial or "", asset.primary_mac or "", asset.domain or "",
                          asset.status,
                          asset.first_seen.isoformat() if asset.first_seen else "",
                          asset.last_seen.isoformat() if asset.last_seen else "",
-                         item["software_count"]])
+                         item["software_count"], l2])
     buffer.seek(0)
     return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": "attachment; filename=rani-assets.csv"})

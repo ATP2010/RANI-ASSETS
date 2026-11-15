@@ -27,12 +27,18 @@ async def api_assets(q: str | None = None, status: str | None = None,
     return {
         "total": result["total"], "page": result["page"], "pages": result["pages"],
         "items": [{
-            "id": str(asset.id), "hostname": asset.hostname, "ip": asset.ip_last,
-            "os": asset.os_caption, "status": asset.status,
-            "last_seen": asset.last_seen.isoformat() if asset.last_seen else None,
-            "serial": asset.serial, "mac": asset.primary_mac,
-            "software_count": count,
-        } for asset, count in ((i["asset"], i["software_count"]) for i in result["rows"])],
+            "id": str(item["asset"].id), "hostname": item["asset"].hostname,
+            "ip": item["asset"].ip_last, "os": item["asset"].os_caption,
+            "status": item["asset"].status,
+            "last_seen": item["asset"].last_seen.isoformat() if item["asset"].last_seen else None,
+            "serial": item["asset"].serial, "mac": item["asset"].primary_mac,
+            "software_count": item["software_count"],
+            "l2_location": [{"port": x["port"], "vlan": x["vlan"], "mac": x["mac"],
+                             "switch_id": str(x["switch_id"]),
+                             "switch_hostname": x["switch_hostname"],
+                             "switch_ip": x["switch_ip"]}
+                            for x in item.get("l2", [])],
+        } for item in result["rows"]],
     }
 
 

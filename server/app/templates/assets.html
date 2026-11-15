@@ -63,7 +63,7 @@
     <table class="table table-hover table-tight mb-0 align-middle">
       <thead class="table-light">
         <tr>
-          <th>Hostname</th><th>IP</th><th>OS</th><th>Model</th>
+          <th>Hostname</th><th>IP</th><th>Port / Switch</th><th>OS</th><th>Model</th>
           <th class="text-end">Software</th><th>Status</th><th>Last seen</th>
         </tr>
       </thead>
@@ -75,6 +75,23 @@
             <div class="small-muted mono">{{ a.serial or a.primary_mac or a.id }}</div>
           </td>
           <td class="mono">{{ a.ip_last or '—' }}</td>
+          <td>
+            {% if a.asset_type == 'network' %}
+              {% if item.occ %}
+              <a href="/assets/{{ a.id }}" class="text-nowrap" title="Buka detail switch → tab Port map">
+                <span class="badge text-bg-secondary">{{ item.occ.macs }} MAC</span>
+                <span class="small">{{ item.occ.known }} known · {{ item.occ.ports }} port</span>
+              </a>
+              {% else %}<span class="small-muted">—</span>{% endif %}
+            {% elif item.l2 %}
+              {% for loc in item.l2[:2] %}
+              <div class="small text-nowrap">
+                <span class="mono">{{ loc.port }}</span><span class="small-muted"> · </span><a href="/assets/{{ loc.switch_id }}" class="mono" title="Switch tempat port ini">{{ loc.switch_ip or loc.switch_hostname or 'switch' }}</a>
+              </div>
+              {% endfor %}
+              {% if item.l2 | length > 2 %}<div class="small-muted">+{{ item.l2 | length - 2 }} lagi</div>{% endif %}
+            {% else %}<span class="small-muted">—</span>{% endif %}
+          </td>
           <td>{{ a.os_caption or '—' }}<div class="small-muted">{{ a.os_version or '' }}</div></td>
           <td>{{ a.vendor or '' }} {{ a.model or '' }}</td>
           <td class="text-end">{{ item.software_count }}</td>
@@ -85,7 +102,7 @@
           <td class="small-muted">{{ a.last_seen | fmt_dt }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="7" class="small-muted p-4">Belum ada aset. Enroll agent di halaman <a href="/agents">Agents</a>, lalu jalankan <span class="mono">raniPush &lt;ip-server&gt;</span> di PC.</td></tr>
+        <tr><td colspan="8" class="small-muted p-4">Belum ada aset. Enroll agent di halaman <a href="/agents">Agents</a>, lalu jalankan <span class="mono">raniPush &lt;ip-server&gt;</span> di PC.</td></tr>
         {% endfor %}
       </tbody>
     </table>
