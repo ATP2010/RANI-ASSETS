@@ -308,6 +308,65 @@
       .catch(() => {});
   }
 
+  // -------------------------------------------------- custom widgets ---
+  function renderWidgets() {
+    document.querySelectorAll('.custom-widget-chart').forEach(function (node) {
+      if (typeof echarts === 'undefined') return;
+      var labels = [], values = [];
+      try {
+        labels = JSON.parse(node.dataset.labels || '[]');
+        values = JSON.parse(node.dataset.values || '[]');
+      } catch (e) { return; }
+      var kind = node.dataset.kind;
+      if (charts[node.id]) charts[node.id].dispose();
+      var chart = echarts.init(node, null, { renderer: 'canvas' });
+      charts[node.id] = chart;
+      var p = palette();
+      var option = baseOption(p);
+      option.toolbox = undefined;
+      if (kind === 'donut') {
+        option.color = PALETTE;
+        option.tooltip.trigger = 'item';
+        option.tooltip.formatter = '{b}<br/><b>{c}</b> ({d}%)';
+        option.legend = labels.length <= 10
+          ? { bottom: 0, textStyle: { color: p.text, fontSize: 10 }, itemWidth: 10 }
+          : { show: false };
+        option.series = [{ type: 'pie', radius: ['45%', '70%'],
+          itemStyle: { borderRadius: 6 },
+          data: labels.map(function (label, i) { return { name: label, value: values[i] }; }) }];
+      } else if (kind === 'bar') {
+        option.tooltip.trigger = 'axis';
+        option.grid = { left: 8, right: 6, top: 10, bottom: 4, containLabel: true };
+        option.xAxis = { type: 'category', data: labels,
+          axisLabel: { color: p.muted, interval: 0, width: 90, overflow: 'truncate' },
+          axisLine: { lineStyle: { color: p.border } } };
+        option.yAxis = { type: 'value', axisLabel: { color: p.muted },
+          splitLine: { lineStyle: { color: p.border, type: 'dashed' } } };
+        option.series = [{ type: 'bar', data: values, barMaxWidth: 44,
+          itemStyle: { color: PALETTE[0], borderRadius: [4, 4, 0, 0] } }];
+      } else if (kind === 'line') {
+        option.tooltip.trigger = 'axis';
+        option.grid = { left: 8, right: 6, top: 10, bottom: 4, containLabel: true };
+        option.xAxis = { type: 'category', boundaryGap: false, data: labels,
+          axisLabel: { color: p.muted }, axisLine: { lineStyle: { color: p.border } } };
+        option.yAxis = { type: 'value', axisLabel: { color: p.muted },
+          splitLine: { lineStyle: { color: p.border, type: 'dashed' } } };
+        option.series = [{ type: 'line', smooth: true, symbolSize: 5, data: values,
+          lineStyle: { width: 2, color: PALETTE[0] },
+          itemStyle: { color: PALETTE[0] },
+          areaStyle: { opacity: 0.18, color: PALETTE[0] } }];
+      }
+      chart.setOption(option, true);
+    });
+  }
+
+  window.raniInitWidgets = function () {
+    renderWidgets();
+    window.addEventListener('resize', function () {
+      Object.keys(charts).forEach(function (k) { try { charts[k].resize(); } catch (e) {} });
+    });
+  };
+
   window.raniInitDashboard = function (stats) {
     dashboardActive = true;
     lastStats = stats;
@@ -322,6 +381,7 @@
   // warna sumbu/legend ECharts diambil dari CSS var → gambar ulang saat ganti tema
   document.addEventListener('changed.lte.color-mode', function () {
     if (dashboardActive && lastStats) renderCharts(lastStats);
+    if (window.raniInitWidgets) window.raniInitWidgets();
   });
 
   document.addEventListener('DOMContentLoaded', function () {

@@ -17,6 +17,7 @@ from app.models import AppUser, Asset, Software
 from app.queries import (dashboard_stats, get_asset_detail, list_agents, list_assets,
                          list_tokens)
 from app.actions import load_action_rows, render_actions
+from app.widgets import load_enabled
 from app.services import create_enrollment_token, revoke_agent
 from app.templating import templates
 from app.ws import manager
@@ -28,8 +29,11 @@ router = APIRouter(include_in_schema=False)
 async def dashboard(request: Request, session: AsyncSession = Depends(get_session),
                     user: AppUser = Depends(require_perm("dashboard.view"))):
     stats = await dashboard_stats(session)
+    widgets = await load_enabled(session)
     return templates.TemplateResponse(request, "dashboard.html",
-                                      {"user": user, "stats": stats, "active": "dashboard"})
+                                      {"user": user, "stats": stats, "active": "dashboard",
+                                       "widgets": widgets,
+                                       "can_setup": "setup.manage" in getattr(user, "perm_set", set())})
 
 
 @router.get("/assets")

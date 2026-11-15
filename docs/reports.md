@@ -10,18 +10,38 @@ per kolom, lalu ekspor CSV.
 
 ## 1. Alur pakai
 
-1. Login → menu **Reports** → **+ Buat report**.
-2. Isi **Nama**, **Deskripsi** (opsional), dan **SQL** (hanya `SELECT` / `WITH ... SELECT`).
-   Panel kanan berisi contoh query yang bisa diklik untuk mengisi editor.
-3. **Simpan & Jalankan** → report tersimpan lalu query dieksekusi; halaman hasil langsung
+1. Login → menu **Reports** → daftar report tampil sebagai tabel — kotak **pencarian**
+   di kiri atas men-filter langsung (nama/deskripsi/pemilik); kolom **Nama/Pemilik/Diubah**
+   bisa diklik untuk sorting; **+ Buat report** di pojok kanan.
+2. Klik **nama report** → halaman langsung menampilkan **hasil query** (auto-run):
+   tabel filterable + info baris/ms + **Export CSV**. Tombol **Ubah query** memindah form
+   edit, **Hapus report** menghapus (pemilik/admin). 
+3. Di dalam halaman lihat: **Jalankan ulang** mengeksekusi ulang query yang tersimpan.
+4. **+ Buat report**: isi **Nama**, **Deskripsi** (opsional), **SQL** (hanya
+   `SELECT` / `WITH ... SELECT`). Panel kanan berisi contoh query yang bisa diklik.
+5. **Simpan & Jalankan** → report tersimpan lalu query dieksekusi; halaman hasil langsung
    tampil. **Simpan** saja menyimpan tanpa menjalankan.
-4. Hasil: tabel dengan kotak **filter di bawah tiap header** (substring, tidak case-sensitive),
-   info `N baris · X ms`, penanda kalau hasil dipotong, dan tombol **Export CSV**.
-5. **Jalankan tersimpan** mengeksekusi SQL yang sudah tersimpan (simpan dulu kalau baru diubah).
-6. Pemilik report (atau admin) bisa mengubah dan menghapus report.
 
 Tiga report contoh otomatis dibuat saat tabel masih kosong: *Aset per sistem operasi*,
 *Top software (jumlah aset)*, *Aset tidak terlihat > 24 jam*.
+
+## 1b. Custom dashboard (Setup → Dashboard)
+
+Report bisa dijadikan **widget dashboard** di halaman utama (`/`):
+
+1. Buat report dengan query yang menghasilkan **kategori → angka**
+   (mis. `SELECT os_caption, count(*) AS aset FROM assets GROUP BY os_caption`).
+2. Buka **Setup → Dashboard** → **Widget baru**: pilih **report sumber**, **jenis tampilan**
+   (*Angka besar*, *Donut*, *Bar chart*, *Line chart*, *Tabel data*), **lebar** (¼ / ⅓ / ½ / penuh),
+   **kolom kategori (x)** dan **kolom nilai (y)** (diambil dari pratinjau hasil report langsung
+   di halaman form).
+3. Simpan — widget muncul di beranda di bawah chart bawaan. Urutan bisa diubah (↑↓),
+   lebar diganti, dimatikan sementara (tanpa dihapus), diduplikat, atau dihapus.
+4. Widget yang laporannya dihapus menampilkan kartu error dengan tautan perbaikan.
+
+Widget dieksekusi read-only seperti report (timeout, batas baris) dan hanya terlihat
+untuk pemegang `dashboard.view` seperti dashboard biasa. Edit widget butuh permission
+`setup.manage`.
 
 ## 2. Model keamanan (tiga lapis)
 

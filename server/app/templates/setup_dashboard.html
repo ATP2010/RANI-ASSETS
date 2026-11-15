@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Setup · Dashboard{% endblock %}
+{% block heading %}Setup · Dashboard{% endblock %}
+{% block subheading %}widget custom — sumber data: report SQL{% endblock %}
+
+{% block content %}
+{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Widget terpasang ({{ rows | length }})</span>
+        <span class="small-muted">urutan tampil di dashboard</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="text-center" style="width:64px">Urut</th>
+              <th>Widget</th>
+              <th>Sumber</th>
+              <th>Lebar</th>
+              <th class="text-center">Aktif</th>
+              <th class="text-end">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for w in rows %}
+            <tr class="{{ '' if w.enabled else 'table-secondary' }}">
+              <td class="text-center text-nowrap">
+                {% if can_manage %}
+                <form method="post" action="/setup/dashboard/{{ w.id }}/move" class="d-inline">
+                  <input type="hidden" name="dir" value="up">
+                  <button class="btn btn-sm btn-outline-secondary px-1 py-0" type="submit" title="Naikkan">↑</button>
+                </form>
+                <form method="post" action="/setup/dashboard/{{ w.id }}/move" class="d-inline">
+                  <input type="hidden" name="dir" value="down">
+                  <button class="btn btn-sm btn-outline-secondary px-1 py-0" type="submit" title="Turunkan">↓</button>
+                </form>
+                {% else %}{{ w.sort_order }}{% endif %}
+              </td>
+              <td>
+                <span class="fw-medium">{{ w.title }}</span>
+                <div class="small-muted">
+                  <span class="badge text-bg-secondary">{{ w.kind }}</span>
+                  {% if w.report_id %}<span class="small">{{ w.x_col or '∅' }} → {{ w.y_col or '∅' }}</span>{% endif %}
+                </div>
+              </td>
+              <td class="small">
+                {% if w.report_id %}
+                  <a href="/reports/{{ w.report_id }}">{{ report_names.get(w.report_id | string) or 'report' }}</a>
+                {% else %}<span class="small-muted">dihapus</span>{% endif %}
+              </td>
+              <td class="small mono">{{ w.width }}</td>
+              <td class="text-center">
+                {% if can_manage %}
+                <form method="post" action="/setup/dashboard/{{ w.id }}/toggle" class="d-inline">
+                  <button class="btn btn-sm {{ 'btn-success' if w.enabled else 'btn-outline-secondary' }} py-0 px-2"
+                          type="submit" title="Klik untuk {{ 'nonaktifkan' if w.enabled else 'aktifkan' }}">
+                    {{ '✓' if w.enabled else '✗' }}
+                  </button>
+                </form>
+                {% else %}{{ 'ya' if w.enabled else 'tidak' }}{% endif %}
+              </td>
+              <td class="text-end text-nowrap">
+                {% if can_manage %}
+                <a class="btn btn-sm btn-outline-secondary" href="/setup/dashboard?edit={{ w.id }}">Ubah</a>
+                <form method="post" action="/setup/dashboard/{{ w.id }}/duplicate" class="d-inline">
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Duplikat</button>
+                </form>
+                <form method="post" action="/setup/dashboard/{{ w.id }}/delete" class="d-inline"
+                      onsubmit="return confirm('Hapus widget {{ w.title }}?');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="small-muted p-3">belum ada widget — buat yang pertama di kanan. Report sumber di menu <a href="/reports">Reports</a>.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><button class="btn btn-sm btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#how-widget">Cara kerja widget</button></div>
+      <div class="collapse" id="how-widget">
+        <div class="card-body small">
+          <ol class="mb-0 ps-3">
+            <li>Tulis query di menu <a href="/reports">Reports</a> — satu statement <code>SELECT</code>, read-only, timeout &amp; batas baris.</li>
+            <li>Buat widget di sini: pilih report sumber, pilih jenis grafik (angka besar / donut / bar / line / tabel), pilih kolom kategori &amp; kolom nilai.</li>
+            <li>Simpan — widget muncul di dashboard <a href="/"><strong>beranda</strong></a> di bawah chart bawaan. Urutan &amp; lebar dapat diatur; widget bisa dimatikan sementara tanpa dihapus.</li>
+          </ol>
+          <div class="small-muted mt-2">Widget yang laporannya dihapus menampilkan kartu error berisi tautan untuk memperbaiki.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">{{ 'Ubah widget' if editing else 'Widget baru' }}</div>
+      <div class="card-body">
+        {% if not can_manage %}<div class="small-muted mb-2">Anda hanya bisa melihat. Butuh permission <code>setup.manage</code>.</div>{% endif %}
+        <form method="post" action="/setup/dashboard" class="row g-2" id="widget-form">
+          {% if editing %}<input type="hidden" name="widget_id" value="{{ editing.id }}">{% endif %}
+          <div class="col-12">
+            <label class="form-label small" for="f-title">Judul widget</label>
+            <input class="form-control form-control-sm" id="f-title" name="title" required maxlength="96"
+                   value="{{ editing.title if editing else '' }}" placeholder="Aset per OS"
+                   {% if not can_manage %}disabled{% endif %}>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small" for="f-kind">Jenis tampilan</label>
+            <select class="form-select form-select-sm" id="f-kind" name="kind" {% if not can_manage %}disabled{% endif %}>
+              {% for key, label in kinds %}
+              <option value="{{ key }}" {{ 'selected' if (editing and editing.kind == key) else ('selected' if not editing and key == 'donut') }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small" for="f-width">Lebar</label>
+            <select class="form-select form-select-sm" id="f-width" name="width" {% if not can_manage %}disabled{% endif %}>
+              {% for key, label in widths %}
+              <option value="{{ key }}" {{ 'selected' if (editing and editing.width == key) else ('selected' if not editing and key == 'col-lg-4') }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-report">Report sumber</label>
+            <select class="form-select form-select-sm" id="f-report" name="report_id" {% if not can_manage %}disabled{% endif %}>
+              <option value="">— (tanpa sumber)</option>
+              {% for opt in report_options %}
+              <option value="{{ opt.id }}" {{ 'selected' if opt.id == selected_report else '' }}>{{ opt.name }}{% if opt.owner %} · {{ opt.owner }}{% endif %}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Ganti pilihan untuk memuat ulang kolom &amp; pratinjau.</div>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small" for="f-xcol">Kolom kategori (x)</label>
+            <select class="form-select form-select-sm" id="f-xcol" name="x_col" {% if not can_manage or not preview.columns %}disabled{% endif %}>
+              <option value="">— (default: kolom 1)</option>
+              {% for col in preview.columns %}
+              <option value="{{ col }}" {{ 'selected' if editing and editing.x_col == col else '' }}>{{ col }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small" for="f-ycol">Kolom nilai (y)</label>
+            <select class="form-select form-select-sm" id="f-ycol" name="y_col" {% if not can_manage or not preview.columns %}disabled{% endif %}>
+              <option value="">— (default: kolom 2)</option>
+              {% for col in preview.columns %}
+              <option value="{{ col }}" {{ 'selected' if editing and editing.y_col == col else '' }}>{{ col }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small" for="f-sort">Urutan</label>
+            <input class="form-control form-control-sm" id="f-sort" name="sort_order" type="number" min="0"
+                   value="{{ editing.sort_order if editing else (rows | length) * 10 + 10 }}"
+                   {% if not can_manage %}disabled{% endif %}>
+          </div>
+          <div class="col-sm-6 d-flex align-items-end pb-1">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="f-en" name="enabled" value="1"
+                     {{ 'checked' if (editing.enabled if editing else True) else '' }}
+                     {% if not can_manage %}disabled{% endif %}>
+              <label class="form-check-label small" for="f-en">Enabled (tampil di dashboard)</label>
+            </div>
+          </div>
+          {% if can_manage %}
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" type="submit">{{ 'Simpan perubahan' if editing else 'Tambah widget' }}</button>
+            {% if editing %}<a class="btn btn-sm btn-outline-secondary" href="/setup/dashboard">Batal</a>{% endif %}
+          </div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Pratinjau report</div>
+      <div class="card-body p-0">
+        {% if not selected_report %}
+          <div class="small-muted p-3">Pilih report sumber untuk memuat kolom &amp; pratinjau 10 baris pertama.</div>
+        {% elif preview.error %}
+          <div class="alert alert-danger small m-2 p-2">{{ preview.error }}</div>
+        {% else %}
+          <div class="table-responsive" style="max-height:260px; overflow:auto">
+            <table class="table table-sm table-tight mb-0 align-middle">
+              <thead class="table-light"><tr>{% for col in preview.columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in preview.rows %}
+                <tr>{% for cell in row %}<td class="small">{{ cell }}</td>{% endfor %}</tr>
+                {% else %}
+                <tr><td colspan="{{ preview.columns | length }}" class="small-muted p-3">0 baris</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer small-muted">{{ preview.row_count or 0 }} baris — menampilkan maks. 10.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var sel = document.getElementById('f-report');
+    if (!sel) return;
+    sel.addEventListener('change', function () {
+      var params = new URLSearchParams();
+      if (document.querySelector('input[name=widget_id]')) {
+        params.set('edit', document.querySelector('input[name=widget_id]').value);
+      }
+      if (sel.value) params.set('report_id', sel.value);
+      window.location = '/setup/dashboard' + (params.toString() ? '?' + params.toString() : '');
+    });
+  })();
+</script>
+{% endblock %}

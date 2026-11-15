@@ -274,6 +274,12 @@
                 <a href="/setup/actions" class="nav-link {% if sub == 'actions' %}active{% endif %}">
                   <p>Actions</p></a>
               </li>
+              {% if 'setup.view' in user.perm_set %}
+              <li class="nav-item">
+                <a href="/setup/dashboard" class="nav-link {% if sub == 'dashboard' %}active{% endif %}">
+                  <p>Dashboard</p></a>
+              </li>
+              {% endif %}
             </ul>
           </li>
           {% endif %}

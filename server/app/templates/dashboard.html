@@ -98,6 +98,56 @@
     </div>
   </div>
 </div>
+{% if widgets %}
+<div class="d-flex justify-content-between align-items-center mt-2 mb-1">
+  <h5 class="mb-0">Dashboard custom</h5>
+  {% if can_setup %}
+  <a class="btn btn-sm btn-outline-secondary" href="/setup/dashboard">Kelola widget →</a>
+  {% endif %}
+</div>
+<div class="row g-3">
+  {% for w in widgets %}
+  <div class="{{ w.width }} col-12">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <span class="text-truncate">{{ w.title }}</span>
+        {% if w.report_id %}<a class="small-muted text-nowrap" href="/reports/{{ w.report_id }}">sumber →</a>{% endif %}
+      </div>
+      <div class="card-body">
+        {% if w.error %}
+          <div class="text-danger small">
+            {{ w.error }}
+            {% if can_setup %}<div class="mt-1"><a href="/setup/dashboard">Perbaiki di Setup → Dashboard</a></div>{% endif %}
+          </div>
+        {% elif w.kind == 'stat' %}
+          <div class="fs-1 fw-semibold lh-1">{{ w.total_fmt }}</div>
+          <div class="small-muted">total <span class="mono">{{ w.y_col }}</span>{% if w.report_name %} · {{ w.report_name }}{% endif %}</div>
+        {% elif w.kind == 'table' %}
+          <div class="table-responsive" style="max-height:320px; overflow:auto">
+            <table class="table table-sm table-tight mb-0 align-middle">
+              <thead class="table-light"><tr>{% for col in w.columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in w.rows %}
+                <tr>{% for cell in row %}<td class="small">{{ cell }}</td>{% endfor %}</tr>
+                {% else %}
+                <tr><td colspan="{{ w.columns | length }}" class="small-muted p-3">0 baris</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="rani-chart custom-widget-chart" id="cw-{{ w.id }}"
+               data-kind="{{ w.kind }}"
+               data-labels='{{ w.labels | tojson }}'
+               data-values='{{ w.chart_values | tojson }}'
+               style="height:230px"></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
@@ -105,6 +155,9 @@
   window.RANI_STATS = {{ stats | tojson }};
 </script>
 <script>
-  document.addEventListener('DOMContentLoaded', () => window.raniInitDashboard(window.RANI_STATS));
+  document.addEventListener('DOMContentLoaded', function () {
+    window.raniInitDashboard(window.RANI_STATS);
+    if (window.raniInitWidgets) window.raniInitWidgets();
+  });
 </script>
 {% endblock %}

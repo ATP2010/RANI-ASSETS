@@ -504,6 +504,28 @@ class AssetAction(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class DashboardWidget(Base):
+    """Widget custom di dashboard `/` — sumber datanya adalah report SQL tersimpan."""
+    __tablename__ = "dashboard_widgets"
+    __table_args__ = (
+        Index(f"ix_{SCHEMA}_dashboard_widgets_order", "sort_order"),
+        {"schema": SCHEMA},
+    )
+
+    id = _uuid_pk()
+    title: Mapped[str] = mapped_column(String(96))
+    kind: Mapped[str] = mapped_column(String(16), default="donut")  # stat|donut|bar|line|table
+    report_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey(f"{SCHEMA}.reports.id", ondelete="SET NULL"), nullable=True)
+    x_col: Mapped[str | None] = mapped_column(String(96))
+    y_col: Mapped[str | None] = mapped_column(String(96))
+    width: Mapped[str] = mapped_column(String(16), default="col-lg-4")  # col-lg-3|4|6|12
+    sort_order: Mapped[int] = mapped_column(Integer, default=100)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at = _now()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class EndpointPortMapping(Base):
     """MAC ↔ port switch dari BRIDGE-MIB (dot1d) / Q-BRIDGE-MIB (dot1q).
 
