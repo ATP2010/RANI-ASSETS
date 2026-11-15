@@ -84,6 +84,33 @@
       </div>
     </div>
 
+    <div class="card mt-3 border-primary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Cara kerja &amp; memasang <strong>RANI Actions</strong> di PC pengguna</span>
+        <button class="btn btn-sm btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#how-rani-actions">ringkas/panjang</button>
+      </div>
+      <div class="collapse show" id="how-rani-actions">
+        <div class="card-body small">
+          <p class="mb-2">Action <strong>script</strong> (mis. <code>ping.bat {ipaddress}</code>) bekerja seperti <a href="https://docs.lansweeper.com/classic/docs/create-and-run-actions" rel="noopener">Lansweeper Actions</a>: klik tombol di halaman Assets → browser (dengan ekstensi <strong>RANI Actions</strong>) memanggil <strong>native host</strong> di PC pengguna → host men-download skrip dari server (token HMAC 5 menit) → <strong>skrip dijalankan di PC yang mengklik</strong>. Kredensial user dipakai apa adanya; tidak ada yang dikirim ke server.</p>
+
+          <div class="mb-2"><strong>Sekali pasang per PC (tanpa admin):</strong></div>
+          <ol class="mb-2 ps-3">
+            <li>Download <a class="btn btn-sm btn-outline-primary py-0" href="/downloads/rani-action-host.exe">rani-action-host.exe</a> <span class="small-muted">(native host, ~7 MB)</span></li>
+            <li>Download + unzip <a class="btn btn-sm btn-outline-secondary py-0" href="/downloads/rani-actions-extension.zip">rani-actions-extension.zip</a></li>
+            <li>Dari folder hasil unzip:
+              <pre class="mb-1 p-2 bg-body-secondary rounded mono">powershell -ExecutionPolicy Bypass -File .\install-extension.ps1 -ServerUrl {{ base_url }}</pre>
+            </li>
+            <li>Buka <code>edge://extensions</code> / <code>chrome://extensions</code> → aktifkan <em>Developer mode</em> → <em>Load unpacked</em> → pilih folder hasil unzip</li>
+            <li>Klik ikon puzzle → <strong>RANI Actions</strong> → <em>Enable on this site</em> (sekali)</li>
+          </ol>
+
+          <div class="mb-2"><strong>Setelah itu, cara klik:</strong> menu <strong>Assets</strong> → hover hostname (atau tombol <strong>Actions</strong> di halaman detail asset) → pilih aksi — mis. <em>Remote Desktop (RDP)</em>, <em>Ping (skrip)</em>.</div>
+          <div class="mb-2"><strong>Skrip sendiri:</strong> taruh file <code>.bat</code>/<code>.cmd</code>/<code>.ps1</code>/<code>.exe</code>/<code>.msi</code> di folder <code>./actions/</code> server (mount <code>:ro</code>), lalu daftarkan action ber-<em>jenis</em> <strong>script</strong> di halaman ini (contoh: <code>rdp.bat {ipaddress}</code>).</div>
+          <div class="small-muted">Tutorial lengkap + troubleshooting: <a href="/docs/actions">/docs/actions</a> §7 (termasuk deploy massal via GPO/Intune &amp; uninstall).</div>
+        </div>
+      </div>
+    </div>
+
     <div class="card mt-3">
       <div class="card-header"><button class="btn btn-sm btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#placeholders">Placeholder &amp; skema URL yang diizinkan</button></div>
       <div class="collapse show" id="placeholders">

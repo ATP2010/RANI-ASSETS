@@ -78,6 +78,7 @@ async def setup_actions_page(request: Request, edit: str | None = None,
     can_manage = "setup.manage" in user.perm_set
     return templates.TemplateResponse(request, "setup_actions.html", {
         "user": user, "active": "setup", "sub": "actions",
+        "base_url": str(request.base_url).rstrip("/"),
         "rows": rows, "editing": editing, "preview": preview,
         "saved": bool(saved), "error": error, "can_manage": can_manage,
         "placeholders": ALLOWED_PLACEHOLDERS,
