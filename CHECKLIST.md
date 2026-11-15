@@ -22,7 +22,7 @@
 - [x] F1.11 Push **tanpa token** (agent 0.2+): agent dikenali dari `identity.machine_id`, auto-register baris agent mode `direct` (secret NULL), `RANI_TOKENLESS_PUSH=0` mengembalikan wajib-HMAC. Migration `0002_agent_secret_nullable`
 - [x] F1.5 Worker ingest: upsert asset (reconcile machine_id→serial→MAC→hostname + konflik machine_id), software DELTA + drop-guard, hw components, users, security_state, network_interfaces, requeue sweeper, stale sweep
 - [x] F1.6 `GET /api/v1/assets` + `GET /api/v1/assets/{id}` (+ `/api/v1/stats`, `/api/v1/agents`)
-- [x] F1.7 UI login (session cookie DB, bcrypt) + RBAC 3 role (admin/operator/reader) + audit log + rate-limit login
+- [x] F1.7 UI login (session cookie DB, bcrypt) + RBAC 3 role (admin/operator/reader) + audit log + rate-limit login (role tetap; F5 menambah permission custom + login AD)
 - [x] F1.8 UI Asset list (search/filter/sort/pagination, badge online/offline)
 - [x] F1.9 UI Asset detail tabs — Overview/Hardware/Software/Users/Security/Network/Reports/Sources
 - [x] F1.10 WebSocket `/ws` (auth cookie) + event `asset.new`, `asset.update`, `asset.offline` via Redis pub/sub (terverifikasi menerima event saat push)
@@ -87,7 +87,20 @@
 - [ ] Discovery pasif tambahan: mDNS/SSDP/UPnP, HTTP banner
 - [x] Software normalization dasar (trim/lowercase/collapse space, `name_norm` unik per asset)
 - [ ] License/SAM module
-- [ ] SSO (OIDC/AD LDAPS)
+- [ ] SSO (OIDC/AD LDAPS) — lihat F5.8
+
+## F5 — Users & access management (rencana; desain di [`docs/users.md`](docs/users.md))
+> Belum ada implementasi. Menu **Users** (admin-only) dengan login lokal + AD, role/permission custom, dan sync group AD.
+- [ ] F5.1 **Model role & permission** (migration `0006_users_ad`): tabel `roles` + `app_user_roles`, seed `admin/operator/reader`, backfill `app_users.role`, katalog permission `modul.aksi`, resolver union + `require_perm()`; admin terkunci (semua permission, tidak bisa diubah/dihapus). Test: resolver union, guard admin terakhir, migrasi idempotent
+- [ ] F5.2 **Halaman Users + API lokal**: daftar/cari/filter user, tambah, ubah, reset password, aktif/nonaktif, cabut sesi; guard admin terakhir; audit `user.*`; password bcrypt cost 12, min 12 karakter
+- [ ] F5.3 **Halaman Role & akses + API custom role**: CRUD role, duplikat role, matriks checkbox permission, tampilkan jumlah user per role; tolak hapus role yang masih dipakai; hanya `roles.manage`
+- [ ] F5.4 **AD connector**: form `domain`/`domain_fqdn`, URL LDAP/LDAPS, CA PEM, bind DN, bind password (Fernet, write-only), base DN, user/group filter, nested groups; tombol **Test connection** (bind + hitung user/group) + browse group; `ldap://` diberi peringatan
+- [ ] F5.5 **Mapping group → role + sync**: `directory_group_roles`, sync manual + interval (advisory lock, tanpa overlap), hanya anggota group terpetakan, upsert `auth_source='ad'` + `object_guid`, user keluar group → `is_active=false`, run `partial` tidak menonaktifkan massal, riwayat `directory_sync_runs`, audit `ad.sync`
+- [ ] F5.6 **Login AD**: parser `DOMAIN\user` / UPN (username polos selalu lokal), service bind → cari user → tolak akun AD disabled → bind sebagai user → union role dari mapping → tolak `no_mapped_group`; JIT provisioning; rate-limit per IP + principal; error generik
+- [ ] F5.7 **Sesi & audit**: halaman sesi aktif (user, sumber local/AD, IP, dibuat, kedaluwarsa) + cabut sesi; revoke otomatis saat nonaktif/reset password/role berubah; audit `session.revoke`
+- [ ] F5.8 **MFA & SSO** (fase lanjutan): TOTP untuk user lokal/AD, lalu SAML/OIDC; password login tetap tersedia kecuali site mewajibkan SSO
+
+**Rencana bukti F5 (diisi setelah implementasi, jangan dicentang sebelum ada bukti):** unit test resolver permission + guard admin; query `roles`/`app_user_roles` setelah migrasi; curl CRUD user/role; e2e OpenLDAP container (bind, sync, login `DOMAIN\user`, user di luar group ditolak, user keluar group nonaktif + sesi dicabut); role `rani_report` tetap tidak bisa baca tabel kredensial.
 
 ---
 **Definition of Done per task:** ada bukti test nyata (curl output / screenshot / log), DB terisi benar, tidak ada regression di task sebelumnya.

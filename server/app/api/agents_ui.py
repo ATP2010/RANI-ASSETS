@@ -41,6 +41,7 @@ def _group_stats(group: ScanGroup) -> dict:
 DOCS = {
     "agent-windows": "agent-windows.md",
     "scan": "scan.md",
+    "users": "users.md",
     "reports": "reports.md",
     "branding": "branding.md",
     "deploy-dockerhub": "deploy-dockerhub.md",

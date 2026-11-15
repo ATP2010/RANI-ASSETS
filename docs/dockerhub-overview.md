@@ -13,6 +13,10 @@ binaries.
   linked to known assets, with a MAC lookup
 - **No cloud dependency** — everything stays on your LAN; Postgres + Redis only
 
+**Planned (F5):** **Users & access** — local accounts plus Active Directory (LDAP/LDAPS)
+group sync, custom roles with granular permissions, and session/audit management.
+Design: `docs/users.md` (in-app: `/docs/users`).
+
 ---
 
 ## What runs
@@ -159,6 +163,8 @@ turned into new assets.
 | `RANI_TOKENLESS_PUSH` | `1` | `0` = force enrollment token + HMAC |
 | `RANI_SCAN_MAX_HOSTS` / `RANI_SCAN_CONCURRENCY` / `RANI_SCAN_TIMEOUT_S` | `512` / `16` / `1.0` | SNMP scan limits |
 | `RANI_SCAN_FDB_ENABLED` / `RANI_SCAN_FDB_MAX` / `RANI_SCAN_FDB_UPLINK_MACS` | `1` / `2000` / `10` | port map: global switch, MAC cap per device, uplink hint threshold |
+| `RANI_SESSION_TTL_H` | `12` | login session lifetime (hours) |
+| `RANI_AUTH_LOCAL_ENABLED` / `RANI_AD_ENABLED` / `RANI_AD_SYNC_INTERVAL_S` | `1` / `0` / `3600` | **planned (F5)** local login, AD login switch, sync interval; bind password is stored encrypted in the DB, not in `.env` |
 | `RANI_REPORT_MAX_ROWS` / `RANI_REPORT_TIMEOUT_MS` | `1000` / `8000` | custom report limits |
 | `RANI_ENV` | `production` | `production` hides `/api/docs` |
 | `TZ` | `Asia/Jakarta` | container timezone (UI shows WIB) |
@@ -196,8 +202,8 @@ openssl rand -hex 16   # RANI_REPORT_DB_PASSWORD, POSTGRES_PASSWORD
 
 ## Included documentation
 
-Served in-app (login required): `/docs/agent-windows`, `/docs/scan`, `/docs/reports`,
-`/docs/branding`, `/docs/deploy-dockerhub`.
+Served in-app (login required): `/docs/agent-windows`, `/docs/scan`, `/docs/users`,
+`/docs/reports`, `/docs/branding`, `/docs/deploy-dockerhub`.
 
 ## Requirements
 

@@ -341,6 +341,11 @@ RANI_INGEST_PEPPER=...            # openssl rand -hex 32
 RANI_REPORT_DB_PASSWORD=...       # openssl rand -hex 16
 RANI_TOKENLESS_PUSH=1
 RANI_ENV=production
+RANI_SESSION_TTL_H=12
+# Rencana F5 (login AD, belum aktif di v0.1.0):
+# RANI_AUTH_LOCAL_ENABLED=1
+# RANI_AD_ENABLED=0
+# RANI_AD_SYNC_INTERVAL_S=3600
 ```
 
 ### 11.3 Checklist "pull sampai running"
