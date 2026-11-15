@@ -38,9 +38,15 @@ function Assert-Admin {
 Assert-Admin
 
 if (-not (Test-Path $ExePath)) { throw "raniPush.exe tidak ditemukan di $ExePath" }
+
+# Hapus Mark of the Web (Zone.Identifier) agar Windows tidak memblokir exe yang
+# baru di-download dari internet (SmartScreen). Aman dijalankan berulang.
+try { Unblock-File -Path $ExePath -ErrorAction SilentlyContinue } catch { }
+
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 $target = Join-Path $InstallDir 'raniPush.exe'
 Copy-Item -Force $ExePath $target
+try { Unblock-File -Path $target -ErrorAction SilentlyContinue } catch { }
 Write-Host "exe     : $target"
 
 if ($Token) {

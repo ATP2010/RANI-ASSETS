@@ -17,6 +17,10 @@
     <div class="card h-100">
       <div class="card-header">{{ t('push.howto_title') }}</div>
       <div class="card-body small">
+        <div class="alert alert-info py-2 small mb-2">
+          <strong>{{ t('push.free_tip_title') }}:</strong>
+          {{ t('push.free_tip') | safe }}
+        </div>
         <ol class="ps-3 mb-0">
           <li class="mb-2">{{ t('push.s1', exe=exe.name, portable=portable.name) | safe }}</li>
           <li class="mb-2">

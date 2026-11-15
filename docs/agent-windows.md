@@ -365,6 +365,27 @@ tidak ada langkah di sisi server yang bisa membuka blokir. Urutannya:
 Catatan: jangan menonaktifkan Smart App Control sebagai solusi (di Windows 11 itu
 permanen sampai instalasi ulang), dan jangan pakai folder exclusion permanen.
 
+### Native host RANI Actions (`rani-action-host.exe`)
+
+File ini diluncurkan oleh browser (ekstensi RANI Actions), bukan di-double-click,
+jadi SmartScreen **tidak** mengeceknya saat launch. Namun download awal tetap bisa
+ditandai. Tersedia artefak:
+
+- `rani-action-host.exe` (unsigned) dan `rani-action-host-signed.exe` (signed).
+- Rebuild + sign massal: `bash scripts/sign-all.sh` (menandatangani raniPush.exe
+  dan rani-action-host.exe sekaligus).
+
+Untuk trust gratis, ikuti Solusi A (Unblock-File) atau Solusi C (portable) di atas.
+
+### Strategi trust "gratis" (ringkasan)
+
+| Tujuan | Cara gratis |
+|---|---|
+| Hilangkan peringatan SmartScreen di PC kita kelola | Sign (self-signed) + `install-cert.ps1` via GPO/Intune |
+| Lolos Smart App Control / AV ketat | Jalur portable (python.exe resmi, signed PSF) |
+| Buka blokir file hasil download | `Unblock-File` (sudah otomatis di `install-agent.ps1`) |
+| Trust otomatis di PC tak terkelola | **Tidak bisa gratis** — butuh sertifikat OV/EV dari CA publik |
+
 ---
 
 ## 9. Cek cepat (cheat sheet)
@@ -373,7 +394,10 @@ permanen sampai instalasi ulang), dan jangan pakai folder exclusion permanen.
 # 1. server hidup?
 Test-NetConnection 192.168.88.92 -Port 8091
 
-# 2. unduh raniPush-signed.exe dari http://192.168.88.92:8091/agents, lalu:
+# 2. (opsional) tandatangani ulang semua artefak:
+#    bash scripts/sign-all.sh
+#
+# 3. unduh raniPush-signed.exe dari http://192.168.88.92:8091/agents, lalu:
 cd C:\Rani
 Unblock-File .\raniPush-signed.exe
 .\raniPush-signed.exe 192.168.88.92:8091
