@@ -201,7 +201,8 @@ async def setup_actions_move(action_id: str, request: Request, dir: str = Form("
 # ---------------------------------------------------------------- Setup → Dashboard
 from app.models import DashboardWidget
 from app.queries import list_reports
-from app.widgets import WIDGET_KINDS, WIDGET_WIDTHS, load_enabled, preview_report
+from app.widgets import (BUILTIN_KINDS, WIDGET_KINDS, WIDGET_WIDTHS,
+                         load_enabled, preview_report)
 
 
 async def _all_widgets(session: AsyncSession) -> list[DashboardWidget]:
@@ -248,6 +249,7 @@ async def setup_dashboard_page(request: Request, edit: str | None = None,
         "rows": rows, "editing": editing, "preview": preview,
         "selected_report": selected_report,
         "kinds": WIDGET_KINDS, "widths": WIDGET_WIDTHS,
+        "builtin_kinds": [k for k, _ in BUILTIN_KINDS],
         "report_options": [{"id": str(r["report"].id),
                             "name": r["report"].name,
                             "owner": r["owner"]} for r in report_rows],
@@ -277,9 +279,11 @@ async def setup_dashboard_save(request: Request,
         return RedirectResponse("/setup/dashboard?error=judul+widget+wajib+diisi",
                                 status_code=303)
 
+    # widget bawaan: report diabaikan
+    builtin = kind in dict(BUILTIN_KINDS)
     report_uuid = None
     report = None
-    if report_id:
+    if report_id and not builtin:
         try:
             report_uuid = uuid.UUID(report_id)
         except ValueError:

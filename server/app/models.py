@@ -519,7 +519,7 @@ class DashboardWidget(Base):
         ForeignKey(f"{SCHEMA}.reports.id", ondelete="SET NULL"), nullable=True)
     x_col: Mapped[str | None] = mapped_column(String(96))
     y_col: Mapped[str | None] = mapped_column(String(96))
-    width: Mapped[str] = mapped_column(String(16), default="col-lg-4")  # col-lg-3|4|6|12
+    width: Mapped[str] = mapped_column(String(32), default="col-lg-4")  # col-lg-3|4|6|12
     sort_order: Mapped[int] = mapped_column(Integer, default=100)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at = _now()

@@ -11,7 +11,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import DashboardWidget, Report
 from app.reporting import ReportError, run_report_sql
 
+BUILTIN_KINDS: list[tuple[str, str]] = [
+    ("kpi-total", "Bawaan: Total aset"),
+    ("kpi-online", "Bawaan: Aset online"),
+    ("kpi-offline", "Bawaan: Aset offline"),
+    ("kpi-software", "Bawaan: Judul software + instalasi aktif"),
+    ("chart-os", "Bawaan: Donut — distribusi OS"),
+    ("chart-status", "Bawaan: Donut — status aset"),
+    ("chart-software", "Bawaan: Bar — Top software (jumlah aset)"),
+    ("chart-trend", "Bawaan: Area — push masuk 24 jam"),
+    ("recent-events", "Bawaan: Tabel — perubahan software terakhir"),
+]
+
+BUILTIN_KIND_SET = {k for k, _ in BUILTIN_KINDS}
+
 WIDGET_KINDS: list[tuple[str, str]] = [
+    *BUILTIN_KINDS,
     ("stat", "Angka besar — total kolom nilai"),
     ("donut", "Donut — kategori → nilai"),
     ("bar", "Bar chart — kategori → nilai"),
@@ -21,8 +36,11 @@ WIDGET_KINDS: list[tuple[str, str]] = [
 
 WIDGET_WIDTHS: list[tuple[str, str]] = [
     ("col-lg-3", "Kecil (¼ grid)"),
+    ("col-md-6 col-xl-3", "KPI responsif (½ tablet / ¼ desktop)"),
     ("col-lg-4", "Sedang (⅓ grid) — default"),
     ("col-lg-6", "Setengah (½ grid)"),
+    ("col-lg-7", "Lebar (7/12)"),
+    ("col-lg-5", "Medium (5/12)"),
     ("col-lg-12", "Penuh"),
 ]
 
@@ -74,6 +92,7 @@ async def load_enabled(session: AsyncSession) -> list[dict]:
             "width": row.width,
             "x_col": row.x_col,
             "y_col": row.y_col,
+            "is_builtin": row.kind in BUILTIN_KIND_SET,
             "report_id": str(row.report_id) if row.report_id else None,
             "report_name": None,
             "x_index": None,
@@ -86,6 +105,9 @@ async def load_enabled(session: AsyncSession) -> list[dict]:
             "total_fmt": "0",
             "error": None,
         }
+        if row.kind in BUILTIN_KIND_SET:
+            out.append(item)
+            continue
         if row.report_id is None:
             item["error"] = "laporan sumber dihapus — perbaiki di Setup → Dashboard"
             out.append(item)

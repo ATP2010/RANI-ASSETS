@@ -49,7 +49,8 @@
                 </div>
               </td>
               <td class="small">
-                {% if w.report_id %}
+                {% if w.is_builtin %}<span class="badge text-bg-info">bawaan</span>
+                {% elif w.report_id %}
                   <a href="/reports/{{ w.report_id }}">{{ report_names.get(w.report_id | string) or 'report' }}</a>
                 {% else %}<span class="small-muted">dihapus</span>{% endif %}
               </td>
@@ -67,9 +68,11 @@
               <td class="text-end text-nowrap">
                 {% if can_manage %}
                 <a class="btn btn-sm btn-outline-secondary" href="/setup/dashboard?edit={{ w.id }}">Ubah</a>
+                {% if not w.is_builtin %}
                 <form method="post" action="/setup/dashboard/{{ w.id }}/duplicate" class="d-inline">
                   <button class="btn btn-sm btn-outline-primary" type="submit">Duplikat</button>
                 </form>
+                {% endif %}
                 <form method="post" action="/setup/dashboard/{{ w.id }}/delete" class="d-inline"
                       onsubmit="return confirm('Hapus widget {{ w.title }}?');">
                   <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
@@ -129,7 +132,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-12">
+          <div class="col-12" id="wrap-report">
             <label class="form-label small" for="f-report">Report sumber</label>
             <select class="form-select form-select-sm" id="f-report" name="report_id" {% if not can_manage %}disabled{% endif %}>
               <option value="">— (tanpa sumber)</option>
@@ -139,7 +142,7 @@
             </select>
             <div class="form-text">Ganti pilihan untuk memuat ulang kolom &amp; pratinjau.</div>
           </div>
-          <div class="col-sm-6">
+          <div class="col-sm-6" id="wrap-xcol">
             <label class="form-label small" for="f-xcol">Kolom kategori (x)</label>
             <select class="form-select form-select-sm" id="f-xcol" name="x_col" {% if not can_manage or not preview.columns %}disabled{% endif %}>
               <option value="">— (default: kolom 1)</option>
@@ -148,7 +151,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-sm-6">
+          <div class="col-sm-6" id="wrap-ycol">
             <label class="form-label small" for="f-ycol">Kolom nilai (y)</label>
             <select class="form-select form-select-sm" id="f-ycol" name="y_col" {% if not can_manage or not preview.columns %}disabled{% endif %}>
               <option value="">— (default: kolom 2)</option>
@@ -172,6 +175,9 @@
             </div>
           </div>
           {% if can_manage %}
+          <div class="col-12 d-none" id="builtin-hint">
+            <div class="alert alert-info py-1 small mb-0">Widget bawaan — sumber datanya <em>realtime</em> dari server, tidak perlu report. LAPORAN &amp; kolom diabaikan.</div>
+          </div>
           <div class="col-12 d-flex gap-2">
             <button class="btn btn-sm btn-primary" type="submit">{{ 'Simpan perubahan' if editing else 'Tambah widget' }}</button>
             {% if editing %}<a class="btn btn-sm btn-outline-secondary" href="/setup/dashboard">Batal</a>{% endif %}
@@ -210,9 +216,31 @@
 
 <script>
   (function () {
-    var sel = document.getElementById('f-report');
-    if (!sel) return;
-    sel.addEventListener('change', function () {
+    var BUILTIN = {{ builtin_kinds | tojson }};
+    var kindSel = document.getElementById('f-kind');
+    var reportSel = document.getElementById('f-report');
+    var xSel = document.getElementById('f-xcol');
+    var ySel = document.getElementById('f-ycol');
+    var wrapReport = document.getElementById('wrap-report');
+    var wrapX = document.getElementById('wrap-xcol');
+    var wrapY = document.getElementById('wrap-ycol');
+    var hint = document.getElementById('builtin-hint');
+    function syncKind() {
+      var builtin = BUILTIN.indexOf(kindSel.value) !== -1;
+      [reportSel, xSel, ySel].forEach(function (el) {
+        if (el) el.disabled = builtin;
+      });
+      if (wrapReport) wrapReport.classList.toggle('d-none', builtin);
+      if (wrapX) wrapX.classList.toggle('d-none', builtin);
+      if (wrapY) wrapY.classList.toggle('d-none', builtin);
+      if (hint) hint.classList.toggle('d-none', !builtin);
+    }
+    if (kindSel) {
+      kindSel.addEventListener('change', syncKind);
+      syncKind();
+    }
+    if (!reportSel) return;
+    reportSel.addEventListener('change', function () {
       var params = new URLSearchParams();
       if (document.querySelector('input[name=widget_id]')) {
         params.set('edit', document.querySelector('input[name=widget_id]').value);

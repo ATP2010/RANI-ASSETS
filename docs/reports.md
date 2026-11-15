@@ -39,6 +39,15 @@ Report bisa dijadikan **widget dashboard** di halaman utama (`/`):
    lebar diganti, dimatikan sementara (tanpa dihapus), diduplikat, atau dihapus.
 4. Widget yang laporannya dihapus menampilkan kartu error dengan tautan perbaikan.
 
+**Widget bawaan** (kind `kpi-total`, `kpi-online`, `kpi-offline`, `kpi-software`,
+`chart-os`, `chart-status`, `chart-software`, `chart-trend`, `recent-events`) adalah
+bagian dashboard yang sama: 4 stat card + chart OS/status/top-software + grafik push
+24 jam + tabel perubahan software terakhir, semuanya bisa diubah urutan/lebar/judul
+atau dimatikan / dihapus di Setup → Dashboard. Widget bawaan tidak butuh report sumber
+(sumbernya realtime dari server), form otomatis menyembunyikan dropdown report & kolom
+untuk kind bawaan. Seed widget bawaan terjadi di migration `0011_seed_builtin_widgets`
+(idempotent).
+
 Widget dieksekusi read-only seperti report (timeout, batas baris) dan hanya terlihat
 untuk pemegang `dashboard.view` seperti dashboard biasa. Edit widget butuh permission
 `setup.manage`.

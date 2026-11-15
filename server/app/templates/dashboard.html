@@ -4,32 +4,41 @@
 {% block subheading %}data realtime dari agent{% endblock %}
 
 {% block content %}
+{% if can_setup %}
+<div class="d-flex justify-content-end mb-1">
+  <a class="btn btn-sm btn-outline-secondary" href="/setup/dashboard">Kelola widget →</a>
+</div>
+{% endif %}
+
 <div class="row g-3">
-  <div class="col-sm-6 col-xl-3">
+  {% for w in widgets %}
+  <div class="{{ w.width }} col-12">
+
+    {% if w.kind == 'kpi-total' %}
     <div class="card text-bg-primary h-100">
       <div class="card-body">
         <div class="small text-uppercase opacity-75">Total aset</div>
         <div class="fs-2 fw-semibold" id="stat-total">{{ stats.assets_total }}</div>
       </div>
     </div>
-  </div>
-  <div class="col-sm-6 col-xl-3">
+
+    {% elif w.kind == 'kpi-online' %}
     <div class="card text-bg-success h-100">
       <div class="card-body">
         <div class="small text-uppercase opacity-75">Online</div>
         <div class="fs-2 fw-semibold" id="stat-online">{{ stats.assets_online }}</div>
       </div>
     </div>
-  </div>
-  <div class="col-sm-6 col-xl-3">
+
+    {% elif w.kind == 'kpi-offline' %}
     <div class="card text-bg-secondary h-100">
       <div class="card-body">
         <div class="small text-uppercase opacity-75">Offline</div>
         <div class="fs-2 fw-semibold" id="stat-offline">{{ stats.assets_offline }}</div>
       </div>
     </div>
-  </div>
-  <div class="col-sm-6 col-xl-3">
+
+    {% elif w.kind == 'kpi-software' %}
     <div class="card text-bg-dark h-100">
       <div class="card-body">
         <div class="small text-uppercase opacity-75">Judul software</div>
@@ -37,32 +46,26 @@
         <div class="small opacity-75"><span id="stat-installs">{{ stats.software_installs }}</span> instalasi aktif</div>
       </div>
     </div>
-  </div>
-</div>
 
-<div class="row g-3 mt-1">
-  <div class="col-lg-4">
+    {% elif w.kind == 'chart-os' %}
     <div class="card h-100">
       <div class="card-header">Distribusi OS</div>
       <div class="card-body"><div id="chart-os" class="rani-chart" style="height:240px"></div></div>
     </div>
-  </div>
-  <div class="col-lg-4">
+
+    {% elif w.kind == 'chart-status' %}
     <div class="card h-100">
       <div class="card-header">Status aset</div>
       <div class="card-body"><div id="chart-status" class="rani-chart" style="height:240px"></div></div>
     </div>
-  </div>
-  <div class="col-lg-4">
+
+    {% elif w.kind == 'chart-software' %}
     <div class="card h-100">
       <div class="card-header">Top software (jumlah aset)</div>
       <div class="card-body"><div id="chart-software" class="rani-chart" style="height:240px"></div></div>
     </div>
-  </div>
-</div>
 
-<div class="row g-3 mt-1">
-  <div class="col-lg-7">
+    {% elif w.kind == 'chart-trend' %}
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>Push masuk 24 jam</span>
@@ -70,8 +73,8 @@
       </div>
       <div class="card-body"><div id="chart-trend" class="rani-chart" style="height:190px"></div></div>
     </div>
-  </div>
-  <div class="col-lg-5">
+
+    {% elif w.kind == 'recent-events' %}
     <div class="card h-100">
       <div class="card-header">Perubahan software terakhir</div>
       <div class="card-body p-0">
@@ -96,18 +99,9 @@
         </table>
       </div>
     </div>
-  </div>
-</div>
-{% if widgets %}
-<div class="d-flex justify-content-between align-items-center mt-2 mb-1">
-  <h5 class="mb-0">Dashboard custom</h5>
-  {% if can_setup %}
-  <a class="btn btn-sm btn-outline-secondary" href="/setup/dashboard">Kelola widget →</a>
-  {% endif %}
-</div>
-<div class="row g-3">
-  {% for w in widgets %}
-  <div class="{{ w.width }} col-12">
+
+    {% else %}
+    {# ---------------- widget custom (report SQL) ---------------- #}
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center gap-2">
         <span class="text-truncate">{{ w.title }}</span>
@@ -144,10 +138,12 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
+
   </div>
   {% endfor %}
 </div>
-{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
