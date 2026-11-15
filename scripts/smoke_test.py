@@ -108,11 +108,17 @@ def main() -> int:
 
     # 7. halaman UI utama
     for path, marker in (("/", "Dashboard"), ("/assets", "Assets"),
-                         ("/agents/push", "Cara pasang raniPush.exe"),
+                         ("/agents/push", "Cara pasang raniPush"),
                          ("/agents/scan", "Mulai scan"),
                          ("/agents/groups", "Grup IP")):
         body = opener.open(base + path).read().decode("utf-8", "replace")
         check(f"UI {path} render", marker in body, f"{len(body)} bytes")
+
+    # 7a. halaman push wajib menawarkan jalur portable + panduan "blocked by your organization"
+    body = opener.open(base + "/agents/push").read().decode("utf-8", "replace")
+    check("push: jalur portable + panduan blokir",
+          "raniPush-portable.zip" in body and "blocked by your organization" in body
+          and "TrustedPublisher" in body, f"{len(body)} bytes")
 
     # 7d. scan: validasi range & guard (tanpa memutasi data)
     bad = urllib.request.Request(base + "/agents/groups/save", method="POST",
@@ -127,7 +133,7 @@ def main() -> int:
         check("scan menolak range tidak valid", exc.code == 400, f"HTTP {exc.code}")
 
     # 7b. unduhan artefak agent dari browser (login reader/admin)
-    for name in ("raniPush-signed.exe", "rani-push-signing.cer", "install-cert.ps1"):
+    for name in ("raniPush-signed.exe", "raniPush-portable.zip", "rani-push-signing.cer", "install-cert.ps1"):
         resp = opener.open(base + "/downloads/" + name)
         blob = resp.read()
         check(f"download {name}", resp.status == 200 and len(blob) > 100,

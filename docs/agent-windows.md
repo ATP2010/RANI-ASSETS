@@ -304,6 +304,56 @@ persis dengan versi exe. Rebuild paket: `bash scripts/build-portable.sh`.
 Jangan mematikan Defender/ASR atau menambah folder exclusion sebagai solusi rutin —
 kalau memang perlu, minta persetujuan pemilik infra dan catat alasannya.
 
+### Solusi D — pesan `blocked by your organization` (WDAC / AppLocker / ASR)
+
+Pesan ini **bukan** SmartScreen: yang menolak adalah kebijakan mesin/domain, jadi
+tidak ada langkah di sisi server yang bisa membuka blokir. Urutannya:
+
+1. **Pastikan penyebabnya** di PC target (PowerShell admin) — jangan menebak:
+
+   ```powershell
+   # 0/2 = Smart App Control off/evaluation, 1 = enforce
+   Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' -Name VerifiedAndReputablePolicyState
+   # ASR rule Defender yang aktif (GUID)
+   (Get-MpPreference).AttackSurfaceReductionRules_Ids
+   # bukti penolakan: ID 3077 = blokir WDAC, 8004/8003 = AppLocker
+   Get-WinEvent -LogName 'Microsoft-Windows-CodeIntegrity/Operational' -MaxEvents 15 |
+     Format-Table TimeCreated,Id,Message -Wrap
+   ```
+
+2. **Coba Jalur A (portable) lebih dulu** — kalau `python.exe` diizinkan kebijakan,
+   tidak perlu ubah GPO sama sekali. Ini jalur tercepat untuk trial.
+
+3. **Kalau tetap diblokir**, minta IT menambah **satu** aturan allowlist. Bahan yang
+   dibutuhkan sudah tersedia di halaman `/agents/push` (kartu
+   “Windows memblokir raniPush”): SHA256 tiap artefak + subject sertifikat.
+   Template permintaan:
+
+   ```text
+   Subjek: Allowlist aplikasi internal RANI (raniPush) untuk inventaris aset IT
+
+   Aplikasi : raniPush (agent inventaris RANI, internal)
+   Tujuan   : push inventaris hardware+software tiap 60 menit ke server LAN
+             http://192.168.88.92:8091 (HTTP, tanpa internet)
+
+   Opsi allowlist (pilih satu):
+   a) Hash rule (paling ketat, per versi file):
+        raniPush-signed.exe    SHA256 <lihat /agents/push>
+        raniPush.exe           SHA256 <lihat /agents/push>
+        raniPush-portable.zip  SHA256 <lihat /agents/push>
+   b) Publisher rule (bertahan saat versi naik):
+        CN=RANI Internal Code Signing, O=RANI Internal, C=ID
+        Sertifikat: /downloads/rani-push-signing.cer
+        (import ke Trusted Root + TrustedPublisher lewat scripts/install-cert.ps1)
+   c) Bila kebijakan tidak bisa diubah: izinkan python.exe (PSF-signed) agar
+      paket portable bisa jalan.
+
+   Bukti penolakan saat ini: <tempel output CodeIntegrity/Operational + GUID ASR>
+   ```
+
+Catatan: jangan menonaktifkan Smart App Control sebagai solusi (di Windows 11 itu
+permanen sampai instalasi ulang), dan jangan pakai folder exclusion permanen.
+
 ---
 
 ## 9. Cek cepat (cheat sheet)

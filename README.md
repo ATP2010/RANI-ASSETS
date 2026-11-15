@@ -33,6 +33,7 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 | Custom reports SQL (`/reports`) | jalan — role DB read-only, grid + filter kolom, export CSV |
 | Scan SNMP (`/agents/scan`) | jalan — grup IP + custom OID, probe v1/v2c, asset `network` otomatis; jadwal otomatis belum |
 | Deploy Docker Hub | `adhityatp/raniassets:<tag>` — pull & run tanpa build ([`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md)) |
+| Unduhan agent di `/agents/push` | 2 jalur (portable = jalur A, exe signed = jalur B) + kartu “blocked by your organization” berisi SHA256 artefak & diagnostik SAC/ASR ([`docs/agent-windows.md` §8](docs/agent-windows.md#8-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control)) |
 | SNMP scanning (F2), installer exe + GNS (F3) | belum |
 
 ## Quick start (dev LXC 192.168.88.92)
@@ -103,7 +104,7 @@ pyinstaller --noconfirm --clean --distpath release agent/raniPush.spec
 ```
 
 Kalau Windows memblokir exe: lihat
-[`docs/agent-windows.md` §10](docs/agent-windows.md#10-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control).
+[`docs/agent-windows.md` §8](docs/agent-windows.md#8-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control).
 
 ## Verifikasi
 

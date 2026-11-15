@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.downloads import ARTIFACTS
+from app.api.downloads import ARTIFACTS, artifact_sha256
 from app.audit import audit
 from app.config import get_settings
 from app.crypto import encrypt_secret
@@ -76,6 +76,15 @@ async def agents_push(request: Request, token: str | None = None,
     signed_label = ARTIFACTS[signed_name][0]
     path = Path(settings.RANI_AGENT_DIR) / signed_name
     size = path.stat().st_size if path.is_file() else None
+
+    def _art(name: str) -> dict:
+        p = Path(settings.RANI_AGENT_DIR if ARTIFACTS[name][1] == "release"
+                 else settings.RANI_AGENT_SCRIPTS_DIR) / name
+        sz = p.stat().st_size if p.is_file() else None
+        return {"name": name, "label": ARTIFACTS[name][0], "size": sz,
+                "size_mb": round(sz / 1048576, 2) if sz else None,
+                "available": sz is not None, "sha256": artifact_sha256(name)}
+
     return templates.TemplateResponse(request, "agents_push.html", {
         "user": user, "active": "agents", "sub": "push",
         "agents": await list_agents(session), "tokens": await list_tokens(session),
@@ -83,6 +92,10 @@ async def agents_push(request: Request, token: str | None = None,
                                     "size": size,
                                     "size_mb": round(size / 1048576, 2) if size else None,
                                     "available": size is not None},
+        "portable": _art("raniPush-portable.zip"),
+        "signed": _art("raniPush-signed.exe"),
+        "plain": _art("raniPush.exe"),
+        "cert": _art("rani-push-signing.cer"),
         "server_url": str(request.base_url).rstrip("/"),
         "server_host": urlsplit(str(request.base_url)).hostname or "127.0.0.1",
         "server_port": urlsplit(str(request.base_url)).port or 8091,

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Push (agent){% endblock %}
 {% block heading %}Agents · Push{% endblock %}
-{% block subheading %}pasang raniPush.exe di PC Windows{% endblock %}
+{% block subheading %}pasang raniPush di PC Windows{% endblock %}
 
 {% block content %}
 {% if new_token %}
@@ -15,12 +15,13 @@
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="card h-100">
-      <div class="card-header">Cara pasang raniPush.exe (tanpa token)</div>
+      <div class="card-header">Cara pasang raniPush (tanpa token)</div>
       <div class="card-body small">
         <ol class="ps-3 mb-0">
           <li class="mb-2">
-            Unduh <span class="mono">{{ exe.name }}</span> dari panel kanan, simpan ke
-            <span class="mono">C:\Rani\</span>.
+            Unduh <span class="mono">{{ exe.name }}</span> dari panel kanan (jalur B), atau
+            <span class="mono">{{ portable.name }}</span> (jalur A) kalau Windows memblokir exe.
+            Simpan ke <span class="mono">C:\Rani\</span>.
           </li>
           <li class="mb-2">
             PowerShell <span class="fw-semibold">as Administrator</span>:
@@ -66,32 +67,47 @@ Unblock-File .\{{ exe.name }}
 
   <div class="col-lg-4">
     <div class="card">
-      <div class="card-header">Unduhan (signed)</div>
+      <div class="card-header">Unduhan agent — 2 jalur</div>
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="fw-semibold mono">{{ exe.name }}</div>
-            <div class="small-muted">
-              {% if exe.size_mb %}{{ exe.size_mb }} MB · ditandatangani + timestamp{% else %}belum dibuild{% endif %}
-            </div>
-          </div>
-          {% if exe.available %}
-          <a class="btn btn-primary btn-sm" href="/downloads/{{ exe.name }}">Download</a>
-          {% else %}
-          <span class="badge text-bg-secondary">belum tersedia</span>
-          {% endif %}
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="fw-semibold small">Jalur A · paket portable</div>
+          <span class="badge text-bg-success">paling tahan blokir</span>
         </div>
-        <div class="small-muted mt-2">
-          Hanya exe bertanda tangan yang ditampilkan. Sertifikat publik dipasang sekali bila
-          Windows memblokir “Unknown publisher”.
+        <div class="small-muted mt-1">
+          python.exe resmi (ditandatangani Python Software Foundation) + skrip —
+          tidak ada exe buatan sendiri.
         </div>
+        {% if portable.available %}
+        <a class="btn btn-primary btn-sm w-100 mt-2" href="/downloads/{{ portable.name }}">
+          Download {{ portable.name }} ({{ portable.size_mb }} MB)
+        </a>
+        {% else %}
+        <span class="badge text-bg-secondary mt-2">belum tersedia</span>
+        {% endif %}
+        <pre class="mb-1 mt-2 p-2 bg-body-secondary rounded mono small">Expand-Archive .\{{ portable.name }} C:\Rani-portable -Force
+cd C:\Rani-portable\raniPush-portable
+.\raniPush.cmd {{ server_url | replace('http://', '') | replace('https://', '') }}</pre>
+        <div class="small-muted">
+          Butuh Python 3.13 embeddable utuh di folder itu — jangan pindahkan hanya
+          <span class="mono">raniPush.py</span>.
+        </div>
+        <hr>
+        <div class="fw-semibold small">Jalur B · exe bertanda tangan</div>
+        <div class="small-muted mt-1">
+          {% if signed.size_mb %}{{ signed.size_mb }} MB · signed + timestamp{% else %}belum dibuild{% endif %}.
+          Cukup untuk SmartScreen setelah sertifikat dipasang sekali.
+        </div>
+        {% if signed.available %}
+        <a class="btn btn-outline-primary btn-sm w-100 mt-2" href="/downloads/{{ signed.name }}">
+          Download {{ signed.name }}
+        </a>
+        {% else %}
+        <span class="badge text-bg-secondary mt-2">belum tersedia</span>
+        {% endif %}
         <div class="mt-2 d-flex flex-wrap gap-2">
-          <a class="btn btn-sm btn-outline-secondary" href="/downloads/rani-push-signing.cer">Sertifikat (.cer)</a>
+          <a class="btn btn-sm btn-outline-secondary" href="/downloads/{{ cert.name }}">Sertifikat (.cer)</a>
           <a class="btn btn-sm btn-outline-secondary" href="/downloads/install-cert.ps1">install-cert.ps1</a>
-        </div>
-        <div class="small-muted mt-2">
-          Kalau Smart App Control memblokir exe apa pun, pakai
-          <a href="/downloads/raniPush-portable.zip">paket portable</a> (python resmi + skrip).
+          <a class="btn btn-sm btn-link" href="/downloads/{{ plain.name }}">exe tanpa signature</a>
         </div>
       </div>
     </div>
@@ -104,6 +120,59 @@ Unblock-File .\{{ exe.name }}
           Server: <span class="mono">{{ server_url }}</span>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3 border-warning">
+  <div class="card-header">Windows memblokir raniPush — “blocked by your organization”</div>
+  <div class="card-body small">
+    <table class="table table-sm table-tight align-middle mb-3">
+      <thead class="table-light">
+        <tr><th>Pesan di PC target</th><th>Penyebab</th><th>Tindakan</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>“Windows protected your PC”</td>
+          <td>SmartScreen (Mark-of-the-Web pada file hasil download)</td>
+          <td><span class="mono">Unblock-File</span> lalu jalankan, atau pakai Jalur A</td>
+        </tr>
+        <tr>
+          <td>“This app can't run because it can't be verified”</td>
+          <td>Smart App Control mode <span class="mono">enforce</span> (Windows 11)</td>
+          <td>Jalur A (portable) — SAC hanya meloloskan aplikasi ber-reputasi</td>
+        </tr>
+        <tr>
+          <td><span class="fw-semibold">“blocked by your organization” / “Your organization's policy blocks this app”</span></td>
+          <td>WDAC / AppLocker / ASR rule Defender dari kebijakan domain</td>
+          <td>Butuh IT: allowlist pakai hash atau publisher di bawah. Jalur A hanya lolos bila
+            <span class="mono">python.exe</span> diizinkan kebijakan.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="fw-semibold mb-1">Cek penyebab di PC target (PowerShell)</div>
+        <pre class="mb-0 p-2 bg-body-secondary rounded mono small"># 0/2 = SAC off/evaluation, 1 = enforce
+Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' -Name VerifiedAndReputablePolicyState
+# aturan ASR yang aktif
+(Get-MpPreference).AttackSurfaceReductionRules_Ids
+# bukti blokir (kode integritas / AppLocker)
+Get-WinEvent -LogName 'Microsoft-Windows-CodeIntegrity/Operational' -MaxEvents 15 |
+  Format-Table TimeCreated,Id,Message -Wrap</pre>
+      </div>
+      <div class="col-lg-6">
+        <div class="fw-semibold mb-1">Bahan untuk IT — hash rule / publisher rule</div>
+        <pre class="mb-0 p-2 bg-body-secondary rounded mono small">SHA256 {{ signed.name }}    = {{ signed.sha256 or 'n/a' }}
+SHA256 {{ plain.name }}          = {{ plain.sha256 or 'n/a' }}
+SHA256 {{ portable.name }} = {{ portable.sha256 or 'n/a' }}
+Publisher : CN=RANI Internal Code Signing, O=RANI Internal, C=ID
+Cert      : /downloads/{{ cert.name }} → Trusted Root + TrustedPublisher</pre>
+      </div>
+    </div>
+    <div class="small-muted mt-2">
+      Jangan mematikan Defender/ASR atau menambah folder exclusion permanen sebagai solusi rutin.
+      Template permintaan izin ke IT: <a href="/docs/agent-windows">/docs/agent-windows</a> §8.
     </div>
   </div>
 </div>

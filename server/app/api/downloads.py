@@ -4,6 +4,7 @@ File tidak dibundel di image: compose me-mount `release/` dan `scripts/` read-on
 ke path yang dikonfigurasi RANI_AGENT_DIR / RANI_AGENT_SCRIPTS_DIR. Nama file
 dibatasi allowlist — tidak ada path dari user yang menyentuh filesystem.
 """
+import hashlib
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -35,6 +36,32 @@ _MEDIA_TYPES = {
 
 def _base_dir(kind: str) -> Path:
     return Path(settings.RANI_AGENT_DIR if kind == "release" else settings.RANI_AGENT_SCRIPTS_DIR)
+
+
+# cache digest supaya halaman /agents tidak menghitung ulang 18 MB setiap request
+_SHA_CACHE: dict[str, tuple[float, int, str]] = {}
+
+
+def artifact_sha256(name: str) -> str | None:
+    """SHA256 artefak (dipakai untuk allowlist IT: hash rule WDAC/AppLocker)."""
+    entry = ARTIFACTS.get(name)
+    if entry is None:
+        return None
+    path = _base_dir(entry[1]) / name
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    cached = _SHA_CACHE.get(name)
+    if cached and cached[0] == st.st_mtime and cached[1] == st.st_size:
+        return cached[2]
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    hex_digest = digest.hexdigest()
+    _SHA_CACHE[name] = (st.st_mtime, st.st_size, hex_digest)
+    return hex_digest
 
 
 def artifact_rows() -> list[dict]:
