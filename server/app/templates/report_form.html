@@ -118,31 +118,4 @@
   </div>
 </form>
 
-<div class="card mt-3" id="report-result"
-     data-report-id="{{ report.id if report else '' }}"
-     data-run-now="{{ 1 if run_now and report else 0 }}">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <span>Hasil</span>
-    <span class="small-muted" id="report-meta">
-      {% if report and report.last_run_at and not run_now %}
-        terakhir: {{ report.last_run_at | fmt_dt }} · {{ report.last_run_rows or 0 }} baris · {{ report.last_run_ms or 0 }} ms
-      {% else %}
-        belum dijalankan
-      {% endif %}
-    </span>
-  </div>
-  <div class="card-body p-0" id="report-output">
-    <div class="p-3 small-muted">
-      {% if report %}
-        Klik <span class="fw-semibold">Jalankan tersimpan</span> atau <span class="fw-semibold">Simpan &amp; Jalankan</span>.
-      {% else %}
-        Simpan report dulu, lalu hasil query muncul di sini.
-      {% endif %}
-    </div>
-  </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script src="/static/report.js"></script>
 {% endblock %}

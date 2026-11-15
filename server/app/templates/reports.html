@@ -5,52 +5,63 @@
 
 {% block content %}
 <div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <span>Custom reports ({{ rows | length }})</span>
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="fw-semibold">Custom reports <span class="small-muted">({{ rows | length }})</span></span>
+      <input type="search" class="form-control form-control-sm" id="report-search"
+             placeholder="Cari nama, deskripsi, pemilik…" autocomplete="off"
+             aria-label="Cari report" style="max-width: 260px">
+    </div>
     {% if can_create %}
     <a class="btn btn-sm btn-primary" href="/reports/new">+ Buat report</a>
     {% endif %}
   </div>
   <div class="card-body p-0">
-    <table class="table table-sm table-tight mb-0 align-middle">
+    <table class="table table-sm table-tight mb-0 align-middle" id="reports-table">
       <thead class="table-light">
         <tr>
-          <th>Nama</th>
+          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="0" data-dir="asc">Nama <span class="sort-arrow">↕</span></button></th>
           <th>Deskripsi</th>
-          <th>Pemilik</th>
-          <th>Diubah</th>
-          <th>Terakhir dijalankan</th>
-          <th class="text-end"></th>
+          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="2" data-dir="asc">Pemilik <span class="sort-arrow">↕</span></button></th>
+          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="3" data-dir="asc">Diubah <span class="sort-arrow">↕</span></button></th>
+          <th>Status run</th>
+          <th class="text-end">Aksi</th>
         </tr>
       </thead>
       <tbody>
         {% for row in rows %}
         {% set r = row.report %}
-        <tr>
+        <tr class="report-row"
+            data-search="{{ (r.name ~ ' ' ~ (r.description or '') ~ ' ' ~ (row.owner or '')) | lower | e }}">
           <td>
-            <a href="/reports/{{ r.id }}">{{ r.name }}</a>
+            <a class="fw-medium" href="/reports/{{ r.id }}">{{ r.name }}</a>
             {% if not r.is_shared %}<span class="badge text-bg-secondary ms-1">private</span>{% endif %}
           </td>
           <td class="small-muted">{{ r.description or '—' }}</td>
           <td class="mono">{{ row.owner or '—' }}</td>
-          <td class="small-muted">{{ r.updated_at | fmt_dt }}</td>
+          <td class="small-muted" data-sort="{{ r.updated_at.isoformat() if r.updated_at else '' }}">{{ r.updated_at | fmt_dt }}</td>
           <td class="small-muted">
             {% if r.last_run_at %}
               {{ r.last_run_at | fmt_dt }}
-              <span class="mono">· {{ r.last_run_rows or 0 }} baris · {{ r.last_run_ms or 0 }} ms</span>
+              <span class="mono">· {{ r.last_run_rows or 0 }} baris</span>
               {% if r.last_error %}<span class="badge text-bg-danger ms-1">error</span>{% endif %}
             {% else %}
               <span class="small-muted">belum pernah</span>
             {% endif %}
           </td>
           <td class="text-end text-nowrap">
-            <a class="btn btn-sm btn-outline-primary" href="/reports/{{ r.id }}?run=1">Jalankan</a>
-            <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ r.id }}">Buka</a>
+            {% if row.can_edit %}
+            <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ r.id }}/edit">Ubah</a>
+            <form method="post" action="/reports/{{ r.id }}/delete" class="d-inline report-delete"
+                  data-name="{{ r.name }}">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+            </form>
+            {% else %}<span class="small-muted">—</span>{% endif %}
           </td>
         </tr>
         {% else %}
-        <tr>
-          <td colspan="6" class="small-muted p-3">
+        <tr id="reports-empty">
+          <td colspan="6" class="small-muted p-4">
             belum ada report.
             {% if can_create %}<a href="/reports/new">Buat report pertama</a> — tulis query SELECT
             ke tabel <span class="mono">assets</span>, <span class="mono">software</span>,
@@ -58,13 +69,70 @@
           </td>
         </tr>
         {% endfor %}
+        <tr id="reports-noresult" class="d-none">
+          <td colspan="6" class="small-muted p-3">tidak ada report cocok dengan pencarian.</td>
+        </tr>
       </tbody>
     </table>
   </div>
-  <div class="card-footer small-muted">
-    Report dijalankan sebagai role database read-only dengan timeout; hasil dibatasi
-    jumlah baris dan bisa diekspor ke CSV. Query hanya boleh <span class="mono">SELECT</span>
-    atau <span class="mono">WITH ... SELECT</span>.
+  <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2 small-muted">
+    <span>Menampilkan <span id="reports-shown">{{ rows | length }}</span> dari {{ rows | length }} report</span>
+    <span>Report dijalankan sebagai role DB read-only (SELECT saja, timeout &amp; batas baris) — bisa diekspor CSV dari halaman report.</span>
   </div>
 </div>
+
+<script>
+(function () {
+  var search = document.getElementById('report-search');
+  var rows = Array.prototype.slice.call(document.querySelectorAll('.report-row'));
+  var noResult = document.getElementById('reports-noresult');
+  var shown = document.getElementById('reports-shown');
+
+  function apply() {
+    var q = (search.value || '').trim().toLowerCase();
+    var visible = 0;
+    rows.forEach(function (row) {
+      var ok = !q || (row.getAttribute('data-search') || '').indexOf(q) !== -1;
+      row.classList.toggle('d-none', !ok);
+      if (ok) visible++;
+    });
+    if (noResult) noResult.classList.toggle('d-none', visible !== 0 || rows.length === 0);
+    if (shown) shown.textContent = String(visible);
+  }
+  if (search) search.addEventListener('input', apply);
+
+  // sort kolom Nama / Pemilik / Diubah
+  document.querySelectorAll('.sort-link').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var col = Number(btn.dataset.col);
+      var dir = btn.dataset.dir === 'asc' ? 'desc' : 'asc';
+      btn.dataset.dir = dir;
+      var tbody = document.querySelector('#reports-table tbody');
+      var sorted = rows.slice().sort(function (a, b) {
+        var av = (a.children[col]?.innerText || '').trim();
+        var bv = (b.children[col]?.innerText || '').trim();
+        if (col === 3) {
+          var as = a.children[col]?.getAttribute('data-sort') || '';
+          var bs = b.children[col]?.getAttribute('data-sort') || '';
+          return dir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
+        }
+        return dir === 'asc' ? av.localeCompare(bv, 'id') : bv.localeCompare(av, 'id');
+      });
+      sorted.forEach(function (row) { tbody.appendChild(row); });
+      document.querySelectorAll('.sort-arrow').forEach(function (s) { s.textContent = '↕'; });
+      btn.querySelector('.sort-arrow').textContent = dir === 'asc' ? '↑' : '↓';
+      apply();
+    });
+  });
+
+  document.querySelectorAll('.report-delete').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      var name = form.getAttribute('data-name') || 'laporan ini';
+      if (!window.confirm('Hapus report "' + name + '"? Tindakan ini tidak bisa dibatalkan.')) {
+        e.preventDefault();
+      }
+    });
+  });
+})();
+</script>
 {% endblock %}

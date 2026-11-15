@@ -99,9 +99,13 @@ def _page(request: Request, user: AppUser, report: Report | None, owner: str | N
 @router.get("/reports")
 async def reports_page(request: Request, session: AsyncSession = Depends(get_session),
                        user: AppUser = Depends(require_perm("reports.view"))):
+    rows = await list_reports(session, user)
+    can_manage = "reports.manage" in getattr(user, "perm_set", set())
+    for row in rows:
+        row["can_edit"] = can_manage or (row["report"].owner_id == user.id)
     return templates.TemplateResponse(request, "reports.html", {
-        "user": user, "active": "reports", "rows": await list_reports(session, user),
-        "can_create": "reports.manage" in getattr(user, "perm_set", set()),
+        "user": user, "active": "reports", "rows": rows,
+        "can_create": can_manage,
     })
 
 
@@ -135,18 +139,35 @@ async def report_create(request: Request, name: str = Form(""), description: str
     await audit(session, request, actor=user.username, action="report.create",
                 target=str(report.id), details={"name": clean_name})
     await session.commit()
-    suffix = "?run=1" if action == "run" else "?saved=1"
-    return RedirectResponse(f"/reports/{report.id}{suffix}", status_code=303)
+    return RedirectResponse(f"/reports/{report.id}", status_code=303)
 
 
 @router.get("/reports/{report_id}")
-async def report_detail(report_id: uuid.UUID, request: Request, run: int = 0,
+async def report_detail(report_id: uuid.UUID, request: Request,
                         session: AsyncSession = Depends(get_session),
                         user: AppUser = Depends(require_perm("reports.view"))):
     found = await get_report(session, report_id, user)
     if found is None:
         raise HTTPException(status_code=404, detail="report tidak ditemukan")
-    return _page(request, user, found["report"], found["owner"], run=bool(run))
+    return templates.TemplateResponse(request, "report_view.html", {
+        "user": user, "active": "reports",
+        "report": found["report"], "owner": found["owner"],
+        "can_edit": _can_edit(found["report"], user),
+    })
+
+
+@router.get("/reports/{report_id}/edit")
+async def report_edit_form(report_id: uuid.UUID, request: Request,
+                           saved: int = 0,
+                           session: AsyncSession = Depends(get_session),
+                           user: AppUser = Depends(require_perm("reports.view"))):
+    found = await get_report(session, report_id, user)
+    if found is None:
+        raise HTTPException(status_code=404, detail="report tidak ditemukan")
+    report = found["report"]
+    if not _can_edit(report, user):
+        raise HTTPException(status_code=403, detail="hanya pemilik report atau admin")
+    return _page(request, user, report, found["owner"])
 
 
 @router.post("/reports/{report_id}/save")
@@ -180,8 +201,7 @@ async def report_save(report_id: uuid.UUID, request: Request,
     await audit(session, request, actor=user.username, action="report.save",
                 target=str(report.id), details={"name": clean_name})
     await session.commit()
-    suffix = "?run=1" if action == "run" else "?saved=1"
-    return RedirectResponse(f"/reports/{report.id}{suffix}", status_code=303)
+    return RedirectResponse(f"/reports/{report.id}", status_code=303)
 
 
 @router.post("/reports/{report_id}/delete")
