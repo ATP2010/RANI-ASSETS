@@ -3,8 +3,7 @@
 {% block title %}{{ a.hostname or 'Asset' }}{% endblock %}
 {% block heading %}{{ a.hostname or '(tanpa hostname)' }}{% endblock %}
 {% block subheading %}
-  {% if a.status == 'online' %}<span class="badge text-bg-success">online</span>
-  {% else %}<span class="badge text-bg-secondary">offline</span>{% endif %}
+  <span class="d-inline-flex align-items-center gap-1 fw-semibold {% if a.status == 'online' %}text-success{% else %}text-secondary{% endif %}" title="{{ 'online' if a.status == 'online' else 'offline' }}"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>{{ 'Online' if a.status == 'online' else 'Offline' }}</span>
   · last seen {{ a.last_seen | fmt_dt }}
   {% set acts = d.actions %}
   {% if acts %}

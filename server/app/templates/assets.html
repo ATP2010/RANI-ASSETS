@@ -103,8 +103,7 @@
               <span class="asset-popup" id="pop-{{ a.id }}" role="tooltip">
                 <span class="ap-head">
                   <span class="ap-name text-truncate">{{ a.hostname or '(tanpa hostname)' }}</span>
-                  {% if a.status == 'online' %}<span class="badge text-bg-success">online</span>
-                  {% else %}<span class="badge text-bg-secondary">offline</span>{% endif %}
+                  <span class="d-inline-flex align-items-center gap-1 fw-semibold {% if a.status == 'online' %}text-success{% else %}text-secondary{% endif %}" title="{{ 'online' if a.status == 'online' else 'offline' }}"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>{{ 'Online' if a.status == 'online' else 'Offline' }}</span>
                 </span>
                 <span class="ap-grid">
                   <span class="ap-k">IP</span><span class="ap-v mono">{{ a.ip_last or '—' }}</span>
@@ -169,8 +168,7 @@
           <td>{{ a.vendor or '' }} {{ a.model or '' }}</td>
           <td class="text-end">{{ item.software_count }}</td>
           <td>
-            {% if a.status == 'online' %}<span class="badge text-bg-success">online</span>
-            {% else %}<span class="badge text-bg-secondary">offline</span>{% endif %}
+            <span class="d-inline-flex align-items-center gap-1 fw-semibold {% if a.status == 'online' %}text-success{% else %}text-secondary{% endif %}" title="{{ 'online' if a.status == 'online' else 'offline' }}"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>{{ 'Online' if a.status == 'online' else 'Offline' }}</span>
           </td>
           <td class="small-muted">{{ a.last_seen | fmt_dt }}</td>
         </tr>

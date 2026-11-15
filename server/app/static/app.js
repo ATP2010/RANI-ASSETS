@@ -313,35 +313,16 @@
       .observe(document.body, { attributes: true, attributeFilter: ['class'] });
   };
 
-  // ---------------------------------------------------------------- theme ---
-  function initTheme() {
-    const root = document.documentElement;
-    const button = el('theme-toggle');
-    const label = el('theme-toggle-label');
-    const apply = (mode, persist) => {
-      root.setAttribute('data-bs-theme', mode);
-      if (persist) { try { localStorage.setItem('rani-theme', mode); } catch (e) {} }
-      if (label) label.textContent = mode === 'dark' ? 'Terang' : 'Gelap';
-      if (button) button.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
-      document.dispatchEvent(new CustomEvent('rani:theme', { detail: { mode: mode } }));
-    };
-    apply(root.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light', false);
-    if (button) {
-      button.addEventListener('click', function () {
-        apply(root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark', true);
-      });
-    }
-    document.addEventListener('rani:theme', function () {
-      // warna sumbu/legend ECharts diambil dari CSS var → gambar ulang
-      if (dashboardActive && lastStats) renderCharts(lastStats);
-    });
-  }
+  // ------------------------------------------------------- tema (AdminLTE) ---
+  // warna sumbu/legend ECharts diambil dari CSS var → gambar ulang saat ganti tema
+  document.addEventListener('changed.lte.color-mode', function () {
+    if (dashboardActive && lastStats) renderCharts(lastStats);
+  });
 
   document.addEventListener('DOMContentLoaded', function () {
     // AdminLTE sudah menerapkan body.sidebar-collapse; lepas marker pra-paint
     // supaya perilaku hover-expand bawaan AdminLTE kembali aktif.
     document.documentElement.classList.remove('rani-pre-collapsed');
-    initTheme();
     connect();
   });
 })();

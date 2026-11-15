@@ -11,9 +11,18 @@
     /* set tema sebelum paint supaya tidak flash */
     (function () {
       try {
-        var saved = localStorage.getItem('rani-theme');
-        var mode = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-bs-theme', mode);
+        var legacy = localStorage.getItem('rani-theme');
+        if (legacy && !localStorage.getItem('lte-theme')) {
+          localStorage.setItem('lte-theme', legacy === 'light' || legacy === 'dark' ? legacy : 'auto');
+        }
+        var stored = localStorage.getItem('lte-theme');
+        var mode = (stored === 'light' || stored === 'dark' || stored === 'auto') ? stored
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        var resolved = mode === 'auto'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : mode;
+        document.documentElement.setAttribute('data-bs-theme', resolved);
+        document.documentElement.style.colorScheme = resolved;
       } catch (e) {}
     })();
   </script>
@@ -50,7 +59,6 @@
       border-color: var(--bs-border-color);
     }
     [data-bs-theme="dark"] .table > :not(caption) > * > * { border-color: var(--bs-border-color); }
-    #theme-toggle { min-width: 2.5rem; }
     [data-bs-theme="dark"] .app-sidebar { border-inline-end: 1px solid var(--bs-border-color); }
     .nav-icon svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
     .nav-arrow svg { width: .75rem; height: .75rem; stroke-width: 2; }
@@ -95,11 +103,55 @@
       </ul>
       <ul class="navbar-nav ms-auto align-items-center">
         <li class="nav-item me-2"><span class="nav-link small-muted" id="ws-status">realtime: menyambung…</span></li>
-        <li class="nav-item me-2">
+        <li class="nav-item me-2 dropdown">
           <button class="btn btn-sm btn-outline-secondary" type="button" id="theme-toggle"
-                  aria-label="Ganti mode terang/gelap" title="Mode terang / gelap">
-            <span id="theme-toggle-label">Gelap</span>
+                  data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ganti tema"
+                  title="Tema terang / gelap / otomatis">
+            <svg class="theme-icon" data-lte-theme-icon="light" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg class="theme-icon d-none" data-lte-theme-icon="dark" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg class="theme-icon d-none" data-lte-theme-icon="auto" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>
+            </svg>
           </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="theme-toggle">
+            <li>
+              <button type="button" class="dropdown-item d-flex align-items-center justify-content-between gap-2"
+                      data-bs-theme-value="light" aria-pressed="false">
+                <span>Terang</span>
+                <svg class="bi-check-lg d-none" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 10"/>
+                </svg>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item d-flex align-items-center justify-content-between gap-2"
+                      data-bs-theme-value="dark" aria-pressed="false">
+                <span>Gelap</span>
+                <svg class="bi-check-lg d-none" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 10"/>
+                </svg>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item d-flex align-items-center justify-content-between gap-2"
+                      data-bs-theme-value="auto" aria-pressed="false">
+                <span>Otomatis</span>
+                <svg class="bi-check-lg d-none" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 10"/>
+                </svg>
+              </button>
+            </li>
+          </ul>
         </li>
         {% if user %}
         <li class="nav-item"><span class="nav-link">{{ user.username }} <span class="badge text-bg-secondary">{{ (user.role_slugs or ["-"]) | join(", ") }}</span></span></li>
