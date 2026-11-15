@@ -1,4 +1,4 @@
-/* RANI UI: custom report — jalankan SQL, render grid dengan filter per kolom. */
+/* RANI UI: custom report — jalankan SQL, render grid dengan filter + pagination. */
 (function () {
   function el(id) { return document.getElementById(id); }
 
@@ -9,9 +9,58 @@
     return td;
   }
 
+  function paginationWindow(current, total) {
+    const out = [];
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) out.push(i);
+      return out;
+    }
+    if (current <= 4) {
+      for (let j = 1; j <= 5; j++) out.push(j);
+      out.push('…');
+      out.push(total);
+      return out;
+    }
+    if (current >= total - 3) {
+      out.push(1);
+      out.push('…');
+      for (let k = total - 4; k <= total; k++) out.push(k);
+      return out;
+    }
+    out.push(1);
+    out.push('…');
+    out.push(current - 1);
+    out.push(current);
+    out.push(current + 1);
+    out.push('…');
+    out.push(total);
+    return out;
+  }
+
+  function liButton(label, opts) {
+    const li = document.createElement('li');
+    li.className = 'page-item' + (opts && opts.disabled ? ' disabled' : '') +
+      (opts && opts.active ? ' active' : '');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'page-link';
+    btn.innerHTML = label;
+    if (opts && opts.disabled) {
+      btn.tabIndex = -1;
+      btn.setAttribute('aria-disabled', 'true');
+    } else if (opts && opts.onClick) {
+      btn.addEventListener('click', opts.onClick);
+    }
+    li.appendChild(btn);
+    return li;
+  }
+
   function renderTable(data, columns, rows, meta) {
     const out = el('report-output');
+    if (!out) return;
     out.textContent = '';
+
+    const state = { page: 1, perPage: 25, filters: [] };
 
     const wrap = document.createElement('div');
     wrap.className = 'table-responsive';
@@ -47,67 +96,145 @@
     wrap.appendChild(table);
     out.appendChild(wrap);
 
-    function draw(source) {
+    function filteredRows() {
+      if (!state.filters.length) return rows.slice();
+      return rows.filter(function (row) {
+        return state.filters.every(function (f) {
+          const value = row[f.col];
+          return String(value === null || value === undefined ? '' : value)
+            .toLowerCase().indexOf(f.value) !== -1;
+        });
+      });
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'd-flex flex-wrap justify-content-between align-items-center gap-2 p-2 border-top';
+    const info = document.createElement('span');
+    info.className = 'small-muted';
+
+    const right = document.createElement('div');
+    right.className = 'd-flex flex-wrap align-items-center gap-3';
+
+    const label = document.createElement('label');
+    label.className = 'd-flex align-items-center gap-1 mb-0 small-muted';
+    label.textContent = 'Tampilkan';
+    const perPage = document.createElement('select');
+    perPage.className = 'form-select form-select-sm';
+    perPage.style.width = 'auto';
+    perPage.setAttribute('aria-label', 'baris per halaman');
+    [10, 25, 50, 100].forEach(function (n) {
+      const opt = document.createElement('option');
+      opt.value = String(n);
+      opt.textContent = String(n);
+      if (n === state.perPage) opt.selected = true;
+      perPage.appendChild(opt);
+    });
+    const perPageSuffix = document.createElement('span');
+    perPageSuffix.className = 'd-none d-sm-inline';
+    perPageSuffix.textContent = 'per halaman';
+    label.appendChild(perPage);
+    label.appendChild(perPageSuffix);
+
+    const exportLink = document.createElement('a');
+    exportLink.className = 'btn btn-sm btn-outline-secondary';
+    exportLink.href = '/reports/' + data.report_id + '/export.csv';
+    exportLink.textContent = 'Export CSV';
+
+    const nav = document.createElement('nav');
+    nav.setAttribute('aria-label', 'Navigasi halaman hasil');
+    const pag = document.createElement('ul');
+    pag.className = 'pagination pagination-sm mb-0';
+    nav.appendChild(pag);
+
+    right.appendChild(label);
+    right.appendChild(exportLink);
+    right.appendChild(nav);
+
+    footer.appendChild(info);
+    footer.appendChild(right);
+    out.appendChild(footer);
+
+    function drawPage() {
       tbody.textContent = '';
-      source.forEach(function (row) {
+      const vis = filteredRows();
+      const totalPages = Math.max(1, Math.ceil(vis.length / state.perPage));
+      if (state.page > totalPages) state.page = totalPages;
+      if (state.page < 1) state.page = 1;
+      const start = (state.page - 1) * state.perPage;
+      const end = Math.min(start + state.perPage, vis.length);
+      const pageRows = vis.slice(start, end);
+
+      pageRows.forEach(function (row) {
         const tr = document.createElement('tr');
         row.forEach(function (value) { tr.appendChild(cell(value)); });
         tbody.appendChild(tr);
       });
-      if (!source.length) {
+      if (!pageRows.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
         td.colSpan = Math.max(columns.length, 1);
         td.className = 'small-muted p-3';
-        td.textContent = 'tidak ada baris yang cocok dengan filter';
+        td.textContent = state.filters.length
+          ? 'tidak ada baris yang cocok dengan filter'
+          : 'query tidak mengembalikan baris';
         tr.appendChild(td);
         tbody.appendChild(tr);
       }
-    }
-    draw(rows);
 
-    const filters = out.querySelectorAll('.report-filter');
-    filters.forEach(function (input) {
+      const filterNote = state.filters.length
+        ? ' · filter: ' + vis.length + ' cocok dari ' + rows.length
+        : '';
+      meta.textContent = data.row_count + ' baris · ' + data.duration_ms + ' ms' +
+        (data.truncated ? ' · dipotong di ' + data.max_rows + ' baris' : '') + filterNote;
+      info.textContent = 'Menampilkan ' + (vis.length ? (start + 1) + '–' + end : '0') +
+        ' dari ' + vis.length + ' baris';
+
+      pag.innerHTML = '';
+      pag.appendChild(liButton('‹', {
+        disabled: state.page === 1,
+        onClick: function () { state.page -= 1; drawPage(); }
+      }));
+      paginationWindow(state.page, totalPages).forEach(function (p) {
+        if (p === '…') {
+          pag.appendChild(liButton('…', { disabled: true }));
+        } else {
+          pag.appendChild(liButton(String(p), {
+            active: p === state.page,
+            onClick: function () { state.page = p; drawPage(); }
+          }));
+        }
+      });
+      pag.appendChild(liButton('›', {
+        disabled: state.page === totalPages,
+        onClick: function () { state.page += 1; drawPage(); }
+      }));
+    }
+
+    out.querySelectorAll('.report-filter').forEach(function (input) {
       input.addEventListener('input', function () {
         const active = [];
         out.querySelectorAll('.report-filter').forEach(function (f) {
           const v = f.value.trim().toLowerCase();
-          if (v) active.push([Number(f.dataset.col), v]);
+          if (v) active.push({ col: Number(f.dataset.col), value: v });
         });
-        const filtered = rows.filter(function (row) {
-          return active.every(function (pair) {
-            const value = row[pair[0]];
-            return String(value === null || value === undefined ? '' : value)
-              .toLowerCase().indexOf(pair[1]) !== -1;
-          });
-        });
-        draw(filtered);
-        meta.textContent = data.row_count + ' baris · ' + data.duration_ms + ' ms' +
-          (active.length ? ' · filter: ' + filtered.length + ' tampil' : '') +
-          (data.truncated ? ' · dipotong di ' + data.max_rows + ' baris' : '');
+        state.filters = active;
+        state.page = 1;
+        drawPage();
       });
     });
 
-    meta.textContent = data.row_count + ' baris · ' + data.duration_ms + ' ms' +
-      (data.truncated ? ' · dipotong di ' + data.max_rows + ' baris' : '');
+    perPage.addEventListener('change', function () {
+      state.perPage = Number(perPage.value) || 25;
+      state.page = 1;
+      drawPage();
+    });
 
-    const footer = document.createElement('div');
-    footer.className = 'd-flex justify-content-between align-items-center p-2 border-top';
-    const info = document.createElement('span');
-    info.className = 'small-muted';
-    info.textContent = columns.length + ' kolom · ' + data.row_count + ' baris' +
-      (data.truncated ? ' (dipotong)' : '');
-    const link = document.createElement('a');
-    link.className = 'btn btn-sm btn-outline-secondary';
-    link.href = '/reports/' + data.report_id + '/export.csv';
-    link.textContent = 'Export CSV';
-    footer.appendChild(info);
-    footer.appendChild(link);
-    out.appendChild(footer);
+    drawPage();
   }
 
   function showMessage(html, cls) {
     const out = el('report-output');
+    if (!out) return;
     out.textContent = '';
     const div = document.createElement('div');
     div.className = 'p-3 ' + (cls || 'small-muted');
