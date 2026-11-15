@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Push (agent){% endblock %}
-{% block heading %}Agents · Push{% endblock %}
-{% block subheading %}pasang raniPush di PC Windows{% endblock %}
+{% block title %}{{ t('push.title') }}{% endblock %}
+{% block heading %}{{ t('push.heading') }}{% endblock %}
+{% block subheading %}{{ t('push.subheading') }}{% endblock %}
 
 {% block content %}
 {% if new_token %}
 <div class="alert alert-success">
-  <div class="fw-semibold mb-1">Enrollment token dibuat — tampil sekali saja (mode legacy):</div>
+  <div class="fw-semibold mb-1">{{ t('push.new_token_note') }}</div>
   <div class="mono fs-5 mb-2" id="new-token">{{ new_token }}</div>
   <pre class="mb-0 mt-1 p-2 bg-body-secondary rounded mono">raniPush --enroll {{ new_token }} {{ server_url }}</pre>
 </div>
@@ -15,51 +15,33 @@
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="card h-100">
-      <div class="card-header">Cara pasang raniPush (tanpa token)</div>
+      <div class="card-header">{{ t('push.howto_title') }}</div>
       <div class="card-body small">
         <ol class="ps-3 mb-0">
+          <li class="mb-2">{{ t('push.s1', exe=exe.name, portable=portable.name) | safe }}</li>
           <li class="mb-2">
-            Unduh <span class="mono">{{ exe.name }}</span> dari panel kanan (jalur B), atau
-            <span class="mono">{{ portable.name }}</span> (jalur A) kalau Windows memblokir exe.
-            Simpan ke <span class="mono">C:\Rani\</span>.
-          </li>
-          <li class="mb-2">
-            PowerShell <span class="fw-semibold">as Administrator</span>:
+            {{ t('push.s2') | safe }}
             <pre class="mb-1 mt-1 p-2 bg-body-secondary rounded mono">cd C:\Rani
 Unblock-File .\{{ exe.name }}
 .\{{ exe.name }} {{ server_url | replace('http://', '') | replace('https://', '') }}</pre>
-            Exit code 0 = data terkirim (atau terspool bila server belum terjangkau).
-            Server mengenali PC dari <span class="mono">machine_id</span>, jadi tidak ada
-            langkah enroll.
+            {{ t('push.exit_ok') | safe }}
           </li>
+          <li class="mb-2">{{ t('push.s3') | safe }}</li>
           <li class="mb-2">
-            Cek hasilnya: aset muncul di <a href="/assets">/assets</a> dengan badge
-            <span class="badge text-bg-success">online</span>, dan baris agent baru muncul di
-            tabel bawah halaman ini (badge <span class="badge text-bg-info">direct</span>).
-          </li>
-          <li class="mb-2">
-            Jadwalkan tiap jam (SYSTEM, tanpa jendela):
+            {{ t('push.s4') }}
             <pre class="mb-1 mt-1 p-2 bg-body-secondary rounded mono">schtasks /create /tn RaniPush /sc hourly /ru SYSTEM /rl HIGHEST /f ^
   /tr "C:\Rani\{{ exe.name }} {{ server_url | replace('http://', '') | replace('https://', '') }}"</pre>
           </li>
           <li class="mb-2">
-            Log ada di <span class="mono">C:\ProgramData\Rani\raniPush.log</span>:
+            {{ t('push.s5') | safe }}
             <pre class="mb-0 mt-1 p-2 bg-body-secondary rounded mono">Get-Content C:\ProgramData\Rani\raniPush.log -Tail 20</pre>
           </li>
-          <li>
-            Troubleshooting cepat: <span class="mono">401</span> = agent di-revoke atau server
-            memakai <span class="mono">RANI_TOKENLESS_PUSH=0</span>;
-            <span class="mono">422</span> = payload ditolak skema (kirim output
-            <span class="mono">--collect</span>); <span class="mono">koneksi ditolak</span> = cek
-            <span class="mono">Test-NetConnection</span> ke port {{ server_port }}.
-          </li>
+          <li>{{ t('push.s6', port=server_port) | safe }}</li>
         </ol>
         <hr>
         <div class="d-flex flex-wrap gap-2">
-          <a class="btn btn-sm btn-outline-secondary" href="/docs/agent-windows">Panduan lengkap Windows</a>
-          <span class="small-muted align-self-center">
-            Termasuk SmartScreen/Smart App Control, Task Scheduler lanjutan, uninstall.
-          </span>
+          <a class="btn btn-sm btn-outline-secondary" href="/docs/agent-windows">{{ t('push.docs') }}</a>
+          <span class="small-muted align-self-center">{{ t('push.docs_hint') }}</span>
         </div>
       </div>
     </div>
@@ -67,57 +49,51 @@ Unblock-File .\{{ exe.name }}
 
   <div class="col-lg-4">
     <div class="card">
-      <div class="card-header">Unduhan agent — 2 jalur</div>
+      <div class="card-header">{{ t('push.dl_title') }}</div>
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center">
-          <div class="fw-semibold small">Jalur A · paket portable</div>
-          <span class="badge text-bg-success">paling tahan blokir</span>
+          <div class="fw-semibold small">{{ t('push.lane_a') }}</div>
+          <span class="badge text-bg-success">{{ t('push.lane_a_badge') }}</span>
         </div>
-        <div class="small-muted mt-1">
-          python.exe resmi (ditandatangani Python Software Foundation) + skrip —
-          tidak ada exe buatan sendiri.
-        </div>
+        <div class="small-muted mt-1">{{ t('push.lane_a_note') }}</div>
         {% if portable.available %}
         <a class="btn btn-primary btn-sm w-100 mt-2" href="/downloads/{{ portable.name }}">
-          Download {{ portable.name }} ({{ portable.size_mb }} MB)
+          {{ t('push.download_btn', name=portable.name, size=portable.size_mb) }}
         </a>
         {% else %}
-        <span class="badge text-bg-secondary mt-2">belum tersedia</span>
+        <span class="badge text-bg-secondary mt-2">{{ t('push.not_available') }}</span>
         {% endif %}
         <pre class="mb-1 mt-2 p-2 bg-body-secondary rounded mono small">Expand-Archive .\{{ portable.name }} C:\Rani-portable -Force
 cd C:\Rani-portable\raniPush-portable
 .\raniPush.cmd {{ server_url | replace('http://', '') | replace('https://', '') }}</pre>
-        <div class="small-muted">
-          Butuh Python 3.13 embeddable utuh di folder itu — jangan pindahkan hanya
-          <span class="mono">raniPush.py</span>.
-        </div>
+        <div class="small-muted">{{ t('push.portable_note') | safe }}</div>
         <hr>
-        <div class="fw-semibold small">Jalur B · exe bertanda tangan</div>
+        <div class="fw-semibold small">{{ t('push.lane_b') }}</div>
         <div class="small-muted mt-1">
-          {% if signed.size_mb %}{{ signed.size_mb }} MB · signed + timestamp{% else %}belum dibuild{% endif %}.
-          Cukup untuk SmartScreen setelah sertifikat dipasang sekali.
+          {% if signed.size_mb %}{{ t('push.signed_meta', size=signed.size_mb) }}{% else %}{{ t('push.signed_meta_none') }}{% endif %}.
+          {{ t('push.signed_note') }}
         </div>
         {% if signed.available %}
         <a class="btn btn-outline-primary btn-sm w-100 mt-2" href="/downloads/{{ signed.name }}">
           Download {{ signed.name }}
         </a>
         {% else %}
-        <span class="badge text-bg-secondary mt-2">belum tersedia</span>
+        <span class="badge text-bg-secondary mt-2">{{ t('push.not_available') }}</span>
         {% endif %}
         <div class="mt-2 d-flex flex-wrap gap-2">
-          <a class="btn btn-sm btn-outline-secondary" href="/downloads/{{ cert.name }}">Sertifikat (.cer)</a>
-          <a class="btn btn-sm btn-outline-secondary" href="/downloads/install-cert.ps1">install-cert.ps1</a>
-          <a class="btn btn-sm btn-link" href="/downloads/{{ plain.name }}">exe tanpa signature</a>
+          <a class="btn btn-sm btn-outline-secondary" href="/downloads/{{ cert.name }}">{{ t('push.cert') }}</a>
+          <a class="btn btn-sm btn-outline-secondary" href="/downloads/install-cert.ps1">{{ t('push.cert_note') }}</a>
+          <a class="btn btn-sm btn-link" href="/downloads/{{ plain.name }}">{{ t('push.plain') }}</a>
         </div>
       </div>
     </div>
 
     <div class="card mt-3">
-      <div class="card-header">Cek cepat</div>
+      <div class="card-header">{{ t('push.quickcheck') }}</div>
       <div class="card-body small">
         <pre class="mb-0 p-2 bg-body-secondary rounded mono">Test-NetConnection {{ server_host }} -Port {{ server_port }}</pre>
         <div class="small-muted mt-2">
-          Server: <span class="mono">{{ server_url }}</span>
+          {{ t('push.server_label') }} <span class="mono">{{ server_url }}</span>
         </div>
       </div>
     </div>
@@ -125,34 +101,33 @@ cd C:\Rani-portable\raniPush-portable
 </div>
 
 <div class="card mt-3 border-warning">
-  <div class="card-header">Windows memblokir raniPush — “blocked by your organization”</div>
+  <div class="card-header">{{ t('push.block_title') }}</div>
   <div class="card-body small">
     <table class="table table-sm table-tight align-middle mb-3">
       <thead class="table-light">
-        <tr><th>Pesan di PC target</th><th>Penyebab</th><th>Tindakan</th></tr>
+        <tr><th>{{ t('push.block_msg') }}</th><th>{{ t('push.block_cause') }}</th><th>{{ t('push.block_fix') }}</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td>“Windows protected your PC”</td>
-          <td>SmartScreen (Mark-of-the-Web pada file hasil download)</td>
-          <td><span class="mono">Unblock-File</span> lalu jalankan, atau pakai Jalur A</td>
+          <td>{{ t('push.block_r1_msg') }}</td>
+          <td>{{ t('push.block_r1_cause') }}</td>
+          <td>{{ t('push.block_r1_fix') | safe }}</td>
         </tr>
         <tr>
-          <td>“This app can't run because it can't be verified”</td>
-          <td>Smart App Control mode <span class="mono">enforce</span> (Windows 11)</td>
-          <td>Jalur A (portable) — SAC hanya meloloskan aplikasi ber-reputasi</td>
+          <td>{{ t('push.block_r2_msg') }}</td>
+          <td>{{ t('push.block_r2_cause') | safe }}</td>
+          <td>{{ t('push.block_r2_fix') }}</td>
         </tr>
         <tr>
-          <td><span class="fw-semibold">“blocked by your organization” / “Your organization's policy blocks this app”</span></td>
-          <td>WDAC / AppLocker / ASR rule Defender dari kebijakan domain</td>
-          <td>Butuh IT: allowlist pakai hash atau publisher di bawah. Jalur A hanya lolos bila
-            <span class="mono">python.exe</span> diizinkan kebijakan.</td>
+          <td><span class="fw-semibold">{{ t('push.block_r3_msg') }}</span></td>
+          <td>{{ t('push.block_r3_cause') }}</td>
+          <td>{{ t('push.block_r3_fix') | safe }}</td>
         </tr>
       </tbody>
     </table>
     <div class="row g-3">
       <div class="col-lg-6">
-        <div class="fw-semibold mb-1">Cek penyebab di PC target (PowerShell)</div>
+        <div class="fw-semibold mb-1">{{ t('push.block_ps') }}</div>
         <pre class="mb-0 p-2 bg-body-secondary rounded mono small"># 0/2 = SAC off/evaluation, 1 = enforce
 Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' -Name VerifiedAndReputablePolicyState
 # aturan ASR yang aktif
@@ -162,7 +137,7 @@ Get-WinEvent -LogName 'Microsoft-Windows-CodeIntegrity/Operational' -MaxEvents 1
   Format-Table TimeCreated,Id,Message -Wrap</pre>
       </div>
       <div class="col-lg-6">
-        <div class="fw-semibold mb-1">Bahan untuk IT — hash rule / publisher rule</div>
+        <div class="fw-semibold mb-1">{{ t('push.block_it') }}</div>
         <pre class="mb-0 p-2 bg-body-secondary rounded mono small">SHA256 {{ signed.name }}    = {{ signed.sha256 or 'n/a' }}
 SHA256 {{ plain.name }}          = {{ plain.sha256 or 'n/a' }}
 SHA256 {{ portable.name }} = {{ portable.sha256 or 'n/a' }}
@@ -170,26 +145,23 @@ Publisher : CN=RANI Internal Code Signing, O=RANI Internal, C=ID
 Cert      : /downloads/{{ cert.name }} → Trusted Root + TrustedPublisher</pre>
       </div>
     </div>
-    <div class="small-muted mt-2">
-      Jangan mematikan Defender/ASR atau menambah folder exclusion permanen sebagai solusi rutin.
-      Template permintaan izin ke IT: <a href="/docs/agent-windows">/docs/agent-windows</a> §8.
-    </div>
+    <div class="small-muted mt-2">{{ t('push.no_defender') | safe }}</div>
   </div>
 </div>
 
 <div class="card mt-3">
-  <div class="card-header">Agent terdaftar ({{ agents | length }})</div>
+  <div class="card-header">{{ t('push.agents_title', count=agents | length) }}</div>
   <div class="card-body p-0">
     <table class="table table-sm table-tight mb-0 align-middle">
       <thead class="table-light">
-        <tr><th>Nama</th><th>Hostname</th><th>Versi</th><th>Last seen</th><th>Status</th><th></th></tr>
+        <tr><th>{{ t('push.col.name') }}</th><th>{{ t('push.col.hostname') }}</th><th>{{ t('push.col.version') }}</th><th>{{ t('push.col.last_seen') }}</th><th>{{ t('push.col.status') }}</th><th></th></tr>
       </thead>
       <tbody>
         {% for a in agents %}
         <tr>
           <td>
             {{ a.agent.name }}
-            {% if not a.agent.secret_enc %}<span class="badge text-bg-info ms-1">direct</span>{% endif %}
+            {% if not a.agent.secret_enc %}<span class="badge text-bg-info ms-1">{{ t('push.agent.direct') }}</span>{% endif %}
             <div class="small-muted mono">{{ a.agent.id }}</div>
           </td>
           <td class="mono">
@@ -198,20 +170,20 @@ Cert      : /downloads/{{ cert.name }} → Trusted Root + TrustedPublisher</pre>
           <td class="mono">{{ a.agent.agent_version or '—' }}</td>
           <td class="small-muted">{{ a.last_seen | fmt_dt }}</td>
           <td>
-            {% if a.agent.revoked_at %}<span class="badge text-bg-danger">revoked</span>
-            {% else %}<span class="badge text-bg-success">active</span>{% endif %}
+            {% if a.agent.revoked_at %}<span class="badge text-bg-danger">{{ t('push.agent.revoked') }}</span>
+            {% else %}<span class="badge text-bg-success">{{ t('push.agent.active') }}</span>{% endif %}
           </td>
           <td class="text-end">
             {% if can_admin and not a.agent.revoked_at %}
             <form method="post" action="/agents/{{ a.agent.id }}/revoke" class="m-0"
-                  onsubmit="return confirm('Revoke agent ini? Push berikutnya akan ditolak.');">
-              <button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button>
+                  onsubmit="return confirm('{{ t('push.revoke_confirm') }}');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">{{ t('push.revoke') }}</button>
             </form>
             {% endif %}
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="small-muted p-3">belum ada agent terdaftar</td></tr>
+        <tr><td colspan="6" class="small-muted p-3">{{ t('push.empty') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -219,41 +191,37 @@ Cert      : /downloads/{{ cert.name }} → Trusted Root + TrustedPublisher</pre>
 </div>
 
 <details class="mt-3">
-  <summary class="small-muted">Mode legacy: enrollment token + HMAC (opsional)</summary>
+  <summary class="small-muted">{{ t('push.legacy_mode') }}</summary>
   <div class="card mt-2">
     <div class="card-body small">
-      <p class="small-muted">
-        Tidak diperlukan untuk agent 0.2+. Dipakai hanya bila server di-set
-        <span class="mono">RANI_TOKENLESS_PUSH=0</span>, atau bila setiap push harus
-        bertanda tangan HMAC.
-      </p>
+      <p class="small-muted">{{ t('push.legacy_note') | safe }}</p>
       {% if can_admin %}
       <form method="post" action="/agents/tokens" class="row g-2 mb-3">
         <div class="col-sm-5">
-          <input class="form-control form-control-sm" name="label" placeholder="label (mis. batch-lab)">
+          <input class="form-control form-control-sm" name="label" placeholder="{{ t('push.token_label') }}">
         </div>
         <div class="col-sm-3">
           <input class="form-control form-control-sm" name="ttl_hours" type="number" value="24" min="1" max="720">
         </div>
         <div class="col-sm-4">
-          <button class="btn btn-sm btn-outline-primary" type="submit">Buat token</button>
+          <button class="btn btn-sm btn-outline-primary" type="submit">{{ t('push.token_create') }}</button>
         </div>
       </form>
       {% endif %}
       <table class="table table-sm table-tight mb-0">
-        <thead class="table-light"><tr><th>Label</th><th>Dibuat</th><th>Status</th></tr></thead>
+        <thead class="table-light"><tr><th>{{ t('push.col.label') }}</th><th>{{ t('push.col.created') }}</th><th>{{ t('common.status') }}</th></tr></thead>
         <tbody>
-          {% for t in tokens %}
+          {% for tok in tokens %}
           <tr>
-            <td>{{ t.label or '—' }}</td>
-            <td class="small-muted">{{ t.created_at | fmt_dt }}</td>
+            <td>{{ tok.label or '—' }}</td>
+            <td class="small-muted">{{ tok.created_at | fmt_dt }}</td>
             <td>
-              {% if t.used_at %}<span class="badge text-bg-secondary">terpakai</span>
-              {% else %}<span class="badge text-bg-success">aktif</span>{% endif %}
+              {% if tok.used_at %}<span class="badge text-bg-secondary">{{ t('push.token.used') }}</span>
+              {% else %}<span class="badge text-bg-success">{{ t('push.token.active') }}</span>{% endif %}
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="3" class="small-muted p-3">belum ada token</td></tr>
+          <tr><td colspan="3" class="small-muted p-3">{{ t('push.tokens_none') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>

@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Role & akses{% endblock %}
-{% block heading %}Users · Role &amp; akses{% endblock %}
-{% block subheading %}permission custom · union multi-role{% endblock %}
+{% block title %}{{ t('nav.roles') }}{% endblock %}
+{% block heading %}{{ t('nav.users') }} · {{ t('nav.roles') }}{% endblock %}
+{% block subheading %}{{ t('roles.subheading') }}{% endblock %}
 
 {% block content %}
-{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if saved %}<div class="alert alert-success py-2">{{ t('common.saved') }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
 
 <div class="card mb-3">
-  <div class="card-header">Daftar role ({{ rows | length }})</div>
+  <div class="card-header">{{ t('roles.list_title', count=rows | length) }}</div>
   <div class="card-body p-0">
     <table class="table table-sm table-tight mb-0 align-middle">
       <thead class="table-light">
         <tr>
-          <th>Role</th>
-          <th>Slug</th>
-          <th>Permission</th>
-          <th>User</th>
-          <th>Mapping AD</th>
+          <th>{{ t('roles.col_role') }}</th>
+          <th>{{ t('roles.col_slug') }}</th>
+          <th>{{ t('roles.col_permission') }}</th>
+          <th>{{ t('roles.col_user') }}</th>
+          <th>{{ t('roles.col_mapping') }}</th>
           <th class="text-end"></th>
         </tr>
       </thead>
@@ -27,16 +27,16 @@
         <tr>
           <td>
             <a href="/users/roles/{{ r.id }}">{{ r.name }}</a>
-            {% if r.slug == 'admin' %}<span class="badge text-bg-dark ms-1">terkunci</span>
-            {% elif r.is_builtin %}<span class="badge text-bg-secondary ms-1">bawaan</span>{% endif %}
+            {% if r.slug == 'admin' %}<span class="badge text-bg-dark ms-1">{{ t('roles.locked') }}</span>
+            {% elif r.is_builtin %}<span class="badge text-bg-secondary ms-1">{{ t('roles.builtin') }}</span>{% endif %}
             {% if r.description %}<div class="small-muted">{{ r.description }}</div>{% endif %}
           </td>
           <td class="mono">{{ r.slug }}</td>
-          <td>{{ (r.permissions or []) | length }}{% if r.slug == 'admin' %} <span class="small-muted">(semua)</span>{% endif %}</td>
+          <td>{{ (r.permissions or []) | length }}{% if r.slug == 'admin' %} <span class="small-muted">{{ t('roles.all_perms') }}</span>{% endif %}</td>
           <td>{{ row.users }}</td>
           <td>{{ row.mappings }}</td>
           <td class="text-end text-nowrap">
-            <a class="btn btn-sm btn-outline-secondary" href="/users/roles/{{ r.id }}">{{ 'Lihat' if r.slug == 'admin' else 'Ubah' }}</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/users/roles/{{ r.id }}">{{ t('roles.view') if r.slug == 'admin' else t('common.edit') }}</a>
           </td>
         </tr>
         {% endfor %}
@@ -47,24 +47,24 @@
 
 {% if can_manage %}
 <div class="card">
-  <div class="card-header">Role baru</div>
+  <div class="card-header">{{ t('roles.new') }}</div>
   <div class="card-body">
     <form method="post" action="/users/roles" class="row g-2">
       <div class="col-sm-3">
-        <label class="form-label small" for="nr">Slug</label>
+        <label class="form-label small" for="nr">{{ t('roles.col_slug') }}</label>
         <input class="form-control form-control-sm mono" id="nr" name="slug" required
-               pattern="[a-z0-9][a-z0-9\-]{1,63}" placeholder="mis. helpdesk">
+               pattern="[a-z0-9][a-z0-9\-]{1,63}" placeholder="{{ t('roles.slug_ph') }}">
       </div>
       <div class="col-sm-4">
-        <label class="form-label small" for="nn">Nama</label>
+        <label class="form-label small" for="nn">{{ t('common.name') }}</label>
         <input class="form-control form-control-sm" id="nn" name="name" required maxlength="96">
       </div>
       <div class="col-sm-5">
-        <label class="form-label small" for="nd">Deskripsi</label>
+        <label class="form-label small" for="nd">{{ t('common.description') }}</label>
         <input class="form-control form-control-sm" id="nd" name="description" maxlength="500">
       </div>
       <div class="col-12">
-        <label class="form-label small">Permission</label>
+        <label class="form-label small">{{ t('roles.col_permission') }}</label>
         <div class="row g-2">
           {% for module, items in permission_groups.items() %}
           <div class="col-md-4 col-lg-3">
@@ -83,7 +83,7 @@
         </div>
       </div>
       <div class="col-12">
-        <button class="btn btn-sm btn-primary" type="submit">Buat role</button>
+        <button class="btn btn-sm btn-primary" type="submit">{{ t('roles.create') }}</button>
       </div>
     </form>
   </div>

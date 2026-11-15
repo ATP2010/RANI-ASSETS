@@ -1,6 +1,8 @@
 /* RANI UI: scan SNMP — mulai, polling progres, render hasil, cancel. */
 (function () {
   function el(id) { return document.getElementById(id); }
+  var S = (window.RANI_SCAN && window.RANI_SCAN.strings) || {};
+  function t(key, def) { return S[key] || def || key; }
   var timer = null;
   var currentRun = null;
 
@@ -35,7 +37,7 @@
     body.textContent = '';
     if (!results.length) {
       var tr = document.createElement('tr');
-      var cell = td('belum ada hasil scan', 'small-muted p-3');
+      var cell = td(t('noResults', 'no scan results yet'), 'small-muted p-3');
       cell.colSpan = 8;
       tr.appendChild(cell);
       body.appendChild(tr);
@@ -111,7 +113,7 @@
     fetch('/api/v1/scan/runs/' + currentRun, { headers: { 'Accept': 'application/json' } })
       .then(function (resp) { return resp.ok ? resp.json() : null; })
       .then(function (data) {
-        if (!data) { finish('error', 'gagal membaca status scan'); return; }
+        if (!data) { finish('error', t('readError', 'could not read scan status')); return; }
         setBar(data.hosts_done, data.hosts_total);
         var state = el('scan-state');
         if (state) state.textContent = data.status;
@@ -119,15 +121,17 @@
         if (counts) counts.textContent = data.hosts_done + '/' + data.hosts_total +
           ' host · ' + data.hosts_found + ' ditemukan';
         var meta = el('scan-result-meta');
-        if (meta) meta.textContent = data.results.length + ' baris ditampilkan';
+        if (meta) meta.textContent = t('rowsShown', '{n} rows shown').replace('{n}', data.results.length);
         renderRows(data.results || []);
         if (data.status !== 'running') {
-          finish(data.status, 'Scan ' + data.status + ': ' + data.hosts_found + '/' +
-            data.hosts_done + ' host menjawab SNMP' +
+          finish(data.status,
+            t('summary', 'Scan {status}').replace('{status}', data.status)
+              .replace('{found}', data.hosts_found)
+              .replace('{done}', data.hosts_done) +
             (data.error ? ' — ' + data.error : ''));
         }
       })
-      .catch(function () { finish('error', 'gagal menghubungi server'); });
+      .catch(function () { finish('error', t('failServer', 'could not reach the server')); });
   }
 
   function startPolling(runId) {
@@ -136,7 +140,7 @@
     var state = el('scan-state');
     if (state) state.textContent = 'running';
     var note = el('scan-note');
-    if (note) note.textContent = 'scan berjalan…';
+    if (note) note.textContent = t('runningText', 'scan running…');
     var open = el('scan-open');
     if (open) open.classList.add('d-none');
     if (timer) clearInterval(timer);
@@ -168,7 +172,7 @@
             }
             startPolling(res.data.run_id);
           })
-          .catch(function () { finish('error', 'gagal menghubungi server'); });
+          .catch(function () { finish('error', t('failServer', 'could not reach the server')); });
       });
     }
 

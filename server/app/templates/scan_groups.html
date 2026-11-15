@@ -1,37 +1,35 @@
 {% extends "base.html" %}
-{% block title %}Grup IP & OID{% endblock %}
-{% block heading %}Agents · Grup IP & Custom OID{% endblock %}
-{% block subheading %}target scan SNMP{% endblock %}
+{% block title %}{{ t('groups.page_title') }}{% endblock %}
+{% block heading %}{{ t('groups.heading') }}{% endblock %}
+{% block subheading %}{{ t('groups.subheading') }}{% endblock %}
 
 {% block content %}
 {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
-{% if oid_error %}<div class="alert alert-warning py-2">OID tidak disimpan: {{ oid_error }}</div>{% endif %}
+{% if oid_error %}<div class="alert alert-warning py-2">{{ t('oids.not_saved', error=oid_error) }}</div>{% endif %}
 
 <div class="row g-3">
   <div class="col-lg-5">
     <div class="card">
-      <div class="card-header">{{ 'Ubah grup' if editing else 'Grup IP baru' }}</div>
+      <div class="card-header">{{ t('groups.edit_new') if editing else t('groups.new') }}</div>
       <div class="card-body">
         {% if can_manage %}
         <form method="post" action="/agents/groups/save">
           {% if editing %}<input type="hidden" name="group_id" value="{{ editing.id }}">{% endif %}
           <div class="mb-2">
-            <label class="form-label small" for="g-name">Nama grup</label>
+            <label class="form-label small" for="g-name">{{ t('groups.name') }}</label>
             <input class="form-control form-control-sm" id="g-name" name="name" required
                    maxlength="128" value="{{ values.name if values.name is defined else (editing.name if editing else '') }}">
           </div>
           <div class="mb-2">
-            <label class="form-label small" for="g-desc">Deskripsi</label>
+            <label class="form-label small" for="g-desc">{{ t('common.description') }}</label>
             <input class="form-control form-control-sm" id="g-desc" name="description"
                    value="{{ values.description if values.description is defined else (editing.description or '' if editing else '') }}">
           </div>
           <div class="mb-2">
-            <label class="form-label small" for="g-ranges">Range IP (satu per baris)</label>
+            <label class="form-label small" for="g-ranges">{{ t('groups.ranges') }}</label>
             <textarea class="form-control form-control-sm mono" id="g-ranges" name="ranges"
                       rows="5" required placeholder="10.0.0.0/24&#10;192.168.88.1-192.168.88.50&#10;10.0.0.250">{{ values.ranges if values.ranges is defined else (editing.ranges | join('\n') if editing else '') }}</textarea>
-            <div class="form-text">Format: CIDR (<span class="mono">10.0.0.0/24</span>), range
-              (<span class="mono">10.0.0.5-10.0.0.20</span>), atau IP tunggal. IPv4 saja,
-              maksimum {{ max_hosts }} host per scan.</div>
+            <div class="form-text">{{ t('groups.ranges_help', max_hosts=max_hosts) }}</div>
           </div>
           <div class="row g-2">
             <div class="col-4">
@@ -43,7 +41,7 @@
               </select>
             </div>
             <div class="col-4">
-              <label class="form-label small" for="g-port">Port</label>
+              <label class="form-label small" for="g-port">{{ t('groups.port') }}</label>
               <input class="form-control form-control-sm" id="g-port" name="port" type="number"
                      min="1" max="65535" value="{{ values.port if values.port is defined else (editing.port if editing else 161) }}">
             </div>
@@ -54,23 +52,21 @@
                      placeholder="{{ 'tidak diubah' if editing and editing.community_enc else 'mis. public' }}">
             </div>
           </div>
-          <div class="form-text mt-1">Community disimpan terenkripsi; kosongkan saat mengubah grup
-            kalau tidak ingin menggantinya.</div>
+          <div class="form-text mt-1">{{ t('groups.community_help') }}</div>
           {% set fdb_on = values.fdb_enabled if values.fdb_enabled is defined else (editing.fdb_enabled if editing else true) %}
           <div class="form-check mt-2">
             <input class="form-check-input" type="checkbox" id="g-fdb" name="fdb_enabled" value="1"
                    {% if fdb_on %}checked{% endif %}>
-            <label class="form-check-label small" for="g-fdb">Kumpulkan port map (bridge FDB)</label>
-            <div class="form-text">MAC ↔ port switch dari BRIDGE-MIB / Q-BRIDGE-MIB. Matikan untuk
-              perangkat lama yang lambat atau bila topologi tidak diperlukan.</div>
+            <label class="form-check-label small" for="g-fdb">{{ t('groups.fdb') }}</label>
+            <div class="form-text">{{ t('groups.fdb_help') }}</div>
           </div>
           <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-primary btn-sm" type="submit">{{ 'Simpan perubahan' if editing else 'Tambah grup' }}</button>
-            {% if editing %}<a class="btn btn-outline-secondary btn-sm" href="/agents/groups">Batal</a>{% endif %}
+            <button class="btn btn-primary btn-sm" type="submit">{{ t('groups.save') if editing else t('groups.add') }}</button>
+            {% if editing %}<a class="btn btn-outline-secondary btn-sm" href="/agents/groups">{{ t('common.cancel') }}</a>{% endif %}
           </div>
         </form>
         {% else %}
-        <p class="small-muted mb-0">Hanya operator/admin yang bisa mengubah grup IP.</p>
+        <p class="small-muted mb-0">{{ t('groups.readonly_note') }}</p>
         {% endif %}
       </div>
     </div>
@@ -78,11 +74,11 @@
 
   <div class="col-lg-7">
     <div class="card">
-      <div class="card-header">Grup IP ({{ groups | length }})</div>
+      <div class="card-header">{{ t('groups.list_title', count=groups | length) }}</div>
       <div class="card-body p-0">
         <table class="table table-sm table-tight mb-0 align-middle">
           <thead class="table-light">
-            <tr><th>Nama</th><th>Range</th><th>Host</th><th>SNMP</th><th>Status</th><th></th></tr>
+            <tr><th>{{ t('common.name') }}</th><th>{{ t('groups.col.range') }}</th><th>{{ t('groups.col.hosts') }}</th><th>SNMP</th><th>{{ t('common.status') }}</th><th></th></tr>
           </thead>
           <tbody>
             {% for row in groups %}
@@ -97,55 +93,52 @@
               </td>
               <td class="mono small">{{ row.stats.hosts }}{% if row.stats.truncated %}+{% endif %}</td>
               <td class="small-muted">{{ g.snmp_version }} · {{ g.port }}
-                {% if not g.fdb_enabled %}<div class="text-warning">port map nonaktif</div>{% endif %}
+                {% if not g.fdb_enabled %}<div class="text-warning">{{ t('groups.portmap_off') }}</div>{% endif %}
               </td>
               <td>
-                {% if g.enabled %}<span class="badge text-bg-success">aktif</span>
-                {% else %}<span class="badge text-bg-secondary">nonaktif</span>{% endif %}
+                {% if g.enabled %}<span class="badge text-bg-success">{{ t('common.enabled') }}</span>
+                {% else %}<span class="badge text-bg-secondary">{{ t('common.disabled') }}</span>{% endif %}
                 {% if g.last_scan_status %}<div class="small-muted">{{ g.last_scan_status }}</div>{% endif %}
               </td>
               <td class="text-end text-nowrap">
-                <a class="btn btn-sm btn-outline-primary" href="/agents/scan">Scan</a>
+                <a class="btn btn-sm btn-outline-primary" href="/agents/scan">{{ t('groups.scan') }}</a>
                 {% if can_manage %}
-                <a class="btn btn-sm btn-outline-secondary" href="/agents/groups?edit={{ g.id }}">Ubah</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/agents/groups?edit={{ g.id }}">{{ t('common.edit') }}</a>
                 <form method="post" action="/agents/groups/{{ g.id }}/toggle" class="d-inline">
-                  <button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'Nonaktifkan' if g.enabled else 'Aktifkan' }}</button>
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">{{ t('groups.disable') if g.enabled else t('groups.enable') }}</button>
                 </form>
                 <form method="post" action="/agents/groups/{{ g.id }}/delete" class="d-inline"
-                      onsubmit="return confirm('Hapus grup {{ g.name }}?');">
-                  <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+                      onsubmit="return confirm('{{ t('common.confirm_delete_generic', item=g.name) }}');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">{{ t('common.delete') }}</button>
                 </form>
                 {% endif %}
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="small-muted p-3">belum ada grup IP</td></tr>
+            <tr><td colspan="6" class="small-muted p-3">{{ t('groups.empty') }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
       <div class="card-footer small-muted">
-        Scan berjalan dari server (SNMP UDP ke port grup). Batas {{ max_hosts }} host per scan.
+        {{ t('groups.footer_note', max_hosts=max_hosts) }}
       </div>
     </div>
   </div>
 </div>
 
 <div class="card mt-3">
-  <div class="card-header">Custom OID (gaya Lansweeper Custom OID Scanning)</div>
+  <div class="card-header">{{ t('scan.groups.custom_oid_title') }}</div>
   <div class="card-body">
     <p class="small-muted">
-      OID tambahan yang diambil dari setiap perangkat yang menjawab SNMP. Tambahkan
-      <span class="mono">.*</span> di akhir OID untuk membaca subtree (tabel), mis.
-      <span class="mono">1.3.6.1.2.1.2.2.1.2.*</span> = ifDescr per interface.
-      Filter vendor/model bersifat substring dan opsional.
+      {{ t('oids.intro') }}
     </p>
     {% if can_manage %}
     <form method="post" action="/agents/oids/new" class="row g-2 align-items-end">
       <div class="col-md-3">
-        <label class="form-label small" for="o-label">Label</label>
+        <label class="form-label small" for="o-label">{{ t('oids.label') }}</label>
         <input class="form-control form-control-sm" id="o-label" name="label" required maxlength="96"
-               placeholder="mis. Serial Chassis">
+               placeholder="{{ t('oids.label_placeholder') }}">
       </div>
       <div class="col-md-4">
         <label class="form-label small" for="o-oid">OID</label>
@@ -153,17 +146,17 @@
                placeholder="1.3.6.1.2.1.1.1.0 atau ...2.2.1.2.*">
       </div>
       <div class="col-md-2">
-        <label class="form-label small" for="o-vendor">Vendor (ops.)</label>
+        <label class="form-label small" for="o-vendor">{{ t('oids.vendor') }}</label>
         <input class="form-control form-control-sm" id="o-vendor" name="vendor" maxlength="96"
                placeholder="Cisco">
       </div>
       <div class="col-md-2">
-        <label class="form-label small" for="o-model">Model (ops.)</label>
+        <label class="form-label small" for="o-model">{{ t('oids.model') }}</label>
         <input class="form-control form-control-sm" id="o-model" name="model" maxlength="96"
                placeholder="C2960">
       </div>
       <div class="col-md-1 d-grid">
-        <button class="btn btn-sm btn-primary" type="submit">Tambah</button>
+        <button class="btn btn-sm btn-primary" type="submit">{{ t('oids.add') }}</button>
       </div>
     </form>
     {% endif %}
@@ -171,7 +164,7 @@
   <div class="card-body p-0 border-top">
     <table class="table table-sm table-tight mb-0 align-middle">
       <thead class="table-light">
-        <tr><th>Label</th><th>OID</th><th>Filter</th><th>Dibuat</th><th></th></tr>
+        <tr><th>{{ t('oids.label') }}</th><th>OID</th><th>{{ t('oids.filter') }}</th><th>{{ t('oids.created') }}</th><th></th></tr>
       </thead>
       <tbody>
         {% for o in oids %}
@@ -181,23 +174,21 @@
           </td>
           <td class="mono small">{{ o.oid }}</td>
           <td class="small-muted small">
-            {{ o.vendor or 'semua vendor' }}{% if o.model %} · {{ o.model }}{% endif %}
+            {{ o.vendor or t('oids.all_vendors') }}{% if o.model %} · {{ o.model }}{% endif %}
           </td>
           <td class="small-muted">{{ o.created_at | fmt_dt }}</td>
           <td class="text-end">
             {% if can_manage %}
             <form method="post" action="/agents/oids/{{ o.id }}/delete" class="m-0"
-                  onsubmit="return confirm('Hapus OID {{ o.label }}?');">
-              <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+                  onsubmit="return confirm('{{ t('common.confirm_delete_generic', item=o.label) }}');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">{{ t('common.delete') }}</button>
             </form>
             {% endif %}
           </td>
         </tr>
         {% else %}
         <tr><td colspan="5" class="small-muted p-3">
-          belum ada custom OID. Contoh untuk switch Cisco:
-          <span class="mono">1.3.6.1.2.1.47.1.1.1.1.11</span> (serial), atau
-          <span class="mono">1.3.6.1.2.1.2.2.1.2.*</span> (nama interface).
+          {{ t('oids.empty') }}
         </td></tr>
         {% endfor %}
       </tbody>

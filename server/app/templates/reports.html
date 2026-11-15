@@ -1,31 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Reports{% endblock %}
-{% block heading %}Reports{% endblock %}
-{% block subheading %}custom report SQL · read-only{% endblock %}
+{% block title %}{{ t('reports.title') }}{% endblock %}
+{% block heading %}{{ t('reports.title') }}{% endblock %}
+{% block subheading %}{{ t('reports.subheading') }}{% endblock %}
 
 {% block content %}
 <div class="card">
   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <span class="fw-semibold">Custom reports <span class="small-muted">({{ rows | length }})</span></span>
+      <span class="fw-semibold">{{ t('reports.count_label') }} <span class="small-muted">({{ rows | length }})</span></span>
       <input type="search" class="form-control form-control-sm" id="report-search"
-             placeholder="Cari nama, deskripsi, pemilik…" autocomplete="off"
-             aria-label="Cari report" style="max-width: 260px">
+             placeholder="{{ t('reports.search') }}" autocomplete="off"
+             aria-label="{{ t('reports.search_aria') }}" style="max-width: 260px">
     </div>
     {% if can_create %}
-    <a class="btn btn-sm btn-primary" href="/reports/new">+ Buat report</a>
+    <a class="btn btn-sm btn-primary" href="/reports/new">{{ t('reports.create') }}</a>
     {% endif %}
   </div>
   <div class="card-body p-0">
     <table class="table table-sm table-tight mb-0 align-middle" id="reports-table">
       <thead class="table-light">
         <tr>
-          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="0" data-dir="asc">Nama <span class="sort-arrow">↕</span></button></th>
-          <th>Deskripsi</th>
-          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="2" data-dir="asc">Pemilik <span class="sort-arrow">↕</span></button></th>
-          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="3" data-dir="asc">Diubah <span class="sort-arrow">↕</span></button></th>
-          <th>Status run</th>
-          <th class="text-end">Aksi</th>
+          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="0" data-dir="asc">{{ t('reports.col.name_sort') }} <span class="sort-arrow">↕</span></button></th>
+          <th>{{ t('reports.col.desc') }}</th>
+          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="2" data-dir="asc">{{ t('reports.col.owner_sort') }} <span class="sort-arrow">↕</span></button></th>
+          <th><button type="button" class="btn btn-link btn-sm p-0 sort-link" data-col="3" data-dir="asc">{{ t('reports.col.updated_sort') }} <span class="sort-arrow">↕</span></button></th>
+          <th>{{ t('reports.col.run_status') }}</th>
+          <th class="text-end">{{ t('reports.col.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -35,7 +35,7 @@
             data-search="{{ (r.name ~ ' ' ~ (r.description or '') ~ ' ' ~ (row.owner or '')) | lower | e }}">
           <td>
             <a class="fw-medium" href="/reports/{{ r.id }}">{{ r.name }}</a>
-            {% if not r.is_shared %}<span class="badge text-bg-secondary ms-1">private</span>{% endif %}
+            {% if not r.is_shared %}<span class="badge text-bg-secondary ms-1">{{ t('reports.private') }}</span>{% endif %}
           </td>
           <td class="small-muted">{{ r.description or '—' }}</td>
           <td class="mono">{{ row.owner or '—' }}</td>
@@ -43,18 +43,18 @@
           <td class="small-muted">
             {% if r.last_run_at %}
               {{ r.last_run_at | fmt_dt }}
-              <span class="mono">· {{ r.last_run_rows or 0 }} baris</span>
+              <span class="mono">· {{ r.last_run_rows or 0 }} {{ t('reports.rows_unit') }}</span>
               {% if r.last_error %}<span class="badge text-bg-danger ms-1">error</span>{% endif %}
             {% else %}
-              <span class="small-muted">belum pernah</span>
+              <span class="small-muted">{{ t('reports.not_run') }}</span>
             {% endif %}
           </td>
           <td class="text-end text-nowrap">
             {% if row.can_edit %}
-            <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ r.id }}/edit">Ubah</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ r.id }}/edit">{{ t('common.edit') }}</a>
             <form method="post" action="/reports/{{ r.id }}/delete" class="d-inline report-delete"
                   data-name="{{ r.name }}">
-              <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+              <button class="btn btn-sm btn-outline-danger" type="submit">{{ t('common.delete') }}</button>
             </form>
             {% else %}<span class="small-muted">—</span>{% endif %}
           </td>
@@ -62,33 +62,31 @@
         {% else %}
         <tr id="reports-empty">
           <td colspan="6" class="small-muted p-4">
-            belum ada report.
-            {% if can_create %}<a href="/reports/new">Buat report pertama</a> — tulis query SELECT
-            ke tabel <span class="mono">assets</span>, <span class="mono">software</span>,
-            <span class="mono">agents</span>, dst.{% endif %}
+            {{ t('reports.empty_title') }}
+            {% if can_create %}{{ t('reports.empty_hint') | safe }}{% endif %}
           </td>
         </tr>
         {% endfor %}
         <tr id="reports-noresult" class="d-none">
-          <td colspan="6" class="small-muted p-3">tidak ada report cocok dengan pencarian.</td>
+          <td colspan="6" class="small-muted p-3">{{ t('reports.no_result') }}</td>
         </tr>
       </tbody>
     </table>
   </div>
   <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2 small-muted">
-    <span id="reports-info">Menampilkan {{ rows | length }} dari {{ rows | length }} report</span>
+    <span id="reports-info">{{ t('reports.showing', a=1 if rows else 0, b=rows | length, n=rows | length) }}</span>
     <div class="d-flex flex-wrap align-items-center gap-3">
       <label class="d-flex align-items-center gap-1 mb-0 small-muted" for="reports-per-page">
-        Tampilkan
+        {{ t('reports.show_label') }}
         <select class="form-select form-select-sm" id="reports-per-page" style="width:auto">
           <option value="10">10</option>
           <option value="25" selected>25</option>
           <option value="50">50</option>
           <option value="100">100</option>
         </select>
-        <span class="d-none d-sm-inline">per halaman</span>
+        <span class="d-none d-sm-inline">{{ t('reports.per_page') }}</span>
       </label>
-      <nav aria-label="Navigasi halaman">
+      <nav aria-label="{{ t('reports.page_nav') }}">
         <ul class="pagination pagination-sm mb-0" id="reports-pagination"></ul>
       </nav>
     </div>
@@ -96,7 +94,18 @@
 </div>
 
 <script>
+window.RANI_REPORTS = {
+  showing: {{ t('reports.showing') | tojson }},
+  filteredNote: {{ t('reports.filtered_note', n='{n}') | tojson }},
+  deleteConfirm: {{ t('reports.delete_confirm', name='{name}') | tojson }}
+};
 (function () {
+  var S = window.RANI_REPORTS;
+  function fmt(tpl, vars) {
+    return Object.keys(vars).reduce(function (acc, k) {
+      return acc.split('{' + k + '}').join(String(vars[k]));
+    }, tpl);
+  }
   var search = document.getElementById('report-search');
   var perPageSel = document.getElementById('reports-per-page');
   var info = document.getElementById('reports-info');
@@ -168,9 +177,8 @@
     rows.forEach(function (row) { row.classList.add('d-none'); });
     vis.slice(start, end).forEach(function (row) { row.classList.remove('d-none'); });
 
-    info.textContent = 'Menampilkan ' + (vis.length ? (start + 1) + '–' + end : '0') +
-      ' dari ' + vis.length + ' report' +
-      (state.q ? ' (difilter dari ' + rows.length + ')' : '');
+    info.textContent = fmt(S.showing, { a: vis.length ? start + 1 : 0, b: end, n: vis.length }) +
+      (state.q ? fmt(S.filteredNote, { n: rows.length }) : '');
     if (noResult) noResult.classList.toggle('d-none', vis.length !== 0 || rows.length === 0);
 
     pagEl.innerHTML = '';
@@ -218,7 +226,8 @@
           var bs = b.children[col]?.getAttribute('data-sort') || '';
           return dir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
         }
-        return dir === 'asc' ? av.localeCompare(bv, 'id') : bv.localeCompare(av, 'id');
+        var loc = {{ lang() | tojson }} === 'id' ? 'id' : 'en';
+        return dir === 'asc' ? av.localeCompare(bv, loc) : bv.localeCompare(av, loc);
       });
       rows.forEach(function (row) { tbody.appendChild(row); });
       document.querySelectorAll('.sort-arrow').forEach(function (s) { s.textContent = '↕'; });
@@ -230,8 +239,8 @@
 
   document.querySelectorAll('.report-delete').forEach(function (form) {
     form.addEventListener('submit', function (e) {
-      var name = form.getAttribute('data-name') || 'laporan ini';
-      if (!window.confirm('Hapus report "' + name + '"? Tindakan ini tidak bisa dibatalkan.')) {
+      var name = form.getAttribute('data-name') || 'report';
+      if (!window.confirm(fmt(S.deleteConfirm, { name: name }))) {
         e.preventDefault();
       }
     });

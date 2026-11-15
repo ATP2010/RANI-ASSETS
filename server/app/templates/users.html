@@ -1,51 +1,51 @@
 {% extends "base.html" %}
-{% block title %}Users{% endblock %}
-{% block heading %}Users{% endblock %}
-{% block subheading %}akun login RANI — lokal + Active Directory{% endblock %}
+{% block title %}{{ t('nav.users_list') }}{% endblock %}
+{% block heading %}{{ t('nav.users_list') }}{% endblock %}
+{% block subheading %}{{ t('users.subheading') }}{% endblock %}
 
 {% block content %}
-{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if saved %}<div class="alert alert-success py-2">{{ t('common.saved') }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
 
 <form method="get" class="row g-2 mb-2 align-items-end">
   <div class="col-sm-4">
-    <label class="form-label small mb-0" for="q">Cari</label>
+    <label class="form-label small mb-0" for="q">{{ t('common.search') }}</label>
     <input class="form-control form-control-sm" id="q" name="q" value="{{ q }}"
-           placeholder="username / nama / email">
+           placeholder="{{ t('users.search_ph') }}">
   </div>
   <div class="col-sm-3">
-    <label class="form-label small mb-0" for="status">Status</label>
+    <label class="form-label small mb-0" for="status">{{ t('common.status') }}</label>
     <select class="form-select form-select-sm" id="status" name="status">
-      <option value="" {% if not status %}selected{% endif %}>semua</option>
-      <option value="active" {% if status == 'active' %}selected{% endif %}>aktif</option>
-      <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>nonaktif</option>
+      <option value="" {% if not status %}selected{% endif %}>{{ t('common.all') }}</option>
+      <option value="active" {% if status == 'active' %}selected{% endif %}>{{ t('common.enabled') }}</option>
+      <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>{{ t('common.disabled') }}</option>
     </select>
   </div>
   <div class="col-sm-3">
-    <label class="form-label small mb-0" for="source">Sumber</label>
+    <label class="form-label small mb-0" for="source">{{ t('users.source') }}</label>
     <select class="form-select form-select-sm" id="source" name="source">
-      <option value="" {% if not source %}selected{% endif %}>semua</option>
-      <option value="local" {% if source == 'local' %}selected{% endif %}>lokal</option>
+      <option value="" {% if not source %}selected{% endif %}>{{ t('common.all') }}</option>
+      <option value="local" {% if source == 'local' %}selected{% endif %}>{{ t('users.source_local') }}</option>
       <option value="ad" {% if source == 'ad' %}selected{% endif %}>Active Directory</option>
     </select>
   </div>
   <div class="col-sm-2">
-    <button class="btn btn-sm btn-outline-secondary w-100" type="submit">Filter</button>
+    <button class="btn btn-sm btn-outline-secondary w-100" type="submit">{{ t('common.filter') }}</button>
   </div>
 </form>
 
 <div class="card mb-3">
-  <div class="card-header">Daftar user ({{ users | length }})</div>
+  <div class="card-header">{{ t('nav.users_list') }} ({{ users | length }})</div>
   <div class="card-body p-0">
     <table class="table table-sm table-tight mb-0 align-middle">
       <thead class="table-light">
         <tr>
-          <th>Username</th>
-          <th>Nama</th>
-          <th>Sumber</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th>Login terakhir</th>
+          <th>{{ t('login.username') }}</th>
+          <th>{{ t('common.name') }}</th>
+          <th>{{ t('users.source') }}</th>
+          <th>{{ t('common.role') }}</th>
+          <th>{{ t('common.status') }}</th>
+          <th>{{ t('users.col_last_login') }}</th>
           <th class="text-end"></th>
         </tr>
       </thead>
@@ -54,29 +54,29 @@
         <tr>
           <td>
             <a class="mono" href="/users/{{ u.id }}">{{ u.username }}</a>
-            {% if u.username == seed_admin %}<span class="badge text-bg-dark ms-1" title="akun break-glass dari RANI_ADMIN_USER">seed</span>{% endif %}
+            {% if u.username == seed_admin %}<span class="badge text-bg-dark ms-1" title="{{ t('users.seed_badge_title') }}">{{ t('users.seed') }}</span>{% endif %}
           </td>
           <td>{{ u.display_name or '—' }}</td>
           <td>
             {% if u.auth_source == 'ad' %}<span class="badge text-bg-info">AD{% if u.domain %} {{ u.domain }}{% endif %}</span>
-            {% else %}<span class="badge text-bg-secondary">lokal</span>{% endif %}
+            {% else %}<span class="badge text-bg-secondary">{{ t('users.source_local') }}</span>{% endif %}
           </td>
           <td>
             {% for slug in roles_by_user.get(u.id, []) %}
             <span class="badge text-bg-primary">{{ slug }}</span>
-            {% else %}<span class="small-muted">tanpa role</span>{% endfor %}
+            {% else %}<span class="small-muted">{{ t('users.no_role') }}</span>{% endfor %}
           </td>
           <td>
-            {% if u.is_active %}<span class="badge text-bg-success">aktif</span>
-            {% else %}<span class="badge text-bg-danger">nonaktif</span>{% endif %}
+            {% if u.is_active %}<span class="badge text-bg-success">{{ t('common.enabled') }}</span>
+            {% else %}<span class="badge text-bg-danger">{{ t('common.disabled') }}</span>{% endif %}
           </td>
           <td class="small-muted">{{ u.last_login_at | fmt_dt }}</td>
           <td class="text-end text-nowrap">
-            <a class="btn btn-sm btn-outline-secondary" href="/users/{{ u.id }}">Kelola</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/users/{{ u.id }}">{{ t('users.manage') }}</a>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="7" class="small-muted p-3">tidak ada user sesuai filter.</td></tr>
+        <tr><td colspan="7" class="small-muted p-3">{{ t('users.filter_empty') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -85,31 +85,31 @@
 
 {% if can_manage %}
 <div class="card">
-  <div class="card-header">Tambah user lokal</div>
+  <div class="card-header">{{ t('users.add_local') }}</div>
   <div class="card-body">
     <form method="post" action="/users" class="row g-2">
       <div class="col-sm-3">
-        <label class="form-label small" for="nu">Username</label>
+        <label class="form-label small" for="nu">{{ t('login.username') }}</label>
         <input class="form-control form-control-sm mono" id="nu" name="username" required
                minlength="3" maxlength="64" pattern="[a-z0-9._\-]{3,64}"
-               placeholder="huruf kecil, mis. operator1">
+               placeholder="{{ t('users.new_username_ph') }}">
       </div>
       <div class="col-sm-3">
-        <label class="form-label small" for="nd">Nama tampilan</label>
+        <label class="form-label small" for="nd">{{ t('users.display_name') }}</label>
         <input class="form-control form-control-sm" id="nd" name="display_name" maxlength="128">
       </div>
       <div class="col-sm-3">
-        <label class="form-label small" for="ne">Email</label>
+        <label class="form-label small" for="ne">{{ t('common.email') }}</label>
         <input class="form-control form-control-sm" id="ne" name="email" type="email" maxlength="255">
       </div>
       <div class="col-sm-3">
-        <label class="form-label small" for="np">Password</label>
+        <label class="form-label small" for="np">{{ t('users.password') }}</label>
         <input class="form-control form-control-sm" id="np" name="password" type="password"
                required minlength="{{ password_min_len }}" autocomplete="new-password">
-        <div class="form-text">min {{ password_min_len }} karakter; simpan di tempat aman.</div>
+        <div class="form-text">{{ t('users.pw_hint', n=password_min_len) }}</div>
       </div>
       <div class="col-12">
-        <label class="form-label small">Role</label><br>
+        <label class="form-label small">{{ t('common.role') }}</label><br>
         {% for slug, role in roles_map.items() %}
         <div class="form-check form-check-inline">
           <input class="form-check-input" type="checkbox" name="roles" value="{{ slug }}"
@@ -119,8 +119,8 @@
         {% endfor %}
       </div>
       <div class="col-12">
-        <button class="btn btn-sm btn-primary" type="submit">Tambah user</button>
-        <span class="small-muted ms-2">Username AD (<code>DOMAIN\user</code>) tidak bisa dibuat di sini — akun AD dibuat otomatis saat login/sync.</span>
+        <button class="btn btn-sm btn-primary" type="submit">{{ t('users.submit') }}</button>
+        <span class="small-muted ms-2">{{ t('users.ad_note') | safe }}</span>
       </div>
     </form>
   </div>

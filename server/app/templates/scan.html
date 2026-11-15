@@ -1,13 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Scan{% endblock %}
-{% block heading %}Agents · Scan{% endblock %}
-{% block subheading %}SNMP sweep per grup IP{% endblock %}
+{% block title %}{{ t('scan.title') }}{% endblock %}
+{% block heading %}{{ t('scan.heading') }}{% endblock %}
+{% block subheading %}{{ t('scan.subheading') }}{% endblock %}
 
 {% block content %}
 {% if not groups %}
 <div class="alert alert-secondary py-2">
-  Belum ada grup IP. <a href="/agents/groups">Buat grup IP</a> dulu (atau pakai tombol
-  “Kelola grup IP”).
+  {{ t('scan.no_groups') | safe }}
 </div>
 {% endif %}
 
@@ -15,36 +14,34 @@
   <div class="col-lg-7">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Mulai scan</span>
-        <a class="btn btn-sm btn-outline-secondary" href="/agents/groups">Kelola grup IP</a>
+        <span>{{ t('scan.start_title') }}</span>
+        <a class="btn btn-sm btn-outline-secondary" href="/agents/groups">{{ t('scan.manage_groups') }}</a>
       </div>
       <div class="card-body">
         {% if can_run %}
         <div class="row g-2 align-items-end">
           <div class="col-md-8">
-            <label class="form-label small" for="scan-group">Grup IP</label>
+            <label class="form-label small" for="scan-group">{{ t('scan.ip_group') }}</label>
             <select class="form-select form-select-sm" id="scan-group">
               {% for row in groups %}
               <option value="{{ row.group.id }}" {% if not row.group.enabled %}disabled{% endif %}>
                 {{ row.group.name }} · {{ row.stats.hosts }}{% if row.stats.truncated %}+{% endif %} host
                 · SNMP {{ row.group.snmp_version }} · port {{ row.group.port }}
-                {% if not row.group.enabled %} (nonaktif){% endif %}
+                {% if not row.group.enabled %} ({{ t('scan.disabled') }}){% endif %}
               </option>
               {% endfor %}
             </select>
           </div>
           <div class="col-md-4 d-grid">
             <button class="btn btn-primary btn-sm" type="button" id="scan-start"
-                    {% if not groups %}disabled{% endif %}>Mulai scan</button>
+                    {% if not groups %}disabled{% endif %}>{{ t('scan.start_button') }}</button>
           </div>
         </div>
         <div class="small-muted mt-2">
-          Batas: {{ max_hosts }} host per scan, {{ concurrency }} probe paralel, timeout
-          {{ timeout_s }} dtk/host. Perangkat yang menjawab SNMP dibuat/di-update sebagai asset
-          <span class="mono">network</span>.
+          {{ t('scan.scan_limits', max_hosts=max_hosts, concurrency=concurrency, timeout=timeout_s) | safe }}
         </div>
         {% else %}
-        <p class="small-muted mb-0">Hanya role operator/admin yang bisa memulai scan.</p>
+        <p class="small-muted mb-0">{{ t('scan.readonly_note') }}</p>
         {% endif %}
       </div>
     </div>
@@ -52,30 +49,28 @@
 
   <div class="col-lg-5">
     <div class="card h-100">
-      <div class="card-header">Progres</div>
+      <div class="card-header">{{ t('scan.progress_title') }}</div>
       <div class="card-body">
         <div class="d-flex justify-content-between small-muted mb-1">
-          <span id="scan-state">idle</span>
+          <span id="scan-state">{{ t('scan.idle') }}</span>
           <span id="scan-counts">—</span>
         </div>
-        <div class="progress" style="height: 10px" role="progressbar" aria-label="progres scan">
+        <div class="progress" style="height: 10px" role="progressbar" aria-label="{{ t('scan.progress_title') }}">
           <div class="progress-bar" id="scan-bar" style="width: 0%"></div>
         </div>
         <div class="small-muted mt-2" id="scan-note">
           {% if selected %}
-          Run terakhir: {{ selected.status }} · {{ selected.hosts_found }}/{{ selected.hosts_done }}
-          dari {{ selected.hosts_total }} host
+          {{ t('scan.last_run', status=selected.status, found=selected.hosts_found, done=selected.hosts_done, total=selected.hosts_total) }}
           {% if selected.hosts_done and not selected.hosts_found %}
-          <div class="text-warning mt-1">Tidak ada perangkat yang menjawab SNMP — cek community,
-            ACL SNMP di perangkat, dan UDP port grup.</div>
+          <div class="text-warning mt-1">{{ t('scan.no_reply') }}</div>
           {% endif %}
           {% else %}
-          Belum ada scan yang dijalankan.
+          {{ t('scan.none_run') }}
           {% endif %}
         </div>
         <div class="mt-2 d-flex gap-2">
-          <button class="btn btn-sm btn-outline-danger d-none" type="button" id="scan-cancel">Batalkan</button>
-          <a class="btn btn-sm btn-outline-secondary d-none" href="#" id="scan-open">Buka hasil tersimpan</a>
+          <button class="btn btn-sm btn-outline-danger d-none" type="button" id="scan-cancel">{{ t('scan.cancel') }}</button>
+          <a class="btn btn-sm btn-outline-secondary d-none" href="#" id="scan-open">{{ t('scan.open_result') }}</a>
         </div>
       </div>
     </div>
@@ -85,11 +80,11 @@
 <div class="card mt-3">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span>
-      Hasil scan
+      {{ t('scan.result_title') }}
       {% if selected %}· {{ selected.status }} · {{ selected.hosts_found }}/{{ selected.hosts_done }}{% endif %}
     </span>
     <span class="small-muted" id="scan-result-meta">
-      {{ results | length }} baris ditampilkan
+      {{ t('scan.rows_shown', n=results | length) }}
     </span>
   </div>
   <div class="card-body p-0">
@@ -97,8 +92,8 @@
       <table class="table table-sm table-tight mb-0 align-middle" id="scan-results">
         <thead class="table-light">
           <tr>
-            <th>IP</th><th>Status</th><th>Nama</th><th>Vendor / model</th>
-            <th>Serial</th><th>IF</th><th>Port map</th><th>Custom OID</th>
+            <th>{{ t('scan.col.ip') }}</th><th>{{ t('scan.col.status') }}</th><th>{{ t('scan.col.name') }}</th><th>{{ t('scan.col.vendor') }}</th>
+            <th>{{ t('scan.col.serial') }}</th><th>{{ t('scan.col.if') }}</th><th>{{ t('scan.col.portmap') }}</th><th>{{ t('scan.col.oid') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -128,7 +123,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="8" class="small-muted p-3">belum ada hasil scan</td></tr>
+          <tr><td colspan="8" class="small-muted p-3">{{ t('scan.no_results') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -137,11 +132,11 @@
 </div>
 
 <div class="card mt-3">
-  <div class="card-header">Riwayat scan</div>
+  <div class="card-header">{{ t('scan.history_title') }}</div>
   <div class="card-body p-0">
     <table class="table table-sm table-tight mb-0">
       <thead class="table-light">
-        <tr><th>Mulai</th><th>Grup</th><th>Status</th><th>Host</th><th>Ditemukan</th><th></th></tr>
+        <tr><th>{{ t('scan.col.started') }}</th><th>{{ t('scan.col.group') }}</th><th>{{ t('scan.col.status') }}</th><th>Host</th><th>{{ t('scan.col.found') }}</th><th></th></tr>
       </thead>
       <tbody>
         {% for row in history %}
@@ -150,7 +145,7 @@
           <td>{{ row.group_name or '—' }}</td>
           <td>
             {% if row.run.status == 'done' %}<span class="badge text-bg-success">done</span>
-            {% elif row.run.status == 'running' %}<span class="badge text-bg-primary">running</span>
+            {% elif row.run.status == 'running' %}<span class="badge text-bg-primary">{{ t('scan.running') }}</span>
             {% elif row.run.status == 'cancelled' %}<span class="badge text-bg-warning">cancelled</span>
             {% else %}<span class="badge text-bg-danger">failed</span>{% endif %}
             {% if row.run.error %}<div class="small text-danger">{{ row.run.error[:90] }}</div>{% endif %}
@@ -158,11 +153,11 @@
           <td class="mono small">{{ row.run.hosts_done }}/{{ row.run.hosts_total }}</td>
           <td class="mono small">{{ row.run.hosts_found }}</td>
           <td class="text-end">
-            <a class="btn btn-sm btn-outline-secondary" href="/agents/scan?run={{ row.run.id }}">Lihat</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/agents/scan?run={{ row.run.id }}">{{ t('scan.col.view') }}</a>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="small-muted p-3">belum ada riwayat</td></tr>
+        <tr><td colspan="6" class="small-muted p-3">{{ t('scan.no_history') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -174,7 +169,16 @@
 <script>
   window.RANI_SCAN = {
     runId: {{ (selected.id | string | tojson) if selected else 'null' }},
-    running: {{ 'true' if selected and selected.status == 'running' else 'false' }}
+    running: {{ 'true' if selected and selected.status == 'running' else 'false' }},
+    strings: {
+      noResults: {{ t('scan.no_results') | tojson }},
+      readError: {{ t('scan.read_error') | tojson }},
+      runningText: {{ t('scan.scan_running') | tojson }},
+      summary: {{ t('scan.summary') | tojson }},
+      rowsShown: {{ t('scan.rows_shown', n='{n}') | tojson }},
+      failStart: {{ t('scan.start_failed') | tojson }},
+      failServer: {{ t('scan.scan_fail') | tojson }}
+    }
   };
 </script>
 <script src="/static/scan.js"></script>

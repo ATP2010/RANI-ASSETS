@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id" data-bs-theme="light">
+<html lang="{{ lang() }}" data-bs-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -90,27 +90,27 @@
     <div class="container-fluid">
       <ul class="navbar-nav">
         <li class="nav-item">
-          <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" aria-label="Toggle sidebar">☰</a>
+          <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" aria-label="{{ t('nav.toggle_sidebar') }}">☰</a>
         </li>
-        <li class="nav-item d-none d-md-block"><a href="/" class="nav-link">Dashboard</a></li>
-        <li class="nav-item d-none d-md-block"><a href="/assets" class="nav-link">Assets</a></li>
-        <li class="nav-item d-none d-md-block"><a href="/agents/push" class="nav-link">Agents</a></li>
-        <li class="nav-item d-none d-md-block"><a href="/agents/scan" class="nav-link">Scan</a></li>
-        <li class="nav-item d-none d-md-block"><a href="/reports" class="nav-link">Reports</a></li>
+        <li class="nav-item d-none d-md-block"><a href="/" class="nav-link">{{ t('nav.dashboard') }}</a></li>
+        <li class="nav-item d-none d-md-block"><a href="/assets" class="nav-link">{{ t('nav.assets') }}</a></li>
+        <li class="nav-item d-none d-md-block"><a href="/agents/push" class="nav-link">{{ t('nav.agents') }}</a></li>
+        <li class="nav-item d-none d-md-block"><a href="/agents/scan" class="nav-link">{{ t('nav.scan') }}</a></li>
+        <li class="nav-item d-none d-md-block"><a href="/reports" class="nav-link">{{ t('nav.reports') }}</a></li>
       </ul>
       <ul class="navbar-nav ms-auto align-items-center">
         <li class="nav-item me-2">
-          <span class="nav-link" id="ws-status" title="realtime: menyambung…">
+          <span class="nav-link" id="ws-status" title="{{ t('ws.lost') }}">
             <span class="d-inline-flex align-items-center gap-1 fw-semibold small-muted">
               <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>
-              <span class="d-none d-sm-inline">Realtime</span>
+              <span class="d-none d-sm-inline">{{ t('ws.realtime') }}</span>
             </span>
           </span>
         </li>
         <li class="nav-item me-2 dropdown">
           <button class="btn btn-sm btn-outline-secondary" type="button" id="theme-toggle"
-                  data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ganti tema"
-                  title="Tema terang / gelap / otomatis">
+                  data-bs-toggle="dropdown" aria-expanded="false" aria-label="{{ t('theme.toggle') }}"
+                  title="{{ t('theme.auto') }}">
             <svg class="theme-icon" data-lte-theme-icon="light" width="16" height="16" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -128,7 +128,7 @@
             <li>
               <button type="button" class="dropdown-item d-flex align-items-center justify-content-between gap-2"
                       data-bs-theme-value="light" aria-pressed="false">
-                <span>Terang</span>
+                <span>{{ t('theme.light') }}</span>
                 <svg class="bi-check-lg d-none" width="14" height="14" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <polyline points="20 6 9 17 4 10"/>
@@ -138,7 +138,7 @@
             <li>
               <button type="button" class="dropdown-item d-flex align-items-center justify-content-between gap-2"
                       data-bs-theme-value="dark" aria-pressed="false">
-                <span>Gelap</span>
+                <span>{{ t('theme.dark') }}</span>
                 <svg class="bi-check-lg d-none" width="14" height="14" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <polyline points="20 6 9 17 4 10"/>
@@ -148,7 +148,7 @@
             <li>
               <button type="button" class="dropdown-item d-flex align-items-center justify-content-between gap-2"
                       data-bs-theme-value="auto" aria-pressed="false">
-                <span>Otomatis</span>
+                <span>{{ t('theme.auto') }}</span>
                 <svg class="bi-check-lg d-none" width="14" height="14" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <polyline points="20 6 9 17 4 10"/>
@@ -157,11 +157,46 @@
             </li>
           </ul>
         </li>
+        <li class="nav-item">
+          <a class="nav-link d-flex align-items-center" href="#" id="language-menu"
+             data-bs-toggle="dropdown" aria-expanded="false" role="button"
+             aria-label="{{ t('lang.label') }}" title="{{ t('lang.label') }}">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 8h14M5 12h9M5 16h6"/><circle cx="18.5" cy="14" r="3.2"/><path d="M21.8 15.9 23 17"/>
+            </svg>
+            <span class="visually-hidden">{{ t('lang.label') }}</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="language-menu">
+            <li>
+              <a class="dropdown-item d-flex align-items-center justify-content-between gap-2 {{ 'active' if lang() == 'id' }}"
+                 href="/lang/id?next={{ current_path() }}">
+                <span>{{ t('lang.id') }}</span>
+                {% if lang() == 'id' %}
+                <svg class="bi-check-lg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 10"/></svg>
+                {% endif %}
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item d-flex align-items-center justify-content-between gap-2 {{ 'active' if lang() == 'en' }}"
+                 href="/lang/en?next={{ current_path() }}">
+                <span>{{ t('lang.en') }}</span>
+                {% if lang() == 'en' %}
+                <svg class="bi-check-lg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 10"/></svg>
+                {% endif %}
+              </a>
+            </li>
+          </ul>
+        </li>
         {% if user %}
         <li class="nav-item"><span class="nav-link">{{ user.username }} <span class="badge text-bg-secondary">{{ (user.role_slugs or ["-"]) | join(", ") }}</span></span></li>
         <li class="nav-item">
           <form method="post" action="/logout" class="m-0">
-            <button class="btn btn-sm btn-outline-secondary my-1" type="submit">Logout</button>
+            <button class="btn btn-sm btn-outline-secondary my-1" type="submit">{{ t('nav.logout') }}</button>
           </form>
         </li>
         {% endif %}
@@ -185,75 +220,75 @@
       <nav class="mt-2">
         <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation">
           <li class="nav-item">
-            <a href="/" title="Dashboard" class="nav-link {% if active == 'dashboard' %}active{% endif %}">
+            <a href="/" title="{{ t('nav.dashboard') }}" class="nav-link {% if active == 'dashboard' %}active{% endif %}">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-              <p>Dashboard</p></a>
+              <p>{{ t('nav.dashboard') }}</p></a>
           </li>
           <li class="nav-item">
-            <a href="/assets" title="Assets" class="nav-link {% if active == 'assets' %}active{% endif %}">
+            <a href="/assets" title="{{ t('nav.assets') }}" class="nav-link {% if active == 'assets' %}active{% endif %}">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
-              <p>Assets</p></a>
+              <p>{{ t('nav.assets') }}</p></a>
           </li>
           <li class="nav-item {% if active == 'agents' %}menu-open{% endif %}">
             <a href="#" class="nav-link {% if active == 'agents' %}active{% endif %}"
                data-lte-toggle="treeview">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg></span>
-              <p>Agents<i class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6"/></svg></i></p>
+              <p>{{ t('nav.agents') }}<i class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6"/></svg></i></p>
             </a>
             <ul class="nav nav-treeview">
               <li class="nav-item">
                 <a href="/agents/push" class="nav-link {% if sub == 'push' %}active{% endif %}">
-                  <p>Push (agent)</p></a>
+                  <p>{{ t('nav.push') }}</p></a>
               </li>
               <li class="nav-item">
                 <a href="/agents/scan" class="nav-link {% if sub == 'scan' %}active{% endif %}">
-                  <p>Scan</p></a>
+                  <p>{{ t('nav.scan') }}</p></a>
               </li>
               <li class="nav-item">
                 <a href="/agents/groups" class="nav-link {% if sub == 'groups' %}active{% endif %}">
-                  <p>Grup IP &amp; OID</p></a>
+                  <p>{{ t('nav.scan_groups') }}</p></a>
               </li>
               <li class="nav-item">
                 <a href="/agents/portmap" class="nav-link {% if sub == 'portmap' %}active{% endif %}">
-                  <p>Port map</p></a>
+                  <p>{{ t('nav.portmap') }}</p></a>
               </li>
             </ul>
           </li>
           <li class="nav-item">
-            <a href="/reports" title="Reports" class="nav-link {% if active == 'reports' %}active{% endif %}">
+            <a href="/reports" title="{{ t('nav.reports') }}" class="nav-link {% if active == 'reports' %}active{% endif %}">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg></span>
-              <p>Reports</p></a>
+              <p>{{ t('nav.reports') }}</p></a>
           </li>
           {% if user and ('users.view' in user.perm_set or 'roles.view' in user.perm_set or 'audit.view' in user.perm_set or 'directory.view' in user.perm_set) %}
           <li class="nav-item {% if active == 'users' %}menu-open{% endif %}">
             <a href="#" class="nav-link {% if active == 'users' %}active{% endif %}"
                data-lte-toggle="treeview">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="10" r="2.6"/><path d="M15.5 14.6a4.6 4.6 0 0 1 5 4.4"/></svg></span>
-              <p>Users<i class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6"/></svg></i></p>
+              <p>{{ t('nav.users') }}<i class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6"/></svg></i></p>
             </a>
             <ul class="nav nav-treeview">
               {% if 'users.view' in user.perm_set %}
               <li class="nav-item">
                 <a href="/users" class="nav-link {% if sub == 'users' %}active{% endif %}">
-                  <p>Daftar user</p></a>
+                  <p>{{ t('nav.users_list') }}</p></a>
               </li>
               {% endif %}
               {% if 'roles.view' in user.perm_set %}
               <li class="nav-item">
                 <a href="/users/roles" class="nav-link {% if sub == 'roles' %}active{% endif %}">
-                  <p>Role &amp; akses</p></a>
+                  <p>{{ t('nav.roles') }}</p></a>
               </li>
               {% endif %}
               {% if 'directory.view' in user.perm_set %}
               <li class="nav-item">
                 <a href="/users/directory" class="nav-link {% if sub == 'directory' %}active{% endif %}">
-                  <p>Direktori (AD)</p></a>
+                  <p>{{ t('nav.directory') }}</p></a>
               </li>
               {% endif %}
               {% if 'audit.view' in user.perm_set %}
               <li class="nav-item">
                 <a href="/users/sessions" class="nav-link {% if sub == 'sessions' %}active{% endif %}">
-                  <p>Sesi &amp; audit</p></a>
+                  <p>{{ t('nav.sessions') }}</p></a>
               </li>
               {% endif %}
             </ul>
@@ -264,17 +299,17 @@
             <a href="#" class="nav-link {% if active == 'setup' %}active{% endif %}"
                data-lte-toggle="treeview">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.04-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.04 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h0a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v0a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.04z"/></svg></span>
-              <p>Setup<i class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6"/></svg></i></p>
+              <p>{{ t('nav.setup') }}<i class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6"/></svg></i></p>
             </a>
             <ul class="nav nav-treeview">
               <li class="nav-item">
                 <a href="/setup/actions" class="nav-link {% if sub == 'actions' %}active{% endif %}">
-                  <p>Actions</p></a>
+                  <p>{{ t('nav.actions') }}</p></a>
               </li>
               {% if 'setup.view' in user.perm_set %}
               <li class="nav-item">
                 <a href="/setup/dashboard" class="nav-link {% if sub == 'dashboard' %}active{% endif %}">
-                  <p>Dashboard</p></a>
+                  <p>{{ t('nav.dashboard') }}</p></a>
               </li>
               {% endif %}
             </ul>

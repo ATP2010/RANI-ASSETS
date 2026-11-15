@@ -18,10 +18,23 @@ from app.deps import COOKIE_NAME, load_user_access
 from app.models import (AppUser, AuthSession, DirectoryConnector,
                         DirectoryGroupRole, Role)
 from app.security import new_token, sha256_hex, verify_password
+from app.i18n import COOKIE_NAME as LANG_COOKIE, SUPPORTED, DEFAULT_LANG, request_t
 from app.templating import templates
 
 router = APIRouter(tags=["auth"])
 settings = get_settings()
+
+
+@router.get("/lang/{code}")
+async def set_language(code: str, next: str = "/"):
+    lang = (code or "").lower()
+    if lang not in SUPPORTED:
+        lang = DEFAULT_LANG
+    target = next if next.startswith("/") and not next.startswith("//") else "/"
+    response = RedirectResponse(target, status_code=303)
+    response.set_cookie(LANG_COOKIE, lang, max_age=3600 * 24 * 365,
+                        path="/", samesite="lax")
+    return response
 
 
 @router.get("/login")
@@ -101,17 +114,17 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     ip = client_ip(request) or "unknown"
     raw_username = (username or "").strip()
     limit = settings_local.RANI_LOGIN_MAX_ATTEMPTS
-    ctx = {"next": next, "error": "username/password salah"}
+    ctx = {"next": next, "error": request_t(request, "login.error.bad")}
     if not await _redis_incr_window(redis, f"rani:login:ip:{ip}", limit, 300):
         return templates.TemplateResponse(request, "login.html",
                                           {"next": next,
-                                           "error": "terlalu banyak percobaan, tunggu 5 menit"},
+                                           "error": request_t(request, "login.error.too_many")},
                                           status_code=429)
     if not await _redis_incr_window(redis, f"rani:login:u:{raw_username.lower()[:64]}",
                                     limit, 300):
         return templates.TemplateResponse(request, "login.html",
                                           {"next": next,
-                                           "error": "terlalu banyak percobaan, tunggu 5 menit"},
+                                           "error": request_t(request, "login.error.too_many")},
                                           status_code=429)
 
     parsed = ad.parse_login_username(raw_username)

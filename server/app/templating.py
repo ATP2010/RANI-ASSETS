@@ -6,10 +6,14 @@ from zoneinfo import ZoneInfo
 from fastapi.templating import Jinja2Templates
 
 from app.version import VERSION
+from app.i18n import current_lang, current_path, t as _t
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 templates.env.globals["version"] = VERSION
+templates.env.globals["t"] = _t
+templates.env.globals["lang"] = current_lang
+templates.env.globals["current_path"] = current_path
 
 
 DISPLAY_TZ = ZoneInfo("Asia/Jakarta")  # semua waktu di UI = WIB

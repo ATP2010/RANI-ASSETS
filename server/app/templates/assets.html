@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Assets{% endblock %}
-{% block heading %}Assets{% endblock %}
+{% block title %}{{ t('assets.title') }}{% endblock %}
+{% block heading %}{{ t('assets.title') }}{% endblock %}
 {% block subheading %}
 <div class="d-flex justify-content-sm-end align-items-center gap-2">
-  <span class="small-muted">{{ result.total }} aset · halaman {{ result.page }}/{{ result.pages }}</span>
+  <span class="small-muted">{{ t('assets.page_info', total=result.total, page=result.page, pages=result.pages) }}</span>
   <a class="btn btn-sm btn-success"
      href="/export/assets.csv?q={{ result.q | urlencode }}&status={{ result.status }}&os_family={{ result.os_family }}">
-    Export CSV
+    {{ t('common.export_csv') }}
   </a>
 </div>
 {% endblock %}
@@ -16,28 +16,28 @@
   <div class="card-body py-2">
     <form method="get" action="/assets" class="row g-2 align-items-end">
       <div class="col-md-4">
-        <label class="form-label small mb-1" for="q">Cari</label>
+        <label class="form-label small mb-1" for="q">{{ t('common.search') }}</label>
         <input class="form-control form-control-sm" id="q" name="q" value="{{ result.q }}"
-               placeholder="hostname / IP / serial / MAC / OS">
+               placeholder="{{ t('assets.filter.search_placeholder') }}">
       </div>
       <div class="col-md-2">
-        <label class="form-label small mb-1" for="status">Status</label>
+        <label class="form-label small mb-1" for="status">{{ t('common.status') }}</label>
         <select class="form-select form-select-sm" id="status" name="status">
-          <option value="" {% if not result.status %}selected{% endif %}>semua</option>
+          <option value="" {% if not result.status %}selected{% endif %}>{{ t('common.all') }}</option>
           <option value="online" {% if result.status == 'online' %}selected{% endif %}>online</option>
           <option value="offline" {% if result.status == 'offline' %}selected{% endif %}>offline</option>
         </select>
       </div>
       <div class="col-md-2">
-        <label class="form-label small mb-1" for="os_family">OS family</label>
+        <label class="form-label small mb-1" for="os_family">{{ t('assets.os_family') }}</label>
         <select class="form-select form-select-sm" id="os_family" name="os_family">
-          <option value="">semua</option>
+          <option value="">{{ t('common.all') }}</option>
           <option value="windows" {% if result.os_family == 'windows' %}selected{% endif %}>windows</option>
           <option value="linux" {% if result.os_family == 'linux' %}selected{% endif %}>linux</option>
         </select>
       </div>
       <div class="col-md-2">
-        <label class="form-label small mb-1" for="sort">Urut</label>
+        <label class="form-label small mb-1" for="sort">{{ t('assets.sort_label') }}</label>
         <select class="form-select form-select-sm" id="sort" name="sort">
           {% for key, label in [('hostname','hostname'), ('last_seen','last seen'), ('os','OS'), ('ip','IP'), ('first_seen','first seen')] %}
           <option value="{{ key }}" {% if result.sort == key %}selected{% endif %}>{{ label }}</option>
@@ -45,14 +45,14 @@
         </select>
       </div>
       <div class="col-md-1">
-        <label class="form-label small mb-1" for="order">Arah</label>
+        <label class="form-label small mb-1" for="order">{{ t('assets.order_label') }}</label>
         <select class="form-select form-select-sm" id="order" name="order">
           <option value="asc" {% if result.order == 'asc' %}selected{% endif %}>asc</option>
           <option value="desc" {% if result.order == 'desc' %}selected{% endif %}>desc</option>
         </select>
       </div>
       <div class="col-md-1 d-grid">
-        <button class="btn btn-sm btn-primary" type="submit">Filter</button>
+        <button class="btn btn-sm btn-primary" type="submit">{{ t('assets.filter.button') }}</button>
       </div>
     </form>
   </div>
@@ -89,8 +89,8 @@
     <table class="table table-hover table-tight mb-0 align-middle">
       <thead class="table-light">
         <tr>
-          <th>Hostname</th><th>IP</th><th>Port / Switch</th><th>OS</th><th>Model</th>
-          <th class="text-end">Software</th><th>Status</th><th>Last seen</th>
+          <th>{{ t('assets.col.hostname') }}</th><th>{{ t('assets.col.ip') }}</th><th>{{ t('assets.col.l2') }}</th><th>{{ t('assets.col.os') }}</th><th>{{ t('assets.col.model') }}</th>
+          <th class="text-end">{{ t('assets.col.software') }}</th><th>{{ t('assets.col.status') }}</th><th>{{ t('assets.col.last_seen') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -99,22 +99,22 @@
         <tr>
           <td>
             <span class="asset-hover-wrap">
-              <a href="/assets/{{ a.id }}" class="fw-medium asset-hover" data-popup="pop-{{ a.id }}">{{ a.hostname or '(tanpa hostname)' }}</a>
+              <a href="/assets/{{ a.id }}" class="fw-medium asset-hover" data-popup="pop-{{ a.id }}">{{ a.hostname or t('assets.no_hostname') }}</a>
               <span class="asset-popup" id="pop-{{ a.id }}" role="tooltip">
                 <span class="ap-head">
-                  <span class="ap-name text-truncate">{{ a.hostname or '(tanpa hostname)' }}</span>
-                  <span class="d-inline-flex align-items-center gap-1 fw-semibold {% if a.status == 'online' %}text-success{% else %}text-secondary{% endif %}" title="{{ 'online' if a.status == 'online' else 'offline' }}"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>{{ 'Online' if a.status == 'online' else 'Offline' }}</span>
+                  <span class="ap-name text-truncate">{{ a.hostname or t('assets.no_hostname') }}</span>
+                  <span class="d-inline-flex align-items-center gap-1 fw-semibold {% if a.status == 'online' %}text-success{% else %}text-secondary{% endif %}" title="{{ 'online' if a.status == 'online' else 'offline' }}"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>{{ t('assets.status.online') if a.status == 'online' else t('assets.status.offline') }}</span>
                 </span>
                 <span class="ap-grid">
-                  <span class="ap-k">IP</span><span class="ap-v mono">{{ a.ip_last or '—' }}</span>
+                  <span class="ap-k">{{ t('assets.col.ip') }}</span><span class="ap-v mono">{{ a.ip_last or '—' }}</span>
                   <span class="ap-k">MAC</span><span class="ap-v mono">{{ a.primary_mac or '—' }}</span>
-                  <span class="ap-k">OS</span><span class="ap-v">{{ a.os_caption or '—' }}</span>
+                  <span class="ap-k">{{ t('assets.col.os') }}</span><span class="ap-v">{{ a.os_caption or '—' }}</span>
                   <span class="ap-k">Domain</span><span class="ap-v mono">{{ a.domain or '—' }}</span>
                   <span class="ap-k">Serial</span><span class="ap-v mono">{{ a.serial or '—' }}</span>
                   {% if a.asset_type == 'network' %}
-                  <span class="ap-k">Isi</span><span class="ap-v">{{ item.occ.macs if item.occ else 0 }} MAC · {{ item.occ.ports if item.occ else 0 }} port</span>
+                  <span class="ap-k">{{ t('assets.fill') }}</span><span class="ap-v">{{ item.occ.macs if item.occ else 0 }} MAC · {{ item.occ.ports if item.occ else 0 }} port</span>
                   {% else %}
-                  <span class="ap-k">Port / Switch</span><span class="ap-v">
+                  <span class="ap-k">{{ t('assets.col.l2') }}</span><span class="ap-v">
                     {% if item.l2 %}
                       {% for loc in item.l2[:2] %}
                       <div class="text-nowrap"><span class="mono">{{ loc.port }}</span> <span class="small-muted">@ {{ loc.switch_ip or loc.switch_hostname }}</span></div>
@@ -124,7 +124,7 @@
                   {% endif %}
                 </span>
                 <span class="ap-actions">
-                  <span class="ap-actions-title">Actions</span>
+                  <span class="ap-actions-title">{{ t('common.actions_title') }}</span>
                   {% set acts = item.actions %}
                   {% for act in acts if not act.advanced %}
                     {% if act.href %}<a class="ap-item" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
@@ -133,7 +133,7 @@
                   {% endfor %}
                   {% set adv = acts | selectattr('advanced') | list %}
                   {% if adv %}
-                  <span class="ap-actions-title">Advanced</span>
+                  <span class="ap-actions-title">{{ t('common.advanced') }}</span>
                   {% for act in adv %}
                     {% if act.href %}<a class="ap-item" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
                     {% elif act.file %}<button type="button" class="ap-item ap-script" data-rani-action data-file="{{ act.file }}" data-args="{{ act.args }}" data-exp="{{ act.exp }}" data-sig="{{ act.sig }}"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</button>
@@ -141,7 +141,7 @@
                   {% endfor %}
                   {% endif %}
                 </span>
-                <a class="ap-detail" href="/assets/{{ a.id }}">Buka detail lengkap →</a>
+                <a class="ap-detail" href="/assets/{{ a.id }}">{{ t('common.detail_full') }}</a>
               </span>
             </span>
             <div class="small-muted mono">{{ a.serial or a.primary_mac or a.id }}</div>
@@ -150,30 +150,30 @@
           <td>
             {% if a.asset_type == 'network' %}
               {% if item.occ %}
-              <a href="/assets/{{ a.id }}" class="text-nowrap" title="Buka detail switch → tab Port map">
+              <a href="/assets/{{ a.id }}" class="text-nowrap" title="{{ t('assets.switch_title') }}">
                 <span class="badge text-bg-secondary">{{ item.occ.macs }} MAC</span>
-                <span class="small">{{ item.occ.known }} known · {{ item.occ.ports }} port</span>
+                <span class="small">{{ item.occ.known }} known · {{ item.occ.ports }} {{ t('assets.ports_word') }}</span>
               </a>
               {% else %}<span class="small-muted">—</span>{% endif %}
             {% elif item.l2 %}
               {% for loc in item.l2[:2] %}
               <div class="small text-nowrap">
-                <span class="mono">{{ loc.port }}</span><span class="small-muted"> · </span><a href="/assets/{{ loc.switch_id }}" class="mono" title="Switch tempat port ini">{{ loc.switch_ip or loc.switch_hostname or 'switch' }}</a>
+                <span class="mono">{{ loc.port }}</span><span class="small-muted"> · </span><a href="/assets/{{ loc.switch_id }}" class="mono" title="{{ t('assets.switch_at') }}">{{ loc.switch_ip or loc.switch_hostname or 'switch' }}</a>
               </div>
               {% endfor %}
-              {% if item.l2 | length > 2 %}<div class="small-muted">+{{ item.l2 | length - 2 }} lagi</div>{% endif %}
+              {% if item.l2 | length > 2 %}<div class="small-muted">{{ t('assets.more', n=item.l2 | length - 2) }}</div>{% endif %}
             {% else %}<span class="small-muted">—</span>{% endif %}
           </td>
           <td>{{ a.os_caption or '—' }}<div class="small-muted">{{ a.os_version or '' }}</div></td>
           <td>{{ a.vendor or '' }} {{ a.model or '' }}</td>
           <td class="text-end">{{ item.software_count }}</td>
           <td>
-            <span class="d-inline-flex align-items-center gap-1 fw-semibold {% if a.status == 'online' %}text-success{% else %}text-secondary{% endif %}" title="{{ 'online' if a.status == 'online' else 'offline' }}"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>{{ 'Online' if a.status == 'online' else 'Offline' }}</span>
+            <span class="d-inline-flex align-items-center gap-1 fw-semibold {% if a.status == 'online' %}text-success{% else %}text-secondary{% endif %}" title="{{ 'online' if a.status == 'online' else 'offline' }}"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>{{ t('assets.status.online') if a.status == 'online' else t('assets.status.offline') }}</span>
           </td>
           <td class="small-muted">{{ a.last_seen | fmt_dt }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="8" class="small-muted p-4">Belum ada aset. Enroll agent di halaman <a href="/agents">Agents</a>, lalu jalankan <span class="mono">raniPush &lt;ip-server&gt;</span> di PC.</td></tr>
+        <tr><td colspan="8" class="small-muted p-4">{{ t('assets.empty') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -296,10 +296,10 @@
     btn.addEventListener('click', function () {
       var original = btn.dataset.label || btn.textContent;
       copyText(btn.dataset.copy || '').then(function () {
-        btn.textContent = 'Tersalin ✓';
+        btn.textContent = '{{ t('common.copied') }}';
         setTimeout(function () { btn.textContent = original; }, 1200);
       }, function () {
-        btn.textContent = 'Gagal menyalin';
+        btn.textContent = '{{ t('common.copy_failed') }}';
         setTimeout(function () { btn.textContent = original; }, 1200);
       });
     });

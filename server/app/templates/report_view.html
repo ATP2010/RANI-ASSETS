@@ -1,30 +1,30 @@
 {% extends "base.html" %}
 {% block title %}{{ report.name }}{% endblock %}
 {% block heading %}{{ report.name }}{% endblock %}
-{% block subheading %}{{ 'oleh ' ~ (owner or '—') }}{% if report.description %} · {{ report.description }}{% endif %}{% endblock %}
+{% block subheading %}{{ t('common.by') ~ (owner or '—') }}{% if report.description %} · {{ report.description }}{% endif %}{% endblock %}
 
 {% block content %}
 {% if report.last_error %}
 <div class="alert alert-warning py-2">
-  <span class="fw-semibold">Run terakhir gagal:</span> {{ report.last_error }}
+  <span class="fw-semibold">{{ t('rv.last_error') }}</span> {{ report.last_error }}
 </div>
 {% endif %}
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
   <div class="small-muted">
-    Hasil query — dijalankan otomatis saat halaman dibuka.
-    {% if report.last_run_at %}<span class="mono">terakhir: {{ report.last_run_at | fmt_dt }} · {{ report.last_run_rows or 0 }} baris · {{ report.last_run_ms or 0 }} ms</span>{% endif %}
+    {{ t('rv.auto_note') }}
+    {% if report.last_run_at %}<span class="mono">{{ t('rv.last_meta', time=report.last_run_at | fmt_dt, rows=report.last_run_rows or 0, ms=report.last_run_ms or 0) }}</span>{% endif %}
   </div>
   <div class="d-flex flex-wrap gap-2">
     {% if can_edit %}
-    <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ report.id }}/edit">Ubah query</a>
+    <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ report.id }}/edit">{{ t('rv.edit_query') }}</a>
     {% endif %}
-    <a class="btn btn-sm btn-primary" id="report-run" data-report-id="{{ report.id }}" role="button">Jalankan ulang</a>
-    <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ report.id }}/export.csv">Export CSV</a>
+    <a class="btn btn-sm btn-primary" id="report-run" data-report-id="{{ report.id }}" role="button">{{ t('rv.run_again') }}</a>
+    <a class="btn btn-sm btn-outline-secondary" href="/reports/{{ report.id }}/export.csv">{{ t('common.export_csv') }}</a>
     {% if can_edit %}
     <form method="post" action="/reports/{{ report.id }}/delete" class="d-inline report-delete"
           data-name="{{ report.name }}">
-      <button class="btn btn-sm btn-outline-danger" type="submit">Hapus report</button>
+      <button class="btn btn-sm btn-outline-danger" type="submit">{{ t('rv.delete') }}</button>
     </form>
     {% endif %}
   </div>
@@ -32,19 +32,41 @@
 
 <div class="card" id="report-result" data-report-id="{{ report.id }}" data-run-now="1">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <span>Hasil</span>
-    <span class="small-muted" id="report-meta">menjalankan…</span>
+    <span>{{ t('rv.result') }}</span>
+    <span class="small-muted" id="report-meta">{{ t('rv.running') }}</span>
   </div>
   <div class="card-body p-0" id="report-output">
-    <div class="p-3 small-muted">menjalankan query…</div>
+    <div class="p-3 small-muted">{{ t('rv.running_query') }}</div>
   </div>
 </div>
 
 <script>
+  window.RANI_REPORT_VIEW = {
+    filterPlaceholder: {{ t('rv.filter_placeholder') | tojson }},
+    filterAria: {{ t('rv.filter_aria') | tojson }},
+    rowsUnit: {{ t('reports.rows_unit') | tojson }},
+    truncated: {{ t('rv.truncated') | tojson }},
+    filterNote: {{ t('rv.filter_note') | tojson }},
+    showing: {{ t('rv.showing') | tojson }},
+    noRows: {{ t('rv.no_rows') | tojson }},
+    noRowsFilter: {{ t('rv.no_rows_filter') | tojson }},
+    perPageAria: {{ t('rv.per_page_aria') | tojson }},
+    nav: {{ t('rv.nav') | tojson }},
+    metaRows: {{ t('rv.meta_rows') | tojson }},
+    showLabel: {{ t('reports.show_label') | tojson }},
+    perPageLabel: {{ t('reports.per_page') | tojson }},
+    running: {{ t('rv.running') | tojson }},
+    runningQuery: {{ t('rv.running_query') | tojson }},
+    fail: {{ t('rv.fail') | tojson }},
+    fetchError: {{ t('rv.fetch_error') | tojson }},
+    replaceConfirm: {{ t('rv.replace_confirm') | tojson }},
+    deleteConfirm: {{ t('reports.delete_confirm') | tojson }}
+  };
   document.querySelectorAll('.report-delete').forEach(function (form) {
     form.addEventListener('submit', function (e) {
-      var name = form.getAttribute('data-name') || 'laporan ini';
-      if (!window.confirm('Hapus report "' + name + '"? Tindakan ini tidak bisa dibatalkan.')) {
+      var name = form.getAttribute('data-name') || 'report';
+      var tpl = (window.RANI_REPORT_VIEW && window.RANI_REPORT_VIEW.deleteConfirm) || '{name}?';
+      if (!window.confirm(tpl.split('{name}').join(name))) {
         e.preventDefault();
       }
     });

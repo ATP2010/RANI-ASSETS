@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% set is_new = report is none %}
-{% block title %}{{ 'Report baru' if is_new else report.name }}{% endblock %}
-{% block heading %}{{ 'Report baru' if is_new else report.name }}{% endblock %}
-{% block subheading %}{{ 'custom report SQL' if is_new else ('oleh ' ~ (owner or '—')) }}{% endblock %}
+{% block title %}{{ t('rf.new_title') if is_new else report.name }}{% endblock %}
+{% block heading %}{{ t('rf.new_title') if is_new else report.name }}{% endblock %}
+{% block subheading %}{{ t('rf.subheading') if is_new else (t('common.by') ~ (owner or '—')) }}{% endblock %}
 
 {% block content %}
 {% if error %}
 <div class="alert alert-danger py-2">{{ error }}</div>
 {% elif report and report.last_error and not run_now %}
 <div class="alert alert-warning py-2">
-  <span class="fw-semibold">Run terakhir gagal:</span> {{ report.last_error }}
+  <span class="fw-semibold">{{ t('rv.last_error') }}</span> {{ report.last_error }}
 </div>
 {% endif %}
 
@@ -18,7 +18,7 @@
     <div class="col-lg-8">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span>Definisi report</span>
+          <span>{{ t('rf.definition') }}</span>
           {% if report %}
           <span class="small-muted mono">{{ report.id }}</span>
           {% endif %}
@@ -26,13 +26,13 @@
         <div class="card-body">
           <div class="row g-2">
             <div class="col-md-7">
-              <label class="form-label small" for="name">Nama</label>
+              <label class="form-label small" for="name">{{ t('common.name') }}</label>
               <input class="form-control form-control-sm" id="name" name="name" maxlength="128"
                      value="{{ values.name if values.name is defined else (report.name if report else '') }}"
                      {% if not can_edit %}disabled{% endif %} required>
             </div>
             <div class="col-md-5">
-              <label class="form-label small" for="description">Deskripsi singkat</label>
+              <label class="form-label small" for="description">{{ t('rf.desc') }}</label>
               <input class="form-control form-control-sm" id="description" name="description"
                      maxlength="2000"
                      value="{{ values.description if values.description is defined else (report.description or '' if report else '') }}"
@@ -40,7 +40,7 @@
             </div>
           </div>
           <div class="mt-2">
-            <label class="form-label small" for="sql_text">SQL (SELECT saja)</label>
+            <label class="form-label small" for="sql_text">{{ t('rf.sql_label') }}</label>
             <textarea class="form-control mono" id="sql_text" name="sql_text" rows="12"
                       spellcheck="false" {% if not can_edit %}disabled{% endif %}
                       required>{{ values.sql_text if values.sql_text is defined else (report.sql_text if report else '') }}</textarea>
@@ -48,20 +48,20 @@
           {% if can_edit %}
           <div class="d-flex gap-2 mt-3">
             <button class="btn btn-primary btn-sm" type="submit" name="action" value="run">
-              Simpan &amp; Jalankan
+              {{ t('rf.save_run') }}
             </button>
             <button class="btn btn-outline-secondary btn-sm" type="submit" name="action" value="save">
-              Simpan
+              {{ t('common.save') }}
             </button>
             {% if report %}
             <button class="btn btn-outline-primary btn-sm ms-auto" type="button"
                     id="report-run" data-report-id="{{ report.id }}">
-              Jalankan tersimpan
+              {{ t('rf.run_saved') }}
             </button>
             {% endif %}
           </div>
           <div class="small-muted mt-2">
-            “Jalankan tersimpan” memakai SQL yang sudah disimpan — simpan dulu kalau baru diubah.
+            {{ t('rf.run_saved_hint') }}
           </div>
           {% endif %}
         </div>
@@ -70,14 +70,13 @@
 
     <div class="col-lg-4">
       <div class="card">
-        <div class="card-header">Batasan</div>
+        <div class="card-header">{{ t('rf.limits') }}</div>
         <div class="card-body small">
           <ul class="mb-0 ps-3">
-            <li>Hanya <span class="mono">SELECT</span> / <span class="mono">WITH ... SELECT</span>,
-              satu statement.</li>
-            <li>Role database <span class="mono">read-only</span> — tulis/DDL ditolak.</li>
-            <li>Timeout {{ timeout_ms }} ms, maksimum {{ max_rows }} baris (sisanya dipotong).</li>
-            <li>Tabel tersedia: <span class="mono">assets</span>, <span class="mono">software</span>,
+            <li>{{ t('rf.limit_1') | safe }}</li>
+            <li>{{ t('rf.limit_2') | safe }}</li>
+            <li>{{ t('rf.limit_3', ms=timeout_ms, rows=max_rows) }}</li>
+            <li>{{ t('rf.limit_4') }} <span class="mono">assets</span>, <span class="mono">software</span>,
               <span class="mono">software_events</span>, <span class="mono">agents</span>,
               <span class="mono">hw_components</span>, <span class="mono">users_seen</span>,
               <span class="mono">security_state</span>, <span class="mono">network_interfaces</span>,
@@ -87,7 +86,7 @@
       </div>
 
       <div class="card mt-3">
-        <div class="card-header">Contoh query</div>
+        <div class="card-header">{{ t('rf.examples') }}</div>
         <div class="card-body p-0">
           <div class="list-group list-group-flush">
             {% for label, sql in examples %}
@@ -99,17 +98,17 @@
           </div>
         </div>
         <div class="card-footer small-muted">
-          Klik untuk mengisi editor (mengganti isi saat ini).
+          {{ t('rf.examples_hint') }}
         </div>
       </div>
 
       {% if report and can_edit %}
       <div class="card mt-3 border-danger-subtle">
-        <div class="card-header text-danger">Hapus report</div>
+        <div class="card-header text-danger">{{ t('rv.delete') }}</div>
         <div class="card-body small">
           <form method="post" action="/reports/{{ report.id }}/delete"
-                onsubmit="return confirm('Hapus report ini?');">
-            <button class="btn btn-sm btn-outline-danger" type="submit">Hapus permanen</button>
+                onsubmit="return confirm({{ t('rf.delete_confirm') | tojson }});">
+            <button class="btn btn-sm btn-outline-danger" type="submit">{{ t('rf.delete_forever') }}</button>
           </form>
         </div>
       </div>
@@ -118,4 +117,30 @@
   </div>
 </form>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.RANI_REPORT_VIEW = {
+    showLabel: {{ t('reports.show_label') | tojson }},
+    perPageLabel: {{ t('reports.per_page') | tojson }},
+    perPageAria: {{ t('rv.per_page_aria') | tojson }},
+    nav: {{ t('rv.nav') | tojson }},
+    rowsUnit: {{ t('reports.rows_unit') | tojson }},
+    showing: {{ t('rv.showing') | tojson }},
+    noRows: {{ t('rv.no_rows') | tojson }},
+    noRowsFilter: {{ t('rv.no_rows_filter') | tojson }},
+    filterNote: {{ t('rv.filter_note') | tojson }},
+    metaRows: {{ t('rv.meta_rows') | tojson }},
+    truncated: {{ t('rv.truncated') | tojson }},
+    filterPlaceholder: {{ t('rv.filter_placeholder') | tojson }},
+    filterAria: {{ t('rv.filter_aria') | tojson }},
+    running: {{ t('rv.running') | tojson }},
+    runningQuery: {{ t('rv.running_query') | tojson }},
+    fail: {{ t('rv.fail') | tojson }},
+    fetchError: {{ t('rv.fetch_error') | tojson }},
+    replaceConfirm: {{ t('rv.replace_confirm') | tojson }}
+  };
+</script>
+<script src="/static/report.js"></script>
 {% endblock %}

@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from app.i18n import cookie_lang, set_lang, reset_lang
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
@@ -21,6 +24,7 @@ from app.reporting import dispose_report_engine, ensure_report_role, seed_sample
 from app.security import hash_password, new_token
 from app.version import VERSION
 from app.ws import listen_forever
+
 
 log = logging.getLogger("rani")
 settings = get_settings()
@@ -126,6 +130,18 @@ async def lifespan(app: FastAPI):
         await dispose_engine()
 
 
+
+
+class I18nMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        lang = cookie_lang(request)
+        token = set_lang(lang, request.url.path)
+        request.state.lang = lang
+        try:
+            return await call_next(request)
+        finally:
+            reset_lang(token)
+
 def create_app() -> FastAPI:
     logging.basicConfig(level=getattr(logging, settings.RANI_LOG_LEVEL.upper(), logging.INFO),
                         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s")
@@ -133,6 +149,7 @@ def create_app() -> FastAPI:
                   docs_url="/api/docs" if settings.RANI_ENV != "production" else None,
                   openapi_url="/api/openapi.json" if settings.RANI_ENV != "production" else None)
 
+    app.add_middleware(I18nMiddleware)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(system.router)
     app.include_router(auth.router)

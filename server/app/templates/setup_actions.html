@@ -1,30 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Setup · Actions{% endblock %}
-{% block heading %}Setup · Actions{% endblock %}
-{% block subheading %}aksi asset ala Lansweeper — klik dieksekusi di mesin klien{% endblock %}
+{% block title %}{{ t('sa.title') }}{% endblock %}
+{% block heading %}{{ t('sa.title') }}{% endblock %}
+{% block subheading %}{{ t('setup.actions.subheading') }}{% endblock %}
 
 {% block content %}
-{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if saved %}<div class="alert alert-success py-2">{{ t('common.saved') }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
 
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Daftar action ({{ rows | length }})</span>
-        <span class="small-muted">urutan tampil di menu Assets</span>
+        <span>{{ t('sa.list_title', count=rows | length) }}</span>
+        <span class="small-muted">{{ t('sa.list_hint') }}</span>
       </div>
       <div class="card-body p-0">
         <table class="table table-sm table-tight mb-0 align-middle">
           <thead class="table-light">
             <tr>
-              <th class="text-center" style="width:64px">Urut</th>
-              <th>Action</th>
-              <th>Jenis</th>
-              <th class="text-center">Aktif</th>
-              <th class="text-center">Adv</th>
-              <th class="text-center">Confirm</th>
-              <th class="text-end">Aksi</th>
+              <th class="text-center" style="width:64px">{{ t('sa.col_order') }}</th>
+              <th>{{ t('detail.actions') }}</th>
+              <th>{{ t('sa.col_kind') }}</th>
+              <th class="text-center">{{ t('sa.col_enabled') }}</th>
+              <th class="text-center">{{ t('sa.col_adv') }}</th>
+              <th class="text-center">{{ t('sa.col_confirm') }}</th>
+              <th class="text-end">{{ t('reports.col.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -34,11 +34,11 @@
                 {% if can_manage %}
                 <form method="post" action="/setup/actions/{{ a.id }}/move" class="d-inline">
                   <input type="hidden" name="dir" value="up">
-                  <button class="btn btn-sm btn-outline-secondary px-1 py-0" type="submit" title="Naikkan">↑</button>
+                  <button class="btn btn-sm btn-outline-secondary px-1 py-0" type="submit" title="{{ t('sa.move_up') }}">↑</button>
                 </form>
                 <form method="post" action="/setup/actions/{{ a.id }}/move" class="d-inline">
                   <input type="hidden" name="dir" value="down">
-                  <button class="btn btn-sm btn-outline-secondary px-1 py-0" type="submit" title="Turunkan">↓</button>
+                  <button class="btn btn-sm btn-outline-secondary px-1 py-0" type="submit" title="{{ t('sa.move_down') }}">↓</button>
                 </form>
                 {% else %}{{ a.sort_order }}{% endif %}
               </td>
@@ -55,29 +55,29 @@
                 {% if can_manage %}
                 <form method="post" action="/setup/actions/{{ a.id }}/toggle" class="d-inline">
                   <button class="btn btn-sm {{ 'btn-success' if a.enabled else 'btn-outline-secondary' }} py-0 px-2"
-                          type="submit" title="Klik untuk {{ 'nonaktifkan' if a.enabled else 'aktifkan' }}">
+                          type="submit" title="{{ t('sa.toggle_disable') if a.enabled else t('sa.toggle_enable') }}">
                     {{ '✓' if a.enabled else '✗' }}
                   </button>
                 </form>
-                {% else %}{{ 'ya' if a.enabled else 'tidak' }}{% endif %}
+                {% else %}{{ t('sa.yes') if a.enabled else t('sa.no') }}{% endif %}
               </td>
               <td class="text-center">{% if a.advanced %}<span class="badge text-bg-secondary">adv</span>{% else %}<span class="small-muted">—</span>{% endif %}</td>
-              <td class="text-center">{% if a.confirm %}<span class="badge text-bg-warning">ya</span>{% else %}<span class="small-muted">—</span>{% endif %}</td>
+              <td class="text-center">{% if a.confirm %}<span class="badge text-bg-warning">{{ t('sa.yes') }}</span>{% else %}<span class="small-muted">—</span>{% endif %}</td>
               <td class="text-end text-nowrap">
                 {% if can_manage %}
-                <a class="btn btn-sm btn-outline-secondary" href="/setup/actions?edit={{ a.id }}">Ubah</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/setup/actions?edit={{ a.id }}">{{ t('common.edit') }}</a>
                 <form method="post" action="/setup/actions/{{ a.id }}/duplicate" class="d-inline">
-                  <button class="btn btn-sm btn-outline-primary" type="submit">Duplikat</button>
+                  <button class="btn btn-sm btn-outline-primary" type="submit">{{ t('common.duplicate') }}</button>
                 </form>
                 <form method="post" action="/setup/actions/{{ a.id }}/delete" class="d-inline"
-                      onsubmit="return confirm('Hapus action {{ a.name }}?');">
-                  <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+                      onsubmit="return confirm({{ t('sa.delete_confirm', name=a.name) | tojson }});">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">{{ t('common.delete') }}</button>
                 </form>
                 {% endif %}
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="7" class="small-muted p-3">belum ada action. Buat yang pertama di kanan.</td></tr>
+            <tr><td colspan="7" class="small-muted p-3">{{ t('sa.empty') }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -86,16 +86,16 @@
 
     <div class="card mt-3 border-primary">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Cara kerja &amp; memasang <strong>RANI Actions</strong> di PC pengguna</span>
-        <button class="btn btn-sm btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#how-rani-actions">ringkas/panjang</button>
+        <span>{{ t('sa.how_title') | safe }}</span>
+        <button class="btn btn-sm btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#how-rani-actions">{{ t('sa.toggle_short') }}</button>
       </div>
       <div class="collapse show" id="how-rani-actions">
         <div class="card-body small">
-          <p class="mb-2">Action <strong>script</strong> (mis. <code>ping.bat {ipaddress}</code>) bekerja seperti <a href="https://docs.lansweeper.com/classic/docs/create-and-run-actions" rel="noopener">Lansweeper Actions</a>: klik tombol di halaman Assets → browser (dengan ekstensi <strong>RANI Actions</strong>) memanggil <strong>native host</strong> di PC pengguna → host men-download skrip dari server (token HMAC 5 menit) → <strong>skrip dijalankan di PC yang mengklik</strong>. Kredensial user dipakai apa adanya; tidak ada yang dikirim ke server.</p>
+          <p class="mb-2">{{ t('sa.script_note') | safe }}</p>
 
-          <div class="mb-2"><strong>Sekali pasang per PC (tanpa admin):</strong></div>
+          <div class="mb-2"><strong>{{ t('sa.install_title') }}</strong></div>
           <ol class="mb-2 ps-3">
-            <li>Download <a class="btn btn-sm btn-outline-primary py-0" href="/downloads/rani-action-host.exe">rani-action-host.exe</a> <span class="small-muted">(native host, ~7 MB)</span></li>
+            <li>Download <a class="btn btn-sm btn-outline-primary py-0" href="/downloads/rani-action-host.exe">rani-action-host.exe</a> <span class="small-muted">({{ t('sa.native_host_meta') }})</span></li>
             <li>Download + unzip <a class="btn btn-sm btn-outline-secondary py-0" href="/downloads/rani-actions-extension.zip">rani-actions-extension.zip</a></li>
             <li>Dari folder hasil unzip:
               <pre class="mb-1 p-2 bg-body-secondary rounded mono">powershell -ExecutionPolicy Bypass -File .\install-extension.ps1 -ServerUrl {{ base_url }}</pre>
@@ -104,24 +104,24 @@
             <li>Klik ikon puzzle → <strong>RANI Actions</strong> → <em>Enable on this site</em> (sekali)</li>
           </ol>
 
-          <div class="mb-2"><strong>Setelah itu, cara klik:</strong> menu <strong>Assets</strong> → hover hostname (atau tombol <strong>Actions</strong> di halaman detail asset) → pilih aksi — mis. <em>Remote Desktop (RDP)</em>, <em>Ping (skrip)</em>.</div>
-          <div class="mb-2"><strong>Skrip sendiri:</strong> taruh file <code>.bat</code>/<code>.cmd</code>/<code>.ps1</code>/<code>.exe</code>/<code>.msi</code> di folder <code>./actions/</code> server (mount <code>:ro</code>), lalu daftarkan action ber-<em>jenis</em> <strong>script</strong> di halaman ini (contoh: <code>rdp.bat {ipaddress}</code>).</div>
-          <div class="small-muted">Tutorial lengkap + troubleshooting: <a href="/docs/actions">/docs/actions</a> §7 (termasuk deploy massal via GPO/Intune &amp; uninstall).</div>
+          <div class="mb-2"><strong>{{ t('sa.after_title') }}</strong> {{ t('sa.after_body') | safe }}</div>
+          <div class="mb-2"><strong>{{ t('sa.scripts_title') }}</strong> {{ t('sa.scripts_body') | safe }}</div>
+          <div class="small-muted">{{ t('sa.docs_hint') | safe }}</div>
         </div>
       </div>
     </div>
 
     <div class="card mt-3">
-      <div class="card-header"><button class="btn btn-sm btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#placeholders">Placeholder &amp; skema URL yang diizinkan</button></div>
+      <div class="card-header"><button class="btn btn-sm btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#placeholders">{{ t('sa.placeholders_title') }}</button></div>
       <div class="collapse show" id="placeholders">
         <div class="card-body small">
-          <div class="mb-2"><strong>Placeholder:</strong>
+          <div class="mb-2"><strong>{{ t('sa.placeholders') }}</strong>
             {% for p in placeholders %}<code class="me-1">{{ '{' ~ p ~ '}' }}</code>{% endfor %}
           </div>
-          <div class="mb-2"><strong>Skema untuk action link:</strong>
+          <div class="mb-2"><strong>{{ t('sa.schemes') }}</strong>
             {% for s in schemes %}<code class="me-1">{{ s }}:</code>{% endfor %}
           </div>
-          <div class="small-muted">Eksekusi di mesin klien — server tidak membuka koneksi ke asset dan tidak menyimpan credential. Untuk <code>rdp://</code>/<code>ssh://</code>/<code>vnc://</code> klien butuh handler protokol terdaftar; alternatif paling andal untuk RDP adalah tombol salin <code>mstsc /v:…</code> lalu tempel di Run.</div>
+          <div class="small-muted">{{ t('sa.exec_note') | safe }}</div>
         </div>
       </div>
     </div>
@@ -129,41 +129,41 @@
 
   <div class="col-lg-5">
     <div class="card mb-3">
-      <div class="card-header">{{ 'Ubah action' if editing else 'Action baru' }}</div>
+      <div class="card-header">{{ t('sa.edit_title') if editing else t('sa.new_title') }}</div>
       <div class="card-body">
-        {% if not can_manage %}<div class="small-muted mb-2">Anda hanya bisa melihat. Butuh permission <code>setup.manage</code> untuk mengubah.</div>{% endif %}
+        {% if not can_manage %}<div class="small-muted mb-2">{{ t('sa.readonly') | safe }}</div>{% endif %}
         <form method="post" action="/setup/actions" class="row g-2">
           {% if editing %}<input type="hidden" name="action_id" value="{{ editing.id }}">{% endif %}
           <div class="col-12">
-            <label class="form-label small" for="f-name">Nama (deskripsi)</label>
+            <label class="form-label small" for="f-name">{{ t('sa.name_label') }}</label>
             <input class="form-control form-control-sm" id="f-name" name="name" required maxlength="96"
-                   value="{{ editing.name if editing else '' }}" placeholder="Remote Desktop (RDP)"
+                   value="{{ editing.name if editing else '' }}" placeholder="{{ t('sa.cta_rdp') }}"
                    {% if not can_manage %}disabled{% endif %}>
           </div>
           <div class="col-sm-4">
-            <label class="form-label small" for="f-kind">Jenis</label>
+            <label class="form-label small" for="f-kind">{{ t('sa.kind') }}</label>
             <select class="form-select form-select-sm" id="f-kind" name="kind" {% if not can_manage %}disabled{% endif %}>
-              <option value="link" {% if not editing or editing.kind == 'link' %}selected{% endif %}>link (URL/protokol)</option>
-              <option value="copy" {% if editing and editing.kind == 'copy' %}selected{% endif %}>copy (clipboard)</option>
-              <option value="script" {% if editing and editing.kind == 'script' %}selected{% endif %}>script (file server, klik → PC pengguna)</option>
+              <option value="link" {% if not editing or editing.kind == 'link' %}selected{% endif %}>{{ t('sa.kind_link') }}</option>
+              <option value="copy" {% if editing and editing.kind == 'copy' %}selected{% endif %}>{{ t('sa.kind_copy') }}</option>
+              <option value="script" {% if editing and editing.kind == 'script' %}selected{% endif %}>{{ t('sa.kind_script') }}</option>
             </select>
           </div>
           <div class="col-sm-8">
             <label class="form-label small" for="f-kind">&nbsp;</label>
-            <div class="form-text pt-1"><strong>script</strong>: file di-download klien dari <code>/actions/files/</code> (token HMAC 5 menit) lalu dijalankan PC pengguna.</div>
+            <div class="form-text pt-1">{{ t('sa.kind_help') | safe }}</div>
           </div>
           <div class="col-sm-4">
-            <label class="form-label small" for="f-sort">Urutan</label>
+            <label class="form-label small" for="f-sort">{{ t('sa.order') }}</label>
             <input class="form-control form-control-sm" id="f-sort" name="sort_order" type="number" min="0"
                    value="{{ editing.sort_order if editing else (rows | length) * 10 + 10 }}"
                    {% if not can_manage %}disabled{% endif %}>
           </div>
           <div class="col-12">
-            <label class="form-label small" for="f-cmd">Perintah / URL</label>
+            <label class="form-label small" for="f-cmd">{{ t('sa.command') }}</label>
             <input class="form-control form-control-sm mono" id="f-cmd" name="command" required maxlength="512"
                    value="{{ editing.command if editing else '' }}"
                    placeholder="rdp://{ipaddress}" {% if not can_manage %}disabled{% endif %}>
-            <div class="form-text">Gunakan <code>{ipaddress}</code>, <code>{fqdn}</code>, <code>{mac}</code>, dst. Contoh: link <code>rdp://{ipaddress}</code> · copy <code>ssh {ipaddress}</code> · <strong>script</strong>: nama file di folder actions server + args, mis. <code>rdp.bat {ipaddress}</code> (file harus ada di <span class="mono">./actions/</span> server — diklik → PC pengguna men-download & menjalankan via handler <code>raniaction://</code>)</div>
+            <div class="form-text">{{ t('sa.command_help') | safe }}</div>
           </div>
           <div class="col-12">
             <div class="form-check form-check-inline">
@@ -174,18 +174,18 @@
             <div class="form-check form-check-inline">
               <input class="form-check-input" type="checkbox" id="f-adv" name="advanced" value="1"
                      {{ 'checked' if (editing.advanced if editing else False) else '' }} {% if not can_manage %}disabled{% endif %}>
-              <label class="form-check-label small" for="f-adv">Advanced</label>
+              <label class="form-check-label small" for="f-adv">{{ t('common.advanced') }}</label>
             </div>
             <div class="form-check form-check-inline">
               <input class="form-check-input" type="checkbox" id="f-cfm" name="confirm" value="1"
                      {{ 'checked' if (editing.confirm if editing else False) else '' }} {% if not can_manage %}disabled{% endif %}>
-              <label class="form-check-label small" for="f-cfm">Tanyakan konfirmasi</label>
+              <label class="form-check-label small" for="f-cfm">{{ t('sa.ask_confirm') }}</label>
             </div>
           </div>
           {% if can_manage %}
           <div class="col-12 d-flex gap-2">
-            <button class="btn btn-sm btn-primary" type="submit">{{ 'Simpan perubahan' if editing else 'Tambah action' }}</button>
-            {% if editing %}<a class="btn btn-sm btn-outline-secondary" href="/setup/actions">Batal</a>{% endif %}
+            <button class="btn btn-sm btn-primary" type="submit">{{ t('roles.save_changes') if editing else t('sa.add') }}</button>
+            {% if editing %}<a class="btn btn-sm btn-outline-secondary" href="/setup/actions">{{ t('common.cancel') }}</a>{% endif %}
           </div>
           {% endif %}
         </form>
@@ -193,7 +193,7 @@
     </div>
 
     <div class="card">
-      <div class="card-header">Pratinjau (asset contoh: {{ sample.hostname }} · {{ sample.ip_last }})</div>
+      <div class="card-header">{{ t('sa.preview_title', host=sample.hostname, ip=sample.ip_last) }}</div>
       <div class="card-body">
         {% for p in preview %}
         <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-1 gap-2">
@@ -201,9 +201,9 @@
           <span class="mono small text-break">{{ p.href or p.copy }}</span>
         </div>
         {% else %}
-        <div class="small-muted">tidak ada yang bisa dipratinjau.</div>
+        <div class="small-muted">{{ t('sa.preview_empty') }}</div>
         {% endfor %}
-        <div class="small-muted mt-2">Pratinjau memakai substitution yang sama dengan produksi.</div>
+        <div class="small-muted mt-2">{{ t('sa.preview_note') }}</div>
       </div>
     </div>
   </div>

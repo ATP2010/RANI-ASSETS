@@ -1,35 +1,35 @@
 {% extends "base.html" %}
-{% block title %}Role {{ role.slug }}{% endblock %}
-{% block heading %}Users · Role: {{ role.name }}{% endblock %}
-{% block subheading %}<span class="mono">{{ role.slug }}</span> · {{ users_count }} user{% if mappings_count %} · {{ mappings_count }} mapping AD{% endif %}{% endblock %}
+{% block title %}{{ t('nav.roles') }} {{ role.slug }}{% endblock %}
+{% block heading %}{{ t('nav.users') }} · {{ t('nav.roles') }}: {{ role.name }}{% endblock %}
+{% block subheading %}<span class="mono">{{ role.slug }}</span> · {{ t('roles.users_count', n=users_count) }}{% if mappings_count %} · {{ t('roles.mappings_count', n=mappings_count) }}{% endif %}{% endblock %}
 
 {% block content %}
-{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if saved %}<div class="alert alert-success py-2">{{ t('common.saved') }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
 {% if role.slug == 'admin' %}
-<div class="alert alert-dark py-2">Role <strong>admin</strong> terkunci: selalu punya semua permission, tidak bisa diubah atau dihapus.</div>
+<div class="alert alert-dark py-2">{{ t('roles.admin_locked') | safe }}</div>
 {% elif role.is_builtin %}
-<div class="alert alert-secondary py-2">Role bawaan (<span class="mono">{{ role.slug }}</span>): boleh diubah permissionnya, tidak bisa dihapus.</div>
+<div class="alert alert-secondary py-2">{{ t('roles.builtin_note', slug=role.slug) | safe }}</div>
 {% endif %}
 
 <div class="row g-3">
   <div class="col-lg-9">
     <form method="post" action="/users/roles/{{ role.id }}">
       <div class="card mb-3">
-        <div class="card-header">Properti</div>
+        <div class="card-header">{{ t('roles.properties') }}</div>
         <div class="card-body">
           <div class="row g-2">
             <div class="col-sm-4">
-              <label class="form-label small" for="e-slug">Slug</label>
+              <label class="form-label small" for="e-slug">{{ t('roles.col_slug') }}</label>
               <input class="form-control form-control-sm mono" id="e-slug" value="{{ role.slug }}" disabled>
             </div>
             <div class="col-sm-4">
-              <label class="form-label small" for="e-name">Nama</label>
+              <label class="form-label small" for="e-name">{{ t('common.name') }}</label>
               <input class="form-control form-control-sm" id="e-name" name="name" maxlength="96"
                      value="{{ role.name }}" {% if locked %}disabled{% endif %} required>
             </div>
             <div class="col-sm-4">
-              <label class="form-label small" for="e-desc">Deskripsi</label>
+              <label class="form-label small" for="e-desc">{{ t('common.description') }}</label>
               <input class="form-control form-control-sm" id="e-desc" name="description" maxlength="500"
                      value="{{ role.description or '' }}" {% if locked %}disabled{% endif %}>
             </div>
@@ -39,11 +39,11 @@
 
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between">
-          <span>Permission ({{ role_permissions | length }}{% if role.slug == 'admin' %} dari semua{% endif %})</span>
+          <span>{{ t('roles.permissions_title', count=role_permissions | length, of_all=t('roles.of_all') if role.slug == 'admin' else '') }}</span>
           {% if not locked %}
           <span>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="check-all">Pilih semua</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="check-none">Kosongkan</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="check-all">{{ t('roles.select_all') }}</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="check-none">{{ t('roles.select_none') }}</button>
           </span>
           {% endif %}
         </div>
@@ -70,31 +70,31 @@
       </div>
 
       {% if not locked %}
-      <button class="btn btn-sm btn-primary" type="submit">Simpan perubahan</button>
-      <span class="small-muted ms-2">Permission berlaku pada request berikutnya.</span>
+      <button class="btn btn-sm btn-primary" type="submit">{{ t('roles.save_changes') }}</button>
+      <span class="small-muted ms-2">{{ t('roles.perms_live') }}</span>
       {% endif %}
     </form>
   </div>
 
   <div class="col-lg-3">
     <div class="card">
-      <div class="card-header">Aksi</div>
+      <div class="card-header">{{ t('roles.actions') }}</div>
       <div class="card-body d-grid gap-2">
         {% if can_manage %}
         <form method="post" action="/users/roles/{{ role.id }}/duplicate">
-          <button class="btn btn-sm btn-outline-primary w-100" type="submit">Duplikat role</button>
+          <button class="btn btn-sm btn-outline-primary w-100" type="submit">{{ t('roles.duplicate') }}</button>
         </form>
         {% if not role.is_builtin %}
         <form method="post" action="/users/roles/{{ role.id }}/delete"
-              onsubmit="return confirm('Hapus role {{ role.slug }}?');">
-          <button class="btn btn-sm btn-danger w-100" type="submit">Hapus role</button>
+              onsubmit="return confirm({{ t('roles.delete_confirm', slug=role.slug) | tojson }});">
+          <button class="btn btn-sm btn-danger w-100" type="submit">{{ t('roles.delete') }}</button>
         </form>
         {% if users_count or mappings_count %}
-        <div class="small-muted">Hapus ditolak: masih dipakai {{ users_count }} user{% if mappings_count %} dan {{ mappings_count }} mapping AD{% endif %}.</div>
+        <div class="small-muted">{{ t('roles.delete_blocked', users=users_count, mappings=t('roles.delete_mappings', n=mappings_count) if mappings_count else '') }}</div>
         {% endif %}
         {% endif %}
         {% endif %}
-        <a class="btn btn-sm btn-outline-secondary" href="/users/roles">← kembali</a>
+        <a class="btn btn-sm btn-outline-secondary" href="/users/roles">{{ t('roles.back') }}</a>
       </div>
     </div>
   </div>

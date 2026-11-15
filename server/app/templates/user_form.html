@@ -1,42 +1,42 @@
 {% extends "base.html" %}
-{% block title %}User {{ target.username }}{% endblock %}
-{% block heading %}Users · {{ target.username }}{% endblock %}
+{% block title %}{{ t('nav.users_list') }} {{ target.username }}{% endblock %}
+{% block heading %}{{ t('nav.users_list') }} · {{ target.username }}{% endblock %}
 {% block subheading %}
-  {% if target.auth_source == 'ad' %}Active Directory{% if target.domain %} · {{ target.domain }}{% endif %}
-  {% else %}akun lokal{% endif %}
+  {% if target.auth_source == 'ad' %}{{ t('users.source_ad') }}{% if target.domain %} · {{ target.domain }}{% endif %}
+  {% else %}{{ t('users.local_account') }}{% endif %}
 {% endblock %}
 
 {% block content %}
-{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if saved %}<div class="alert alert-success py-2">{{ t('common.saved') }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
-{% if is_seed %}<div class="alert alert-warning py-2">Akun break-glass dari <code>RANI_ADMIN_USER</code>: tidak bisa dinonaktifkan atau dihapus.</div>{% endif %}
-{% if is_last_guard %}<div class="alert alert-warning py-2">User ini satu-satunya yang masih memegang <code>users.manage</code> + <code>roles.manage</code>. Nonaktifkan/turun-role akan ditolak (anti-lockout).</div>{% endif %}
+{% if is_seed %}<div class="alert alert-warning py-2">{{ t('users.seed_warn') | safe }}</div>{% endif %}
+{% if is_last_guard %}<div class="alert alert-warning py-2">{{ t('users.last_guard_warn') | safe }}</div>{% endif %}
 
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card mb-3">
-      <div class="card-header">Profil &amp; role</div>
+      <div class="card-header">{{ t('users.profile') }}</div>
       <div class="card-body">
         <form method="post" action="/users/{{ target.id }}/update">
           <div class="row g-2 mb-2">
             <div class="col-sm-6">
-              <label class="form-label small" for="f-display">Nama tampilan</label>
+              <label class="form-label small" for="f-display">{{ t('users.display_name') }}</label>
               <input class="form-control form-control-sm" id="f-display" name="display_name"
                      maxlength="128" value="{{ target.display_name or '' }}"
                      {% if target.auth_source == 'ad' %}readonly{% endif %}>
             </div>
             <div class="col-sm-6">
-              <label class="form-label small" for="f-email">Email</label>
+              <label class="form-label small" for="f-email">{{ t('common.email') }}</label>
               <input class="form-control form-control-sm" id="f-email" name="email" type="email"
                      maxlength="255" value="{{ target.email or '' }}"
                      {% if target.auth_source == 'ad' %}readonly{% endif %}>
             </div>
           </div>
           {% if target.auth_source == 'ad' %}
-          <div class="form-text mb-2">Atribut nama/email user AD disinkronkan dari direktori. Domain: <span class="mono">{{ target.domain }}</span> · SAM: <span class="mono">{{ target.sam_account_name }}</span>{% if target.upn %} · UPN: <span class="mono">{{ target.upn }}</span>{% endif %}</div>
+          <div class="form-text mb-2">{{ t('users.ad_sync_note', domain=target.domain, sam=target.sam_account_name, upn=' · UPN: <span class="mono">' ~ target.upn ~ '</span>' if target.upn else '') | safe }}</div>
           {% endif %}
           <div class="mb-2">
-            <label class="form-label small">Role (union permission)</label><br>
+            <label class="form-label small">{{ t('users.roles_label') }}</label><br>
             {% for slug, role in roles_map.items() %}
             <div class="form-check form-check-inline">
               <input class="form-check-input" type="checkbox" name="roles" value="{{ slug }}"
@@ -47,8 +47,8 @@
             {% endfor %}
           </div>
           {% if can_manage %}
-          <button class="btn btn-sm btn-primary" type="submit">Simpan</button>
-          <span class="small-muted ms-2">Role berubah ⇒ semua sesi user dicabut.</span>
+          <button class="btn btn-sm btn-primary" type="submit">{{ t('common.save') }}</button>
+          <span class="small-muted ms-2">{{ t('users.roles_revoke_note') }}</span>
           {% endif %}
         </form>
       </div>
@@ -56,18 +56,18 @@
 
     {% if target.auth_source == 'local' %}
     <div class="card mb-3">
-      <div class="card-header">Reset password</div>
+      <div class="card-header">{{ t('users.reset_pw') }}</div>
       <div class="card-body">
         <form method="post" action="/users/{{ target.id }}/password" class="row g-2 align-items-end">
           <div class="col-sm-7">
-            <label class="form-label small" for="f-pass">Password baru</label>
+            <label class="form-label small" for="f-pass">{{ t('users.pw_new') }}</label>
             <input class="form-control form-control-sm" id="f-pass" name="password" type="password"
                    required minlength="{{ password_min_len }}" autocomplete="new-password"
                    {% if not can_manage %}disabled{% endif %}>
-            <div class="form-text">min {{ password_min_len }} karakter; semua sesi user dicabut.</div>
+            <div class="form-text">{{ t('users.pw_hint_revoke', n=password_min_len) }}</div>
           </div>
           <div class="col-sm-5">
-            {% if can_manage %}<button class="btn btn-sm btn-warning" type="submit">Reset password</button>{% endif %}
+            {% if can_manage %}<button class="btn btn-sm btn-warning" type="submit">{{ t('users.reset_pw') }}</button>{% endif %}
           </div>
         </form>
       </div>
@@ -77,37 +77,37 @@
 
   <div class="col-lg-5">
     <div class="card mb-3">
-      <div class="card-header">Status</div>
+      <div class="card-header">{{ t('common.status') }}</div>
       <div class="card-body">
         <p class="mb-2">
-          {% if target.is_active %}<span class="badge text-bg-success">aktif</span>
-          {% else %}<span class="badge text-bg-danger">nonaktif</span>{% endif %}
-          <span class="small-muted ms-2">login terakhir: {{ target.last_login_at | fmt_dt }}</span>
+          {% if target.is_active %}<span class="badge text-bg-success">{{ t('common.enabled') }}</span>
+          {% else %}<span class="badge text-bg-danger">{{ t('common.disabled') }}</span>{% endif %}
+          <span class="small-muted ms-2">{{ t('users.last_login', time=target.last_login_at | fmt_dt) }}</span>
         </p>
         {% if can_manage %}
         <form method="post" action="/users/{{ target.id }}/active" class="d-inline">
           <input type="hidden" name="active" value="{{ '0' if target.is_active else '1' }}">
           <button class="btn btn-sm {{ 'btn-outline-danger' if target.is_active else 'btn-success' }}"
-                  type="submit">{{ 'Nonaktifkan' if target.is_active else 'Aktifkan' }}</button>
+                  type="submit">{{ t('users.deactivate') if target.is_active else t('users.activate') }}</button>
         </form>
         <form method="post" action="/users/{{ target.id }}/revoke-sessions" class="d-inline">
-          <button class="btn btn-sm btn-outline-warning" type="submit">Cabut semua sesi ({{ active_sessions }})</button>
+          <button class="btn btn-sm btn-outline-warning" type="submit">{{ t('users.revoke_sessions', n=active_sessions) }}</button>
         </form>
         {% endif %}
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header">Hapus user</div>
+      <div class="card-header">{{ t('users.delete_title') }}</div>
       <div class="card-body">
-        <p class="small-muted">User dengan jejak audit tidak bisa dihapus (nonaktifkan saja). Akun AD hanya dinonaktifkan; sync tidak pernah menghapus.</p>
+        <p class="small-muted">{{ t('users.delete_note') }}</p>
         {% if can_manage %}
         <form method="post" action="/users/{{ target.id }}/delete"
-              onsubmit="return confirm('Hapus user {{ target.username }}? Aksi ini tidak bisa dibatalkan.');">
-          <button class="btn btn-sm btn-danger" type="submit">Hapus user</button>
+              onsubmit="return confirm({{ t('users.delete_confirm', name=target.username) | tojson }});">
+          <button class="btn btn-sm btn-danger" type="submit">{{ t('users.delete_title') }}</button>
         </form>
         {% endif %}
-        <a class="btn btn-sm btn-outline-secondary mt-2" href="/users">← kembali ke daftar</a>
+        <a class="btn btn-sm btn-outline-secondary mt-2" href="/users">{{ t('users.back_list') }}</a>
       </div>
     </div>
   </div>

@@ -1,5 +1,12 @@
 /* RANI UI: custom report — jalankan SQL, render grid dengan filter + pagination. */
 (function () {
+  var S = (window.RANI_REPORT_VIEW) || {};
+  function t(key, def) { return S[key] || def || key; }
+  function fmt(tpl, vars) {
+    return Object.keys(vars || {}).reduce(function (acc, k) {
+      return acc.split('{' + k + '}').join(String(vars[k]));
+    }, tpl);
+  }
   function el(id) { return document.getElementById(id); }
 
   function cell(text) {
@@ -81,9 +88,9 @@
       fth.className = 'py-1';
       const input = document.createElement('input');
       input.className = 'form-control form-control-sm report-filter';
-      input.placeholder = 'filter';
+      input.placeholder = t('filterPlaceholder', 'filter');
       input.dataset.col = String(idx);
-      input.setAttribute('aria-label', 'filter kolom ' + name);
+      input.setAttribute('aria-label', fmt(t('filterAria', 'filter column {name}'), { name: name }));
       fth.appendChild(input);
       frow.appendChild(fth);
     });
@@ -117,11 +124,11 @@
 
     const label = document.createElement('label');
     label.className = 'd-flex align-items-center gap-1 mb-0 small-muted';
-    label.textContent = 'Tampilkan';
+    label.textContent = t('showLabel', 'Show');
     const perPage = document.createElement('select');
     perPage.className = 'form-select form-select-sm';
     perPage.style.width = 'auto';
-    perPage.setAttribute('aria-label', 'baris per halaman');
+    perPage.setAttribute('aria-label', t('perPageAria', 'rows per page'));
     [10, 25, 50, 100].forEach(function (n) {
       const opt = document.createElement('option');
       opt.value = String(n);
@@ -131,7 +138,7 @@
     });
     const perPageSuffix = document.createElement('span');
     perPageSuffix.className = 'd-none d-sm-inline';
-    perPageSuffix.textContent = 'per halaman';
+    perPageSuffix.textContent = t('perPageLabel', 'per page');
     label.appendChild(perPage);
     label.appendChild(perPageSuffix);
 
@@ -141,7 +148,7 @@
     exportLink.textContent = 'Export CSV';
 
     const nav = document.createElement('nav');
-    nav.setAttribute('aria-label', 'Navigasi halaman hasil');
+    nav.setAttribute('aria-label', t('nav', 'Result page navigation'));
     const pag = document.createElement('ul');
     pag.className = 'pagination pagination-sm mb-0';
     nav.appendChild(pag);
@@ -175,19 +182,21 @@
         td.colSpan = Math.max(columns.length, 1);
         td.className = 'small-muted p-3';
         td.textContent = state.filters.length
-          ? 'tidak ada baris yang cocok dengan filter'
-          : 'query tidak mengembalikan baris';
+          ? t('noRowsFilter', 'no rows match the filter')
+          : t('noRows', 'query returned no rows');
         tr.appendChild(td);
         tbody.appendChild(tr);
       }
 
       const filterNote = state.filters.length
-        ? ' · filter: ' + vis.length + ' cocok dari ' + rows.length
+        ? fmt(t('filterNote', ' · filter: {vis} of {total} match'), { vis: vis.length, total: rows.length })
         : '';
-      meta.textContent = data.row_count + ' baris · ' + data.duration_ms + ' ms' +
-        (data.truncated ? ' · dipotong di ' + data.max_rows + ' baris' : '') + filterNote;
-      info.textContent = 'Menampilkan ' + (vis.length ? (start + 1) + '–' + end : '0') +
-        ' dari ' + vis.length + ' baris';
+      meta.textContent = fmt(t('metaRows', '{rows} rows · {ms} ms'),
+        { rows: data.row_count, ms: data.duration_ms }) +
+        (data.truncated ? ' · ' + fmt(t('truncated', 'truncated at {n} rows'), { n: data.max_rows }) : '') +
+        filterNote;
+      info.textContent = fmt(t('showing', 'Showing {a}–{b} of {n} rows'),
+        { a: vis.length ? start + 1 : 0, b: end, n: vis.length });
 
       pag.innerHTML = '';
       pag.appendChild(liButton('‹', {
@@ -245,8 +254,8 @@
   async function runReport(id) {
     const meta = el('report-meta');
     if (!id) return;
-    showMessage('menjalankan query…');
-    if (meta) meta.textContent = 'menjalankan…';
+    showMessage(t('runningQuery', 'running query…'));
+    if (meta) meta.textContent = t('running', 'running…');
     const button = el('report-run');
     if (button) button.disabled = true;
     try {
@@ -257,13 +266,13 @@
       if (!resp.ok) {
         const detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail || data);
         showMessage(detail, 'text-danger small');
-        if (meta) meta.textContent = 'gagal';
+        if (meta) meta.textContent = t('fail', 'failed');
         return;
       }
       renderTable(data, data.columns, data.rows, meta || { textContent: '' });
     } catch (err) {
-      showMessage('gagal memanggil server: ' + err, 'text-danger small');
-      if (meta) meta.textContent = 'gagal';
+      showMessage(fmt(t('fetchError', 'failed to reach the server: {err}'), { err: err }), 'text-danger small');
+      if (meta) meta.textContent = t('fail', 'failed');
     } finally {
       if (button) button.disabled = false;
     }
@@ -284,7 +293,7 @@
       item.addEventListener('click', function () {
         const area = el('sql_text');
         if (!area) return;
-        if (area.value.trim() && !confirm('Ganti isi editor dengan contoh ini?')) return;
+        if (area.value.trim() && !confirm(t('replaceConfirm', 'Replace the editor contents with this example?'))) return;
         area.value = item.dataset.sql;
         area.focus();
       });

@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="id">
+<html lang="{{ t('login.html_lang') }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Masuk · RANI</title>
-  <meta name="description" content="RANI (Resource &amp; Asset Network Intelligence) — masuk ke inventory aset IT self-hosted.">
+  <title>{{ t('login.title') }}</title>
+  <meta name="description" content="RANI (Resource &amp; Asset Network Intelligence) — {{ t('login.msg') }}">
   <link rel="icon" href="/static/img/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon-180.png">
@@ -19,26 +19,29 @@
     <img src="/static/img/rani-logo-512.png" alt="RANI" width="96" height="96" class="mb-2">
     <div><span class="fw-semibold">RANI</span></div>
     <div class="small-muted" style="font-size:.78rem; letter-spacing:.02em">
-      Resource &amp; Asset Network Intelligence
+      {{ t('login.tagline') }}
     </div>
   </div>
   <div class="card">
     <div class="card-body login-card-body">
-      <p class="login-box-msg">Masuk untuk melihat inventory aset IT</p>
+      <p class="login-box-msg">{{ t('login.msg') }}</p>
       {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
       <form method="post" action="/login">
         <input type="hidden" name="next" value="{{ next }}">
         <div class="mb-3">
-          <label class="form-label" for="username">Username</label>
+          <label class="form-label" for="username">{{ t('login.username') }}</label>
           <input class="form-control" id="username" name="username" autocomplete="username" required autofocus>
         </div>
         <div class="mb-3">
-          <label class="form-label" for="password">Password</label>
+          <label class="form-label" for="password">{{ t('login.password') }}</label>
           <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
         </div>
-        <button class="btn btn-primary w-100" type="submit">Masuk</button>
+        <button class="btn btn-primary w-100" type="submit">{{ t('login.submit') }}</button>
       </form>
-      <p class="small-muted mt-3 mb-0">Akun admin di-seed dari <span class="mono">RANI_ADMIN_USER</span> / <span class="mono">RANI_ADMIN_PASSWORD</span> di <span class="mono">.env</span> saat boot pertama.</p>
+      <div class="d-flex justify-content-center gap-3 mt-3 small">
+        <a href="/lang/id?next={{ request.url.path }}" class="{{ 'fw-semibold' if lang() == 'id' else 'small-muted' }}">Bahasa Indonesia</a>
+        <a href="/lang/en?next={{ request.url.path }}" class="{{ 'fw-semibold' if lang() == 'en' else 'small-muted' }}">English</a>
+      </div>
     </div>
   </div>
 </div>
