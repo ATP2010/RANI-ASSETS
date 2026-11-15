@@ -89,6 +89,7 @@
 - [ ] Webhooks + read-only GraphQL/REST query API + MCP server
 - [ ] Discovery pasif tambahan: mDNS/SSDP/UPnP, HTTP banner
 - [x] Software normalization dasar (trim/lowercase/collapse space, `name_norm` unik per asset)
+- [x] F4.4 **Actions (gaya Lansweeper)** di menu Assets & detail asset: hover hostname → popup overview (IP, MAC, OS, domain, serial, port/switch) + menu **Actions** (Buka HTTP/HTTPS, share `file:///IP/c$`, RDP `rdp://`, SSH, VNC; tombol salin `mstsc /v:…`/IP/MAC/hostname) — `app/actions.py` satu sumber, parameter `{ipaddress}/{fqdn}/{mac}/…`; tab Overview menampilkan **Terhubung ke** (switch + port + VLAN); docs [`docs/actions.md`](docs/actions.md)
 - [ ] License/SAM module
 - [ ] SSO (OIDC/AD LDAPS) — lihat F5.8
 

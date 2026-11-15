@@ -16,6 +16,7 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 - Panduan lain: [`docs/reports.md`](docs/reports.md) (custom report SQL) ·
   [`docs/scan.md`](docs/scan.md) (scan SNMP + custom OID) ·
   [`docs/users.md`](docs/users.md) (menu Users, role/permission, login lokal + AD) ·
+  [`docs/actions.md`](docs/actions.md) (Actions ala Lansweeper di menu Assets) ·
   [`docs/branding.md`](docs/branding.md) (logo/ikon) ·
   [`docs/agent-windows.md`](docs/agent-windows.md) (agent Windows).
 - Ikon aplikasi: `server/app/static/img/` (`favicon.ico`, `favicon-32/48.png`,

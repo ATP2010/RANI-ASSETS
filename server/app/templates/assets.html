@@ -58,6 +58,31 @@
   </div>
 </div>
 
+<style>
+.asset-hover-wrap { position: relative; }
+.asset-popup { position: absolute; top: calc(100% + 6px); left: 0; z-index: 1080;
+  width: 340px; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
+  border-radius: .5rem; box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35);
+  padding: .6rem .7rem; display: none; font-size: .85rem; font-weight: 400; }
+.asset-popup.show { display: block; }
+.ap-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding-bottom: .35rem; }
+.ap-name { font-weight: 600; }
+.ap-grid { display: grid; grid-template-columns: auto 1fr; gap: .08rem .6rem;
+  padding: .35rem 0; border-top: 1px solid var(--bs-border-color);
+  border-bottom: 1px solid var(--bs-border-color); }
+.ap-k { color: var(--bs-secondary-color); font-size: .75rem; align-self: center; }
+.ap-v { min-width: 0; }
+.ap-actions { padding: .35rem 0; display: flex; flex-direction: column; }
+.ap-actions-title { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--bs-secondary-color); margin-bottom: .15rem; }
+.ap-item { display: block; text-decoration: none; color: var(--bs-body-color);
+  padding: .18rem .25rem; border-radius: .3rem; background: none; border: none;
+  text-align: left; font: inherit; cursor: pointer; width: 100%; }
+.ap-item:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+.ap-detail { display: block; border-top: 1px solid var(--bs-border-color);
+  padding-top: .35rem; font-size: .8rem; }
+</style>
+
 <div class="card">
   <div class="card-body p-0">
     <table class="table table-hover table-tight mb-0 align-middle">
@@ -71,7 +96,43 @@
         {% for item in result.rows %}
         {% set a = item.asset %}
         <tr>
-          <td><a href="/assets/{{ a.id }}" class="fw-medium">{{ a.hostname or '(tanpa hostname)' }}</a>
+          <td>
+            <span class="asset-hover-wrap">
+              <a href="/assets/{{ a.id }}" class="fw-medium asset-hover" data-popup="pop-{{ a.id }}">{{ a.hostname or '(tanpa hostname)' }}</a>
+              <span class="asset-popup" id="pop-{{ a.id }}" role="tooltip">
+                <span class="ap-head">
+                  <span class="ap-name text-truncate">{{ a.hostname or '(tanpa hostname)' }}</span>
+                  {% if a.status == 'online' %}<span class="badge text-bg-success">online</span>
+                  {% else %}<span class="badge text-bg-secondary">offline</span>{% endif %}
+                </span>
+                <span class="ap-grid">
+                  <span class="ap-k">IP</span><span class="ap-v mono">{{ a.ip_last or '—' }}</span>
+                  <span class="ap-k">MAC</span><span class="ap-v mono">{{ a.primary_mac or '—' }}</span>
+                  <span class="ap-k">OS</span><span class="ap-v">{{ a.os_caption or '—' }}</span>
+                  <span class="ap-k">Domain</span><span class="ap-v mono">{{ a.domain or '—' }}</span>
+                  <span class="ap-k">Serial</span><span class="ap-v mono">{{ a.serial or '—' }}</span>
+                  {% if a.asset_type == 'network' %}
+                  <span class="ap-k">Isi</span><span class="ap-v">{{ item.occ.macs if item.occ else 0 }} MAC · {{ item.occ.ports if item.occ else 0 }} port</span>
+                  {% else %}
+                  <span class="ap-k">Port / Switch</span><span class="ap-v">
+                    {% if item.l2 %}
+                      {% for loc in item.l2[:2] %}
+                      <div class="text-nowrap"><span class="mono">{{ loc.port }}</span> <span class="small-muted">@ {{ loc.switch_ip or loc.switch_hostname }}</span></div>
+                      {% endfor %}
+                    {% else %}—{% endif %}
+                  </span>
+                  {% endif %}
+                </span>
+                <span class="ap-actions">
+                  <span class="ap-actions-title">Actions</span>
+                  {% for act in asset_actions(a) %}
+                    {% if act.href %}<a class="ap-item" href="{{ act.href }}" rel="noopener">{{ act.label }}</a>
+                    {% else %}<button type="button" class="ap-item ap-copy" data-copy="{{ act['copy'] }}" data-label="{{ act.label }}">{{ act.label }}</button>{% endif %}
+                  {% endfor %}
+                </span>
+                <a class="ap-detail" href="/assets/{{ a.id }}">Buka detail lengkap →</a>
+              </span>
+            </span>
             <div class="small-muted mono">{{ a.serial or a.primary_mac or a.id }}</div>
           </td>
           <td class="mono">{{ a.ip_last or '—' }}</td>
@@ -130,4 +191,60 @@
   </div>
   {% endif %}
 </div>
+
+<script>
+(function () {
+  var HIDE_DELAY = 150;
+  var timers = new Map();
+  function attachHover(wrap) {
+    var link = wrap.querySelector('.asset-hover');
+    var popup = document.getElementById(link.dataset.popup);
+    if (!popup) return;
+    var show = function () {
+      var t = timers.get(popup);
+      if (t) { clearTimeout(t); timers.delete(popup); }
+      popup.classList.add('show');
+    };
+    var scheduleHide = function () {
+      var t = setTimeout(function () { popup.classList.remove('show'); }, HIDE_DELAY);
+      timers.set(popup, t);
+    };
+    wrap.addEventListener('mouseenter', show);
+    wrap.addEventListener('mouseleave', scheduleHide);
+    popup.addEventListener('mouseenter', show);
+    popup.addEventListener('mouseleave', scheduleHide);
+    wrap.addEventListener('focusin', show);
+    wrap.addEventListener('focusout', scheduleHide);
+  }
+  document.querySelectorAll('.asset-hover-wrap').forEach(attachHover);
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
+      catch (e) { reject(e); }
+      document.body.removeChild(ta);
+    });
+  }
+  document.querySelectorAll('.ap-copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var original = btn.dataset.label || btn.textContent;
+      copyText(btn.dataset.copy || '').then(function () {
+        btn.textContent = 'Tersalin ✓';
+        setTimeout(function () { btn.textContent = original; }, 1200);
+      }, function () {
+        btn.textContent = 'Gagal menyalin';
+        setTimeout(function () { btn.textContent = original; }, 1200);
+      });
+    });
+  });
+})();
+</script>
 {% endblock %}

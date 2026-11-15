@@ -222,6 +222,7 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict |
     for component in hw:
         by_class.setdefault(component.class_, []).append(component)
 
+    by_endpoint, _by_switch = await _l2_locations(session, [asset])
     return {
         "asset": asset, "software": software,
         "software_present": [s for s in software if s.present],
@@ -230,6 +231,7 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict |
         "interfaces": interfaces, "reports": reports, "events": events, "sources": sources,
         "port_map": port_map, "port_map_stale": port_map_stale,
         "port_map_ports": len({r["mapping"].if_name for r in port_map if r["mapping"].if_name}),
+        "l2": by_endpoint.get(asset.id, []),
     }
 
 

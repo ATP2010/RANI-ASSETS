@@ -6,6 +6,20 @@
   {% if a.status == 'online' %}<span class="badge text-bg-success">online</span>
   {% else %}<span class="badge text-bg-secondary">offline</span>{% endif %}
   · last seen {{ a.last_seen | fmt_dt }}
+  {% if asset_actions(a) %}
+  <span class="dropdown d-inline-block ms-2">
+    <button class="btn btn-sm btn-primary dropdown-toggle" type="button"
+            data-bs-toggle="dropdown" aria-expanded="false">Actions</button>
+    <ul class="dropdown-menu dropdown-menu-end shadow">
+      {% for act in asset_actions(a) %}
+      <li>
+        {% if act.href %}<a class="dropdown-item small" href="{{ act.href }}" rel="noopener">{{ act.label }}</a>
+        {% else %}<button class="dropdown-item small ap-copy" type="button" data-copy="{{ act['copy'] }}">{{ act.label }}</button>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </span>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -49,6 +63,16 @@
               <tr><td>Uptime</td><td>{% if a.attrs.get('uptime_s') %}{{ (a.attrs.get('uptime_s') // 3600) }} jam{% else %}—{% endif %}</td></tr>
               <tr><td>IP terakhir</td><td class="mono">{{ a.ip_last or '—' }}</td></tr>
               <tr><td>MAC</td><td class="mono">{{ a.primary_mac or '—' }}</td></tr>
+              <tr><td>Terhubung ke</td><td>
+                {% if d.l2 %}
+                  {% for loc in d.l2 %}
+                  <div class="text-nowrap">
+                    <a href="/assets/{{ loc.switch_id }}">{{ loc.switch_hostname or loc.switch_ip or 'switch' }}</a>
+                    <span class="small-muted">·</span> <span class="mono">{{ loc.port }}</span>{% if loc.vlan and loc.vlan != 0 %} <span class="small-muted">VLAN {{ loc.vlan }}</span>{% endif %}
+                  </div>
+                  {% endfor %}
+                {% else %}<span class="small-muted">— (belum terdeteksi; jalankan scan SNMP dengan Port map aktif)</span>{% endif %}
+              </td></tr>
               <tr><td>First seen</td><td>{{ a.first_seen | fmt_dt }}</td></tr>
               <tr><td>Agent version</td><td class="mono">{{ a.attrs.get('last_agent_version') or '—' }}</td></tr>
             </table>
@@ -351,4 +375,36 @@
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
+      catch (e) { reject(e); }
+      document.body.removeChild(ta);
+    });
+  }
+  document.querySelectorAll('.ap-copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var original = btn.textContent;
+      copyText(btn.dataset.copy || '').then(function () {
+        btn.textContent = 'Tersalin ✓';
+        setTimeout(function () { btn.textContent = original; }, 1200);
+      }, function () {
+        btn.textContent = 'Gagal menyalin';
+        setTimeout(function () { btn.textContent = original; }, 1200);
+      });
+    });
+  });
+})();
+</script>
 {% endblock %}
