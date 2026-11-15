@@ -156,6 +156,12 @@ async def ensure_report_role() -> bool:
         f"REVOKE ALL ON {schema}.app_users FROM {user}",
         f"REVOKE ALL ON {schema}.auth_sessions FROM {user}",
         f"REVOKE ALL ON {schema}.enrollment_tokens FROM {user}",
+        # F5: role/permission, mapping AD, dan connector (bind password terenkripsi)
+        f"REVOKE ALL ON {schema}.roles FROM {user}",
+        f"REVOKE ALL ON {schema}.app_user_roles FROM {user}",
+        f"REVOKE ALL ON {schema}.directory_connectors FROM {user}",
+        f"REVOKE ALL ON {schema}.directory_group_roles FROM {user}",
+        f"REVOKE ALL ON {schema}.directory_sync_runs FROM {user}",
     ]
     # batas keras di level database: sesi read-only + timeout
     role_settings = [
