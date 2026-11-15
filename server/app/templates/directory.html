@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Direktori (AD){% endblock %}
+{% block heading %}Users · Direktori (AD){% endblock %}
+{% block subheading %}connector LDAP/LDAPS · mapping group → role · sync{% endblock %}
+
+{% block content %}
+{% if saved %}<div class="alert alert-success py-2">Tersimpan.</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+{% if test_msg %}<div class="alert {{ 'alert-success' if test_ok == 1 else 'alert-danger' }} py-2">{{ test_msg }}</div>{% endif %}
+{% if sync_msg %}<div class="alert alert-info py-2">{{ sync_msg }}</div>{% endif %}
+{% if not ad_login_enabled %}<div class="alert alert-warning py-2">Login AD <strong>belum aktif</strong> — set <code>RANI_AD_ENABLED=1</code> di <code>.env</code> lalu restart api agar user bisa login dengan <code>DOMAIN\user</code>. Sync &amp; mapping tetap bisa dijalankan.</div>{% endif %}
+{% if not auth_local_enabled %}<div class="alert alert-danger py-2">Login lokal <strong>dimatikan</strong> (<code>RANI_AUTH_LOCAL_ENABLED=0</code>). Pastikan minimal satu group AD dipetakan ke role admin sebelum melanjutkan — atau Anda tidak bisa login sama sekali.</div>{% endif %}
+{% if selected and not selected.use_ldaps %}<div class="alert alert-warning py-2">Connector ini memakai <code>ldap://</code> (tanpa TLS). Gunakan <code>ldaps://</code> atau StartTLS-style URL di produksi.</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Connector ({{ connectors | length }})</span>
+        {% if can_manage %}<a class="btn btn-sm btn-outline-primary" href="/users/directory?id=new">+ Baru</a>{% endif %}
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0 align-middle">
+          <tbody>
+            {% for c in connectors %}
+            <tr class="{{ 'table-active' if selected and c.id == selected.id else '' }}">
+              <td>
+                <a href="/users/directory?id={{ c.id }}">{{ c.name }}</a><br>
+                <span class="small-muted mono">{{ c.domain }} · {{ c.url }}</span><br>
+                {% if c.enabled %}<span class="badge text-bg-success">enabled</span>{% else %}<span class="badge text-bg-secondary">disabled</span>{% endif %}
+                {% if c.last_sync_status %}<span class="badge {{ 'text-bg-success' if c.last_sync_status == 'success' else ('text-bg-warning' if c.last_sync_status == 'partial' else 'text-bg-danger') }}">sync: {{ c.last_sync_status }}</span>{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td class="small-muted p-3">belum ada connector. Tambahkan connector AD pertama Anda.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if can_manage %}
+    <div class="card">
+      <div class="card-header">{{ 'Connector baru' if creating or not selected else 'Edit connector: ' ~ selected.name }}</div>
+      <div class="card-body">
+        {% if creating or not selected %}{% set c = None %}{% else %}{% set c = selected %}{% endif %}
+        <form method="post" action="/users/directory" class="row g-2" autocomplete="off">
+          {% if c %}<input type="hidden" name="connector_id" value="{{ c.id }}">{% endif %}
+          <div class="col-sm-6">
+            <label class="form-label small" for="f-name">Nama</label>
+            <input class="form-control form-control-sm" id="f-name" name="name" required maxlength="96"
+                   value="{{ c.name if c else '' }}" placeholder="AD Corp">
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small" for="f-dom">NetBIOS</label>
+            <input class="form-control form-control-sm mono" id="f-dom" name="domain" required maxlength="64"
+                   value="{{ c.domain if c else '' }}" placeholder="CORP">
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small" for="f-fqdn">FQDN</label>
+            <input class="form-control form-control-sm mono" id="f-fqdn" name="domain_fqdn" required maxlength="255"
+                   value="{{ c.domain_fqdn if c else '' }}" placeholder="corp.local">
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-url">URL</label>
+            <input class="form-control form-control-sm mono" id="f-url" name="url" required maxlength="255"
+                   value="{{ c.url if c else 'ldaps://dc01.corp.local:636' }}">
+          </div>
+          <div class="col-sm-6">
+            <div class="form-check mt-1">
+              <input class="form-check-input" type="checkbox" id="f-ldaps" name="use_ldaps" value="1"
+                     {{ 'checked' if (c.use_ldaps if c else True) else '' }}>
+              <label class="form-check-label small" for="f-ldaps">Gunakan LDAPS</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="f-verify" name="tls_verify" value="1"
+                     {{ 'checked' if (c.tls_verify if c else True) else '' }}>
+              <label class="form-check-label small" for="f-verify">Verifikasi sertifikat</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="f-nested" name="nested_groups" value="1"
+                     {{ 'checked' if (c.nested_groups if c else False) else '' }}>
+              <label class="form-check-label small" for="f-nested">Nested group (member:1.2.840.113556.1.4.1941)</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="f-en" name="enabled" value="1"
+                     {{ 'checked' if (c.enabled if c else True) else '' }}>
+              <label class="form-check-label small" for="f-en">Connector aktif</label>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small" for="f-int">Interval sync (detik; 0 = manual)</label>
+            <input class="form-control form-control-sm" id="f-int" name="sync_interval_s" type="number" min="0"
+                   value="{{ c.sync_interval_s if c else 3600 }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-binddn">Bind DN (service account read-only)</label>
+            <input class="form-control form-control-sm mono" id="f-binddn" name="bind_dn" required maxlength="255"
+                   value="{{ c.bind_dn if c else '' }}" placeholder="CN=svc-rani,OU=Service,DC=corp,DC=local">
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-bindpw">Bind password</label>
+            <input class="form-control form-control-sm" id="f-bindpw" name="bind_password" type="password"
+                   autocomplete="new-password"
+                   placeholder="{{ '•••••••• (terenkripsi; kosong = tetap)' if c and c.bind_password_enc else 'wajib' }}">
+            <div class="form-text">Disimpan terenkripsi (Fernet + <code>RANI_INGEST_PEPPER</code>). Tidak pernah ditampilkan kembali.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-ca">CA certificate (PEM, opsional)</label>
+            <textarea class="form-control form-control-sm mono" id="f-ca" name="ca_cert_pem" rows="3"
+                      placeholder="-----BEGIN CERTIFICATE-----">{{ c.ca_cert_pem if c and c.ca_cert_pem else '' }}</textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-base">Base DN user/grup</label>
+            <input class="form-control form-control-sm mono" id="f-base" name="base_dn" required maxlength="255"
+                   value="{{ c.base_dn if c else '' }}" placeholder="DC=corp,DC=local">
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-uf">User filter</label>
+            <input class="form-control form-control-sm mono" id="f-uf" name="user_filter" maxlength="512"
+                   value="{{ c.user_filter if c else '' }}" placeholder="{{ default_user_filter }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="f-gf">Group filter</label>
+            <input class="form-control form-control-sm mono" id="f-gf" name="group_filter" maxlength="255"
+                   value="{{ c.group_filter if c else '(objectClass=group)' }}">
+          </div>
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" type="submit">Simpan</button>
+            {% if c %}
+            <button class="btn btn-sm btn-outline-info" type="submit" formaction="/users/directory/{{ c.id }}/test">Test connection</button>
+            {% endif %}
+          </div>
+        </form>
+        {% if c %}
+        <form method="post" action="/users/directory/{{ c.id }}/delete" class="mt-2"
+              onsubmit="return confirm('Hapus connector {{ c.name }}? Mapping & riwayat sync ikut terhapus.');">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Hapus connector</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-8">
+    {% if selected %}
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Mapping group AD → role ({{ mappings | length }})</span>
+        {% if can_sync %}
+        <form method="post" action="/users/directory/{{ selected.id }}/sync"
+              onsubmit="return confirm('Jalankan sync sekarang?');">
+          <button class="btn btn-sm btn-warning" type="submit">Sync sekarang</button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0 align-middle">
+          <thead class="table-light"><tr><th>Group AD</th><th>DN</th><th>Role</th><th class="text-end"></th></tr></thead>
+          <tbody>
+            {% for row in mappings %}
+            <tr>
+              <td>{{ row.mapping.group_name }}</td>
+              <td class="small mono text-break">{{ row.mapping.group_dn }}</td>
+              <td><span class="badge text-bg-primary">{{ row.role_slug }}</span></td>
+              <td class="text-end">
+                {% if can_manage %}
+                <form method="post" action="/users/directory/mapping/{{ row.mapping.id }}/delete" class="d-inline">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Lepas</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="small-muted p-3">belum ada mapping. User di group yang tidak dipetakan tidak bisa login (<code>no_mapped_group</code>).</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if can_manage %}
+    <div class="card mb-3">
+      <div class="card-header">Telusuri group AD &amp; petakan</div>
+      <div class="card-body">
+        <form method="get" class="row g-2 mb-2">
+          <input type="hidden" name="id" value="{{ selected.id }}">
+          <div class="col-sm-8">
+            <input class="form-control form-control-sm mono" name="q" value="{{ q if q is not none else '' }}" placeholder="filter nama group, mis. RANI- (kosong = 50 pertama)">
+          </div>
+          <div class="col-sm-4"><button class="btn btn-sm btn-outline-secondary w-100" type="submit">Cari di AD</button></div>
+        </form>
+        {% if groups_error %}<div class="alert alert-danger small py-2">{{ groups_error }}</div>{% endif %}
+        {% if q is not none %}
+        <table class="table table-sm table-tight mb-0 align-middle">
+          <thead class="table-light"><tr><th>Group</th><th>DN</th><th class="text-end">Petakan ke</th></tr></thead>
+          <tbody>
+            {% for g in groups %}
+            <tr>
+              <td>{{ g.name }}</td>
+              <td class="small mono text-break">{{ g.dn }}</td>
+              <td class="text-end">
+                <form method="post" action="/users/directory/{{ selected.id }}/map" class="d-flex gap-1 justify-content-end">
+                  <input type="hidden" name="group_dn" value="{{ g.dn }}">
+                  <input type="hidden" name="group_name" value="{{ g.name }}">
+                  <select class="form-select form-select-sm" name="role_id" style="width:auto">
+                    {% for r in roles %}<option value="{{ r.id }}">{{ r.slug }}</option>{% endfor %}
+                  </select>
+                  <button class="btn btn-sm btn-primary" type="submit">Petakan</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="small-muted p-3">tidak ada group cocok{% if groups_error %} (lihat error di atas){% endif %}.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="small-muted">Ketik kata kunci lalu <strong>Cari di AD</strong> untuk melihat daftar group, atau petakan manual dengan menempelkan DN group.</div>
+        <form method="post" action="/users/directory/{{ selected.id }}/map" class="row g-2 mt-1">
+          <div class="col-sm-5"><input class="form-control form-control-sm" name="group_name" placeholder="nama tampilan group"></div>
+          <div class="col-sm-7"><input class="form-control form-control-sm mono" name="group_dn" required placeholder="CN=RANI-Admins,OU=Groups,DC=corp,DC=local"></div>
+          <div class="col-sm-6">
+            <select class="form-select form-select-sm" name="role_id">
+              {% for r in roles %}<option value="{{ r.id }}">{{ r.slug }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6"><button class="btn btn-sm btn-primary w-100" type="submit">+ Petakan manual</button></div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">
+        <span>Riwayat sync</span>
+        {% if selected.last_sync_at %}<span class="small-muted">terakhir: {{ selected.last_sync_at | fmt_dt }} · {{ selected.last_sync_status }}</span>{% endif %}
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0 align-middle">
+          <thead class="table-light"><tr><th>Waktu</th><th>Mode</th><th>Status</th><th>User</th><th>+Baru</th><th>Update</th><th>Nonaktif</th><th>Error</th></tr></thead>
+          <tbody>
+            {% for r in runs %}
+            <tr>
+              <td class="small-muted text-nowrap">{{ r.started_at | fmt_dt }}</td>
+              <td>{{ r.mode }}</td>
+              <td>
+                {% if r.status == 'success' %}<span class="badge text-bg-success">success</span>
+                {% elif r.status == 'partial' %}<span class="badge text-bg-warning">partial</span>
+                {% elif r.status == 'running' %}<span class="badge text-bg-info">running</span>
+                {% else %}<span class="badge text-bg-danger">{{ r.status }}</span>{% endif %}
+              </td>
+              <td>{{ r.users_seen }}</td>
+              <td>{{ r.created }}</td>
+              <td>{{ r.updated }}</td>
+              <td>{{ r.deactivated }}</td>
+              <td class="small text-danger text-break">{{ r.error or '' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="small-muted p-3">belum ada sync. Klik <strong>Sync sekarang</strong>.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card"><div class="card-body small-muted">Buat connector di kiri, lalu test koneksi dan petakan group → role di sini.</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

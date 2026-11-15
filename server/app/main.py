@@ -11,8 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 from sqlalchemy import func, select, text
 
-from app.api import (agents_ui, auth, data, downloads, enroll, ingest, network, reports,
-                     reports_ui, scan, system, ui, users)
+from app.api import (agents_ui, auth, data, directory_ui, downloads, enroll, ingest,
+                     network, reports, reports_ui, scan, system, ui, users)
 from app.config import get_settings
 from app.db import SessionLocal, dispose_engine
 from app.models import AppUser, AppUserRole, Role
@@ -80,11 +80,35 @@ async def seed_admin() -> None:
             await session.commit()
 
 
+async def ad_sync_loop() -> None:
+    """Cek connector AD yang jatuh tempo tiap 60 detik; sync mode=interval."""
+    from app.adsync import connector_has_running_run, due_connectors, sync_connector
+
+    while True:
+        await asyncio.sleep(60)
+        try:
+            async with SessionLocal() as session:
+                due = await due_connectors(session)
+                for conn in due:
+                    if await connector_has_running_run(session, conn.id):
+                        continue
+                    log.info("ad sync (interval): connector %r domain %r",
+                             conn.name, conn.domain)
+                    try:
+                        await sync_connector(session, conn, mode="interval",
+                                             actor="system")
+                    except Exception:
+                        log.exception("ad sync connector %r gagal", conn.name)
+        except Exception:
+            log.exception("ad sync loop gagal")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
     app.state.redis = redis
     listener = asyncio.create_task(listen_forever(redis))
+    ad_task = asyncio.create_task(ad_sync_loop())
     await seed_admin()
     app.state.reports_enabled = await ensure_report_role()
     if app.state.reports_enabled:
@@ -93,6 +117,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         listener.cancel()
+        ad_task.cancel()
         try:
             await redis.aclose()
         except Exception:
@@ -120,6 +145,9 @@ def create_app() -> FastAPI:
     app.include_router(ui.router)
     app.include_router(reports_ui.router)
     app.include_router(reports.router)
+    # directory_ui harus sebelum users: /users/directory vs /users/{user_id}
+    app.include_router(directory_ui.router)
+    app.include_router(directory_ui.api_router)
     app.include_router(users.router)
     app.include_router(users.api_router)
     app.include_router(downloads.router)

@@ -186,6 +186,12 @@
                   <p>Role &amp; akses</p></a>
               </li>
               {% endif %}
+              {% if 'directory.view' in user.perm_set %}
+              <li class="nav-item">
+                <a href="/users/directory" class="nav-link {% if sub == 'directory' %}active{% endif %}">
+                  <p>Direktori (AD)</p></a>
+              </li>
+              {% endif %}
               {% if 'audit.view' in user.perm_set %}
               <li class="nav-item">
                 <a href="/users/sessions" class="nav-link {% if sub == 'sessions' %}active{% endif %}">

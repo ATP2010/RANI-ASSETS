@@ -19,6 +19,25 @@ def _fernet(pepper: str) -> Fernet:
     return Fernet(key)
 
 
+@lru_cache
+def _dir_fernet(pepper: str) -> Fernet:
+    key = urlsafe_b64encode(HKDF(algorithm=hashes.SHA256(), length=32,
+                                 salt=b"rani-directory-bind", info=b"v1").derive(
+        pepper.encode()))
+    return Fernet(key)
+
+
+def encrypt_directory_secret(plain: str, pepper: str) -> str:
+    return _dir_fernet(pepper).encrypt(plain.encode()).decode()
+
+
+def decrypt_directory_secret(token: str, pepper: str) -> str:
+    try:
+        return _dir_fernet(pepper).decrypt(token.encode()).decode()
+    except InvalidToken as exc:
+        raise ValueError("bind password connector tidak bisa didekripsi (pepper berubah?)") from exc
+
+
 def encrypt_secret(plain: str, pepper: str) -> str:
     return _fernet(pepper).encrypt(plain.encode()).decode()
 
