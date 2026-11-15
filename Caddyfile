@@ -1,0 +1,31 @@
+{
+	email {$RANI_ACME_EMAIL:admin@example.com}
+}
+
+{$RANI_DOMAIN:localhost} {
+	encode gzip zstd
+
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+
+	# WebSocket + HTTP reverse proxy ke api (port 8000 internal)
+	reverse_proxy api:8000 {
+		# Flush langsung agar WS/SSE realtime tidak tertahan
+		flush_interval -1
+		# Forward header standar (Caddy sudah set X-Forwarded-* otomatis)
+		header_up X-Real-IP {remote_host}
+	}
+
+	# Logging ke stdout (docker logs)
+	log {
+		output stdout
+		format console
+	}
+}

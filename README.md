@@ -13,6 +13,8 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
   (overview yang tampil di Docker Hub: [`docs/dockerhub-overview.md`](docs/dockerhub-overview.md)) ·
   compose siap pakai `docker-compose.hub.yml`, env contoh `.env.hub.example`,
   build+push `scripts/push-dockerhub.sh`.
+- Deploy dengan HTTPS (Caddy): [`docs/deploy-caddy.md`](docs/deploy-caddy.md) ·
+  overlay `docker-compose.caddy.yml` · installer satu perintah `scripts/install-ubuntu.sh`.
 - Panduan lain: [`docs/reports.md`](docs/reports.md) (custom report SQL) ·
   [`docs/scan.md`](docs/scan.md) (scan SNMP + custom OID) ·
   [`docs/users.md`](docs/users.md) (menu Users, role/permission, login lokal + AD) ·

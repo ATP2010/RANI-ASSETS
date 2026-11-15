@@ -1,0 +1,42 @@
+# Overlay opsional: reverse proxy + HTTPS otomatis (Let's Encrypt) di depan RANI.
+#
+# Pakai bersama file utama:
+#   docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
+#
+# Prasyarat:
+#   - DNS A/AAAA RANI_DOMAIN menunjuk ke IP server ini.
+#   - Port 80 dan 443 terbuka di firewall (ufw allow 80,443/tcp).
+#   - RANI_DOMAIN & RANI_ACME_EMAIL diisi di .env.
+#
+# Tanpa overlay ini, RANI tetap jalan di port RANI_HTTP_PORT (default 8091) via HTTP.
+name: ${COMPOSE_PROJECT_NAME:-rani}
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      RANI_DOMAIN: ${RANI_DOMAIN:-localhost}
+      RANI_ACME_EMAIL: ${RANI_ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  caddy_data:
+  caddy_config:
