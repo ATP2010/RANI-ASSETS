@@ -29,7 +29,7 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
 |---|---|
 | Server ingest + reconciler + UI (F1) | jalan, terverifikasi end-to-end |
 | Agent `raniPush` Linux | jalan, terverifikasi (payload nyata → asset) |
-| Agent `raniPush` Windows (WMI/registry/PowerShell) | kode ada, **belum diuji di PC Windows nyata** |
+| Agent `raniPush` Windows (WMI/registry/PowerShell) | kode ada (**0.2.1**: pindah server tanpa hapus config), **belum diuji di PC Windows nyata** |
 | Custom reports SQL (`/reports`) | jalan — role DB read-only, grid + filter kolom, export CSV |
 | Scan SNMP (`/agents/scan`) | jalan — grup IP + custom OID, probe v1/v2c, asset `network` otomatis; jadwal otomatis belum |
 | Deploy Docker Hub | `adhityatp/raniassets:<tag>` — pull & run tanpa build ([`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md)) |

@@ -50,6 +50,8 @@ out = pathlib.Path(sys.argv[1])
     " 2. PowerShell as Administrator:\r\n"
     "      .\\raniPush.cmd 192.168.88.92:8091\r\n"
     "      (tanpa token/enroll; mode HMAC legacy: .\\raniPush.cmd --enroll <TOKEN> 192.168.88.92:8091)\r\n"
+    "      Server lain? cukup ganti alamat servernya; agent otomatis membuang identitas\r\n"
+    "      enroll lama, atau paksa dengan --reset-identity\r\n"
     " 3. Jadwalkan (SYSTEM, tiap 60 menit):\r\n"
     "      schtasks /create /tn RaniPush /sc hourly /ru SYSTEM /rl HIGHEST /f ^\r\n"
     "        /tr \"C:\\Rani-portable\\raniPush.cmd 192.168.88.92:8091\"\r\n\r\n"

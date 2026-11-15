@@ -170,6 +170,7 @@ Get-Content C:\ProgramData\Rani\raniPush.log -Tail 30
 | Gejala | Cek / solusi |
 |---|---|
 | `push gagal (401)` | agent di-revoke, atau server memakai `RANI_TOKENLESS_PUSH=0` (maka perlu token + HMAC), atau `X-Rani-Agent-Id` dikirim tanpa signature |
+| `push gagal (401): {"detail":"agent tidak dikenal/direvoke"}` saat push ke server **berbeda** | config masih menyimpan `agent_id`/`agent_secret` hasil enroll server lama — argumen alamat hanya mengganti server, bukan identitas. Agent versi baru otomatis membuang identitas itu saat target berubah; paksa manual: `.\raniPush.cmd --reset-identity`, atau pisahkan config per server dengan `set RANI_CONFIG_DIR=C:\Rani\cfg-nama` |
 | `push gagal (400)` | header wajib hilang / `agent-id tanpa signature` — biasanya config lama hasil enroll; hapus `C:\ProgramData\Rani\config.json` lalu jalankan ulang |
 | `push gagal (409)` | nonce replay (jam PC mundur) → sinkronkan waktu Windows: `w32tm /resync` |
 | `push gagal (422)` | payload tidak lolos skema → kirim output `--collect` untuk diagnosa |
@@ -186,6 +187,16 @@ Reset konfigurasi lokal (pindah server / config rusak):
 Remove-Item C:\ProgramData\Rani\config.json
 .\raniPush-signed.exe 192.168.88.92:8091
 ```
+
+Atau lebih halus (hanya membuang identitas enroll, menyisakan server + interval):
+
+```powershell
+.\raniPush.cmd --reset-identity
+```
+
+Satu PC boleh push ke beberapa server: pakai config terpisah per server
+(`set RANI_CONFIG_DIR=C:\Rani\cfg-<nama>` sebelum menjalankan agent), karena
+`agent_secret` hasil enroll hanya sah di server yang menerbitkannya.
 
 Cabut akses PC (hilang/dicuri): UI **Agents** → tombol **Revoke**. Push berikutnya dari PC
 tersebut ditolak 401 (machine_id tetap dikenali, jadi tidak otomatis mendaftar ulang).

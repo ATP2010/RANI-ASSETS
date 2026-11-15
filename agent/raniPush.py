@@ -6,6 +6,7 @@ Pemakaian:
     raniPush --collect                             # cetak payload JSON ke stdout
     raniPush --from-file payload.json <server>     # kirim payload yang sudah ada
     raniPush --enroll <token> <server>             # opsional/legacy: daftar + pakai HMAC
+    raniPush --reset-identity                      # lupakan enroll server lama (pindah server)
 
 Mode default tidak butuh token/enroll: PC dikenali server dari machine_id di payload,
 dan push pertama otomatis mendaftarkan agent di server. Enroll + HMAC tetap tersedia
@@ -34,7 +35,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-AGENT_VERSION = "0.2.0"
+AGENT_VERSION = "0.2.1"
 SCHEMA_VERSION = 1
 IS_WINDOWS = os.name == "nt"
 
@@ -588,6 +589,17 @@ def push_payload(payload: dict, cfg: dict, server: str | None = None) -> int:
     base = normalize_server(target)
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
 
+    # Identitas enroll hanya berlaku untuk server yang menerbitkannya. Kalau target
+    # berganti (mis. agent hasil enroll server lain dipakai untuk push ke server kedua),
+    # identitas lama dibuang supaya server baru mendaftarkan agent mode `direct`.
+    # Tanpa ini server menolak 401 "agent tidak dikenal/direvoke".
+    previous = normalize_server(str(cfg.get("server"))) if cfg.get("server") else ""
+    if previous and previous != base and (cfg.get("agent_id") or cfg.get("agent_secret")):
+        say(f"server tujuan berbeda dari config ({previous} -> {base}); identitas enroll "
+            f"lama dibuang, push memakai mode tanpa token")
+        cfg.pop("agent_id", None)
+        cfg.pop("agent_secret", None)
+
     agent_id = cfg.get("agent_id")
     secret = cfg.get("agent_secret")
     headers = {"Content-Type": "application/json"}
@@ -612,6 +624,10 @@ def push_payload(payload: dict, cfg: dict, server: str | None = None) -> int:
               f"agent={data.get('agent_id') or agent_id or '-'} next={data.get('next_interval_s')}s")
         return 0
     say(f"push gagal ({status}): {text}", error=True)
+    if status == 401 and "agent tidak dikenal" in text:
+        say("hint: config ini menyimpan agent dari server lain — jalankan "
+            "`raniPush --reset-identity`, atau pisahkan config per server dengan "
+            "RANI_CONFIG_DIR", error=True)
     transient = status is None or status >= 500 or status in (408, 425, 429)
     return 2 if transient else 1
 
@@ -659,7 +675,19 @@ def main(argv: list[str] | None = None) -> int:
                         help="opsional/legacy: enroll dengan token lalu pakai HMAC")
     parser.add_argument("--collect", action="store_true", help="cetak payload JSON lalu keluar")
     parser.add_argument("--from-file", metavar="PATH", help="kirim payload dari file JSON")
+    parser.add_argument("--reset-identity", action="store_true",
+                        help="hapus agent_id/agent_secret dari config (pindah server)")
     args = parser.parse_args(argv)
+
+    if args.reset_identity:
+        cfg = load_config()
+        had = bool(cfg.get("agent_id") or cfg.get("agent_secret"))
+        cfg.pop("agent_id", None)
+        cfg.pop("agent_secret", None)
+        save_config(cfg)
+        say(f"identitas enroll dihapus dari {CONFIG_PATH}" if had
+            else f"config {CONFIG_PATH} tidak menyimpan identitas enroll")
+        return 0
 
     if args.collect:
         payload = collect_windows() if IS_WINDOWS else collect_linux()
