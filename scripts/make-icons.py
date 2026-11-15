@@ -6,12 +6,13 @@ Contoh:
     python3 scripts/make-icons.py logo.png --out server/app/static/img
 
 Hasil (default ke server/app/static/img/):
-    icon.png              logo sidebar (128 px, tampil maks 30 px)
-    icon-32.png           ikon kecil (sidebar ringkas / favicon PNG)
-    icon-192.png          ikon manifest & halaman login
-    icon-512.png          ikon manifest (install web app)
-    apple-touch-icon.png  180x180 untuk iOS
-    favicon.ico           multi-ukuran 16/32/48
+    rani-logo-512.png        logo utama (512 px; halaman login + manifest)
+    rani-adminlte-brand-160.png  logo sidebar AdminLTE (160 px, tampil ~33 px)
+    favicon-32.png           ikon kecil (sidebar ringkas / favicon PNG 32)
+    favicon-48.png           favicon PNG 48
+    icon-192.png             ikon manifest (192)
+    apple-touch-icon-180.png 180x180 untuk iOS
+    favicon.ico              multi-ukuran 16/32/48
 
 Syarat sumber: PNG (idealnya persegi, >= 512 px, latar transparan). Sumber
 non-persegi akan dipad ke tengah dengan area transparan — tidak dipotong.
@@ -30,8 +31,9 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("ERROR: Pillow belum terpasang. Jalankan: pip install pillow")
 
-PNG_SIZES = {"icon-32.png": 32, "icon-192.png": 192, "icon-512.png": 512,
-             "apple-touch-icon.png": 180, "icon.png": 128}
+PNG_SIZES = {"rani-logo-512.png": 512, "rani-adminlte-brand-160.png": 160,
+             "favicon-32.png": 32, "favicon-48.png": 48,
+             "icon-192.png": 192, "apple-touch-icon-180.png": 180}
 ICO_SIZES = [(16, 16), (32, 32), (48, 48)]
 
 

@@ -10,11 +10,12 @@ dibangun ulang.
 | File | Ukuran | Dipakai di |
 |---|---|---|
 | `server/app/static/img/favicon.ico` | 16/32/48 (multi) | tab browser, bookmark |
-| `server/app/static/img/icon-32.png` | 32x32 | `<link rel="icon">` modern + logo sidebar saat ringkas |
-| `server/app/static/img/icon-192.png` | 192x192 | `<link rel="icon">`, manifest, logo halaman login |
-| `server/app/static/img/icon-512.png` | 512x512 | manifest (install web app / Android) |
-| `server/app/static/img/apple-touch-icon.png` | 180x180 | iOS home screen |
-| `server/app/static/img/icon.png` | 128x128 | logo brand sidebar (tampil maks 30 px) |
+| `server/app/static/img/favicon-32.png` | 32x32 | `<link rel="icon">` modern + logo sidebar saat ringkas (class `logo-xs`) |
+| `server/app/static/img/favicon-48.png` | 48x48 | `<link rel="icon" sizes="48x48">`, shortcut Windows |
+| `server/app/static/img/icon-192.png` | 192x192 | manifest (install web app) |
+| `server/app/static/img/rani-logo-512.png` | 512x512 | logo halaman login (96 px) + manifest |
+| `server/app/static/img/apple-touch-icon-180.png` | 180x180 | iOS home screen |
+| `server/app/static/img/rani-adminlte-brand-160.png` | 160x160 | logo brand sidebar AdminLTE (`brand-image`, tampil ~33 px) |
 | `server/app/static/manifest.json` | — | nama `RANI — asset inventory`, `theme_color`, ikon 192/512 |
 
 Template yang merujuk file tersebut: `server/app/templates/base.html` (head + brand
@@ -47,13 +48,17 @@ Contoh keluaran:
 sumber : /root/logo-baru.png 1024x1024 → dipad 1024x1024
 tujuan : /root/RaniProject/ProjectDev/server/app/static/img
 
-  icon-32.png             32x32     2,797 B  sha256:bee9f3f8a75e
-  icon-192.png           192x192   48,561 B  sha256:135a6a3c114f
-  icon-512.png           512x512  231,739 B  sha256:55f22b53dd6e
-  apple-touch-icon.png   180x180   43,623 B  sha256:dd56e9863e4f
-  icon.png               128x128   25,015 B  sha256:065bbd4a04d4
-  favicon.ico            16/32/48    8,942 B  sha256:0cc02dd3271a
+  rani-logo-512.png       512x512  231,739 B  sha256:55f22b53dd6e
+  rani-adminlte-brand-160.png 160x160   8,204 B  sha256:1fa84c2b10aa
+  favicon-32.png           32x32     2,797 B  sha256:bee9f3f8a75e
+  favicon-48.png           48x48     4,108 B  sha256:912cbd01f77c
+  icon-192.png             192x192   48,561 B  sha256:135a6a3c114f
+  apple-touch-icon-180.png  180x180   43,623 B  sha256:dd56e9863e4f
+  favicon.ico              16/32/48    8,942 B  sha256:0cc02dd3271a
 ```
+
+Catatan: `favicon.ico` dan `icon-192.png` di-generate dari `rani-logo-512.png`
+(Pillow), jadi keduanya selalu konsisten dengan logo utama.
 
 Script menimpa file lama dan bisa dijalankan berulang (idempoten). Opsi `--out` dipakai
 kalau ingin menulis ke direktori lain lebih dulu untuk diperiksa.
@@ -67,11 +72,12 @@ SRC=logo-baru.png
 TMP=$(mktemp -d)
 convert "$SRC" -background none -gravity center -extent 1024x1024 "$TMP/sq.png"
 cd /root/RaniProject/ProjectDev/server/app/static/img
-convert "$TMP/sq.png" -resize 32x32   icon-32.png
+convert "$TMP/sq.png" -resize 512x512 rani-logo-512.png
+convert "$TMP/sq.png" -resize 160x160 rani-adminlte-brand-160.png
+convert "$TMP/sq.png" -resize 32x32   favicon-32.png
+convert "$TMP/sq.png" -resize 48x48   favicon-48.png
 convert "$TMP/sq.png" -resize 192x192 icon-192.png
-convert "$TMP/sq.png" -resize 512x512 icon-512.png
-convert "$TMP/sq.png" -resize 180x180 apple-touch-icon.png
-convert "$TMP/sq.png" -resize 128x128 icon.png
+convert "$TMP/sq.png" -resize 180x180 apple-touch-icon-180.png
 convert "$TMP/sq.png" -define icon:auto-resize=48,32,16 favicon.ico
 ```
 
@@ -85,8 +91,9 @@ side = max(src.size)
 sq = Image.new('RGBA', (side, side), (0, 0, 0, 0))
 sq.paste(src, ((side - src.width) // 2, (side - src.height) // 2), src)
 out = 'server/app/static/img/'
-for name, px in {'icon-32.png': 32, 'icon-192.png': 192, 'icon-512.png': 512,
-                 'apple-touch-icon.png': 180, 'icon.png': 128}.items():
+for name, px in {'rani-logo-512.png': 512, 'rani-adminlte-brand-160.png': 160,
+                 'favicon-32.png': 32, 'favicon-48.png': 48,
+                 'icon-192.png': 192, 'apple-touch-icon-180.png': 180}.items():
     sq.resize((px, px), Image.LANCZOS).save(out + name, optimize=True)
 sq.save(out + 'favicon.ico', format='ICO', sizes=[(16, 16), (32, 32), (48, 48)])
 PY
@@ -98,9 +105,10 @@ Sudah terpasang di `base.html`:
 
 ```html
 <link rel="icon" href="/static/img/favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="/static/img/icon-32.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/static/img/favicon-48.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/static/img/icon-192.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon-180.png">
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#0d6efd" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#212529" media="(prefers-color-scheme: dark)">
@@ -110,8 +118,8 @@ Brand sidebar (logo besar + logo kecil saat ringkas):
 
 ```html
 <a href="/" class="brand-link" title="RANI">
-  <img src="/static/img/icon-32.png" alt="" class="logo-xs brand-image-xs">
-  <img src="/static/img/icon.png" alt="RANI" class="brand-image">
+  <img src="/static/img/favicon-32.png" alt="" class="logo-xs brand-image-xs">
+  <img src="/static/img/rani-adminlte-brand-160.png" alt="RANI" class="brand-image">
   <span class="brand-text fw-semibold">RANI</span>
 </a>
 ```
@@ -120,7 +128,7 @@ Brand sidebar (logo besar + logo kecil saat ringkas):
 
 ```html
 <div class="login-logo">
-  <img src="/static/img/icon-192.png" alt="RANI" width="64" height="64" class="mb-2">
+  <img src="/static/img/rani-logo-512.png" alt="RANI" width="96" height="96" class="mb-2">
   <div><span class="fw-semibold">RANI</span> <span class="small-muted">asset inventory</span></div>
 </div>
 ```
@@ -147,8 +155,9 @@ Jangan pakai `docker compose up` di sesi tooling (foreground) — pakai tiga per
 Cek setiap aset (harus 200 dengan content-type benar):
 
 ```bash
-for f in img/favicon.ico img/icon-32.png img/icon-192.png img/icon-512.png \
-         img/apple-touch-icon.png img/icon.png manifest.json; do
+for f in img/favicon.ico img/favicon-32.png img/favicon-48.png \
+         img/icon-192.png img/rani-logo-512.png img/rani-adminlte-brand-160.png \
+         img/apple-touch-icon-180.png manifest.json; do
   curl -sS -o /dev/null -w "$f -> %{http_code} %{content_type} %{size_download}B\n" \
     "http://127.0.0.1:8091/static/$f"
 done

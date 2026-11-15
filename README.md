@@ -18,11 +18,12 @@ Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realti
   [`docs/users.md`](docs/users.md) (menu Users, role/permission, login lokal + AD) ·
   [`docs/branding.md`](docs/branding.md) (logo/ikon) ·
   [`docs/agent-windows.md`](docs/agent-windows.md) (agent Windows).
-- Ikon aplikasi: `server/app/static/img/` (`favicon.ico`, `icon-32/192/512.png`,
-  `apple-touch-icon.png`) + `static/manifest.json`; logo sidebar memakai `icon.png` dan
-  versi kecil `icon-32.png` saat sidebar ringkas. Ganti logo = jalankan
-  `python3 scripts/make-icons.py <logo.png>` lalu rebuild image — langkah lengkap di
-  [`docs/branding.md`](docs/branding.md).
+- Ikon aplikasi: `server/app/static/img/` (`favicon.ico`, `favicon-32/48.png`,
+  `icon-192.png`, `rani-logo-512.png`, `rani-adminlte-brand-160.png`,
+  `apple-touch-icon-180.png`) + `static/manifest.json`; logo sidebar memakai
+  `rani-adminlte-brand-160.png` dan `favicon-32.png` saat sidebar ringkas.
+  Ganti logo = jalankan `python3 scripts/make-icons.py <logo.png>` lalu rebuild
+  image — langkah lengkap di [`docs/branding.md`](docs/branding.md).
 
 ## Status sekarang
 
