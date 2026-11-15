@@ -16,7 +16,6 @@ import hmac
 import re
 import time
 from pathlib import Path
-from urllib.parse import quote
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -167,9 +166,10 @@ def render_actions(action_rows, asset, base_url: str | None = None) -> list[dict
                                        parts[1] if len(parts) > 1 else "").strip()
             exp, sig = action_file_token(fname, settings.RANI_ACTIONS_URLTTL_S,
                                          settings.RANI_INGEST_PEPPER)
-            item["href"] = (f"raniaction://run?f={quote(fname)}"
-                            f"&exp={exp}&sig={sig}&a={quote(args)}")
-            item["script"] = fname
+            item["file"] = fname
+            item["args"] = args
+            item["exp"] = exp
+            item["sig"] = sig
         else:
             text = _PLACEHOLDER_RE.sub(lambda m: params.get(m.group(1), ""),
                                        command).strip()

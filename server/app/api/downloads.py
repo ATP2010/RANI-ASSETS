@@ -23,6 +23,8 @@ ARTIFACTS: dict[str, tuple[str, str]] = {
     "raniPush.exe": ("raniPush.exe tanpa signature", "release"),
     "raniPush-portable.zip": ("Paket portable (python embeddable)", "release"),
     "rani-push-signing.cer": ("Sertifikat publik RANI Internal Code Signing", "release"),
+    "rani-action-host.exe": ("RANI Actions — native host (pasang sekali per PC)", "release"),
+    "rani-actions-extension.zip": ("RANI Actions — ekstensi browser (Load unpacked)", "release"),
     "install-cert.ps1": ("Script pemasangan sertifikat (PowerShell)", "scripts"),
 }
 

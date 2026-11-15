@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "RANI Actions",
+  "version": "1.0.0",
+  "description": "Menjalankan aksi cepat RANI (RDP, SSH, skrip, dll.) dari halaman web RANI — meniru Lansweeper Shell Execute.",
+  "permissions": [
+    "nativeMessaging",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "action": {
+    "default_title": "RANI Actions",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "minimum_chrome_version": "102",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArevMwxYXCSaluoVZP3v8K58T7OcNPHNH/AV8rHD1hDzG67gZJJouvPKpQ7muIT5uVeCms5pKQ0S4xThmyxQUFKzc3Y/V/rkk/HisSdjVDr9CT49DJndV1LZ9kKkQN2FniSA+DapE1nxPFP+mhb2h0El8RoStrCyuct1Wx+f9s+X6WVuNVW4m7p9oT8/noWC8jtYewL4FuHV20+jc0Rwpl8bl5xI92uLlXudqykEavR3hYirjEQup6tlFGubi+S01u9wQJKLPO/q3N1OSGpqJKL1A9//mhPNFJb0/HhUpTpLzzXWqR7/TaG5LrfFS9FJJ9AKLK+JxibanK4+3vUOZ2QIDAQAB"
+}

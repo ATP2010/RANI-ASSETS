@@ -15,6 +15,7 @@
       {% for act in acts if not act.advanced %}
       <li>
         {% if act.href %}<a class="dropdown-item small" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
+        {% elif act.file %}<button type="button" class="dropdown-item small ap-script" data-rani-action data-file="{{ act.file }}" data-args="{{ act.args }}" data-exp="{{ act.exp }}" data-sig="{{ act.sig }}"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</button>
         {% else %}<button class="dropdown-item small ap-copy" type="button" data-copy="{{ act['copy'] }}" data-label="{{ act.label }}">{{ act.label }}</button>{% endif %}
       </li>
       {% endfor %}
@@ -25,6 +26,7 @@
       {% for act in adv %}
       <li>
         {% if act.href %}<a class="dropdown-item small" href="{{ act.href }}" rel="noopener"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</a>
+        {% elif act.file %}<button type="button" class="dropdown-item small ap-script" data-rani-action data-file="{{ act.file }}" data-args="{{ act.args }}" data-exp="{{ act.exp }}" data-sig="{{ act.sig }}"{% if act.confirm %} data-confirm="{{ act.label }}?"{% endif %}>{{ act.label }}</button>
         {% else %}<button class="dropdown-item small ap-copy" type="button" data-copy="{{ act['copy'] }}" data-label="{{ act.label }}">{{ act.label }}</button>{% endif %}
       </li>
       {% endfor %}
@@ -405,6 +407,28 @@
       document.body.removeChild(ta);
     });
   }
+
+  // ekstensi RANI Actions (chrome/edge) menangani klik [data-rani-action];
+  // tanpa ekstensi, tampilkan hint ke dokumentasi.
+  function showToast(msg) {
+    var el = document.createElement('div');
+    el.textContent = msg;
+    el.setAttribute('role', 'alert');
+    el.style.cssText = 'position:fixed;bottom:1.25rem;right:1.25rem;z-index:2000;' +
+      'background:var(--bs-dark);color:var(--bs-light);padding:.55rem .8rem;' +
+      'border-radius:.5rem;font-size:.85rem;box-shadow:0 .4rem 1.2rem rgba(0,0,0,.35);' +
+      'max-width:22rem';
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 4500);
+  }
+  document.querySelectorAll('[data-rani-action]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      if (window.__RANI_ACTIONS__) return; // ekstensi menangkap dulu (capture)
+      e.preventDefault();
+      showToast('Ekstensi RANI Actions belum terpasang — lihat /docs/actions §7');
+    });
+  });
+
   document.querySelectorAll('[data-confirm]').forEach(function (el) {
     el.addEventListener('click', function (e) {
       if (!window.confirm(el.dataset.confirm)) { e.preventDefault(); e.stopPropagation(); }

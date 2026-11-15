@@ -9,12 +9,15 @@ Tiga jenis action:
 
 | Jenis | Contoh | Dieksekusi di |
 |---|---|---|
-| `link` | `rdp://{ipaddress}`, `https://{fqdn}` | browser → handler OS (`rdp://`, `ssh://`, …) |
+| `link` | `rdp://{ipaddress}`, `https://{fqdn}` | browser → handler protokol OS |
 | `copy` | `mstsc /v:{ipaddress}` | clipboard klien |
-| `script` | `ping.bat {ipaddress}` | **PC orang yang klik** — download dari server lalu dijalankan di sana (pola `lansweeper$`) |
+| `script` | `ping.bat {ipaddress}` | **PC orang yang klik** — seperti Lansweeper **Shell Execute**: extension Chromium + native host (`rani-action-host.exe`) |
 
-Semua dieksekusi **di mesin klien**, bukan di server dan bukan di PC target;
-browser pengguna yang menjalankan aksi dengan kredensial *pengguna itu sendiri*.
+Action script bekerja seperti Lansweeper: tombol di web memanggil **ekstensi
+browser "RANI Actions"** (Edge/Chrome), ekstensi mengirim pesan lewat **native
+messaging** ke **`rani-action-host.exe`** di PC pengguna, host men-download skrip
+dari server (token HMAC, 5 menit), lalu **mengeksekusinya di PC itu** dengan
+argumen asset. Kredensial user dipakai apa adanya — tidak pernah dikirim ke server.
 
 ## 1. Di mana Actions tampil
 
@@ -100,26 +103,27 @@ bila mesin klien punya handler.
 | Menu Setup tidak muncul | Role Anda tidak punya `setup.view`; minta admin atur permission di **Users → Role & akses** |
 | Popup memotong tepi layar | Popup otomatis di atas/di bawah hostname; pada layar <720px isinya di-scroll |
 
-## 7. Action script — skrip dijalankan di PC pengguna (`raniaction://`)
+## 7. Action script — skrip dijalankan di PC pengguna (RANI Actions extension)
 
-Seperti Lansweeper (`lansweeper$` + handler `lansweeper://`), RANI meniru alurnya:
-skrip kecil disimpan di **server** (`./actions/`, read-only ke container); saat user
-membuka web dan mengklik action, browser memanggil protokol `raniaction://` yang
-terdaftar **di PC pengguna**; handler memvalidasi, mengunduh skrip dari server, dan
-menjalankannya di PC itu dengan argumen asset (mis. IP).
+Ini pola Lansweeper persis: alih-alih mendaftarkan protokol OS (`raniaction://`),
+RANI menyediakan **ekstensi Chromium "RANI Actions"** (Edge/Chrome). Pengguna
+memasang **satu paket** (ekstensi + native host, dari dua file unduhan) dan bisa
+langsung klik action di web RANI — tanpa protokol OS, tanpa langkah manual per aksi.
 
 ```
-PC pengguna                                                Server RANI
-┌──────────────────────────┐   raniaction://run?f=ping.bat&exp=…&sig=…&a=192.168.1.5
-│ Browser → HKCU protocol  │ ──────────────────────────────────────────────┐
-│   ↓                      │                                                │
-│ rani-action.ps1          │   GET /actions/files/ping.bat?exp=…&sig=…     │
-│   ↓ validasi (origin,    │ ──────────────────────────────────────────────┤
-│     ekstensi, args,      │                                                │
-│     token HMAC 5 menit)  │   200 OK (bat, 129 B)                          │
-│   ↓                      │ ◀───────────────────────────────────────────────┘
-│ cmd /c ping.bat 192.168.1.5                                  ✓ user melihat hasil di PC sendiri
-└──────────────────────────┘
+PC pengguna                                                 Server RANI
+┌─────────────────────────────┐  klik "Ping (skrip)"        │
+│ Browser (Edge/Chrome)        │ ──────────────────────────┐ │
+│   ↓ content.js (capture)     │                            │ │
+│ RANI Actions extension       │   GET /actions/files/…     │ │
+│   ↓ chrome.runtime.          │ ◀──────────────────────────┤ │
+│ nativeMessaging              │                            │ │
+│   ↓                          │   200 OK ping.bat          │ │
+│ rani-action-host.exe         │ ◀──────────────────────────┘ │
+│   ↓ validasi (origin, ext,   │                              │
+│     arg whitelist)           │                              │
+│ cmd /c ping.bat 192.168.1.5  │                              │
+└─────────────────────────────┘
 ```
 
 ### 7.1 Menulis skrip sendiri
@@ -147,87 +151,101 @@ informasi/argumen via placeholder action — jangan hardcode IP.
 1. Buka **Setup → Actions** → *Action baru*.
 2. **Nama**: mis. `Remote Desktop (RDP)`.
 3. **Jenis**: `script (file server, klik → PC pengguna)`.
-4. **Perintah**: `rdp.bat {ipaddress}` — nama file + args (args disubstitusi dari
-   asset saat klik).
-5. Centang *Tanyakan konfirmasi* untuk RDP/restart; centang *Advanced* untuk aksi
+4. **Perintah**: `rdp.bat {ipaddress}` — nama file + args (disubstitusi dari asset
+   saat klik).
+5. Centang *Tanyakan konfirmasi* untuk RDP/restart; *Advanced* untuk aksi
    berisiko. Simpan.
 
-File harus ada di folder `./actions/` server — kalau tidak, penyimpanan ditolak dengan
-pesan jelas. Pratinjau di halaman menampilkan `raniaction://run?f=rdp.bat&…&a=192.168.88.10`.
+File harus ada di folder `./actions/` server — penyimpanan ditolak bila belum ada.
 
-### 7.3 Menginstall handler di PC pengguna (tanpa admin)
+### 7.3 Menginstall extension + native host (sekali per PC, tanpa admin)
 
-Di setiap PC yang diizinkan menjalankan action script, jalankan **sekali**:
+Unduh dua file dari menu **Agents** di web (butuh login, bagian "RANI Actions") atau
+`http://<server>:8091/downloads/…`:
+
+1. `rani-action-host.exe` (native host, ~7 MB)
+2. `rani-actions-extension.zip` (ekstensi + installer)
+
+Lalu:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\install-action-handler.ps1 -ServerUrl https://rani.corp.local:8091
+# dari folder hasil unzip:
+powershell -ExecutionPolicy Bypass -File .\install-extension.ps1 -ServerUrl https://rani.corp.local:8091
 ```
 
-atau double-klik `actions/handler/install.bat https://rani.corp.local:8091`.
+Installer (`install-extension.ps1`) melakukan **semua** konfigurasi tanpa admin:
 
-Installer (`install-action-handler.ps1`) bekerja dengan hak user biasa (HKCU):
+1. Menyalin `rani-action-host.exe` ke `%ProgramData%\rani-action\rani-action-host.exe`;
+2. Menulis `config.json` berisi **origin server RANI** Anda;
+3. Menulis native messaging manifest `com.rani.action_host.json`
+   (`allowed_origins = chrome-extension://lfkhhkhfcfkcmeefpijfoojicckpnkjo/`);
+4. Mendaftarkan di
+   `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.rani.action_host`,
+   `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.rani.action_host`, dan
+   `HKCU\Software\Chromium\NativeMessagingHosts\com.rani.action_host`.
 
-1. Menyalin `rani-action.ps1` ke `%ProgramData%\RaniAction\rani-action.ps1`;
-2. Menulis `config.json` berisi **origin server RANI** Anda
-   (`{ "server_url": "https://rani.corp.local:8091" }`);
-3. Mendaftarkan protokol `raniaction://` di
-   `HKCU\Software\Classes\raniaction` →
-   `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "…rani-action.ps1" "%1"`.
+Dan pasang ekstensi:
 
-Tidak ada yang di-download / di-register di luar itu. Untuk banyak PC, mass-deploy via
-GPO/SCCM/Intune (file-file kecil, tidak butuh admin).
+1. Buka `edge://extensions` (Chrome: `chrome://extensions`);
+2. Aktifkan **Developer mode** (toggle kanan atas);
+3. Klik **Load unpacked** → pilih folder hasil unzip;
+4. Klik ikon puzzle → **RANI Actions** → **Enable on this site** (bila diminta).
 
-**Uninstall**: di PC (sekali): `…uninstall-action-handler.ps1` atau hapus key
-`HKCU\Software\Classes\raniaction` + folder `%ProgramData%\RaniAction`.
+ID ekstensi selalu `lfkhhkhfcfkcmeefpijfoojicckpnkjo` (dikunci oleh field `"key"` di
+manifest), sehingga native manifest selalu valid tanpa diatur manual. Untuk banyak PC,
+mass-deploy via GPO/SCCM/Intune (tiga file, tanpa admin).
+
+**Uninstall**: dari folder unzip jalankan `uninstall-extension.ps1` (atau
+`install-extension.ps1 -ServerUrl … -Uninstall`), lalu hapus ekstensi dari halaman
+extensions.
 
 ### 7.4 Alur klik, langkah demi langkah
 
-1. User membuka RANI di browser, hover hostname di menu Assets, klik `Remote Desktop (RDP)`.
-2. Browser melihat link `raniaction://run?f=rdp.bat&exp=…&sig=…&a=192.168.88.10` →
-   Windows lookup `HKCU\Software\Classes\raniaction` → menjalankan PowerShell handler
-   dengan URI itu.
-3. Handler memvalidasi:
-   - `f` = `rdp.bat` (tanpa path, ekstensi diizinkan);
-   - `exp` belum kedaluwarsa (5 menit sejak halaman di-render);
-   - `sig` HMAC valid terhadap filename + expiry (dihitung server dengan pepper);
-   - `a` hanya karakter `[A-Za-z0-9._:-]` (anti command injection).
-4. Handler mengunduh `https://<server-anda>/actions/files/rdp.bat` (divalidasi ulang
-   di server: filename, ekstensi, HMAC) ke `%TEMP%\RANI`.
-5. Handler menjalankan `cmd /c "…\rdp.bat" 192.168.88.10` — jendela mstsc terbuka
-   di PC user, berisi IP target. Kredensial RDP tetap diminta oleh Windows.
+1. User membuka RANI di Edge/Chrome, hover hostname di Assets, klik `Ping (skrip)`.
+2. `content.js` (capture) melihat tombol `[data-rani-action]` → `preventDefault` →
+   kirim pesan ke service worker ekstensi.
+3. Service worker memanggil `chrome.runtime.sendNativeMessage('com.rani.action_host', …)`.
+4. Native host memvalidasi: `file` polos + ekstensi diizinkan, argumen hanya
+   `[A-Za-z0-9._:-]`, `exp` belum kedaluwarsa, `origin` == `server_origin` di `config.json`.
+5. Native host mengunduh `https://<server>/actions/files/ping.bat?exp=…&sig=…`
+   (divalidasi ulang di server: filename, ekstensi, HMAC 5 menit) ke
+   `%TEMP%\rani-action\run-<acak>\`.
+6. Native host menjalankan `cmd /c "ping.bat" 192.168.88.10` — jendela ping/terminal
+   terbuka di PC user. Kredensial RDP tetap diminta Windows saat aksi RDP.
 
 ### 7.5 Keamanan
 
-- **Handler hanya mau men-download dari server RANI Anda** (origin di `config.json`).
-  URI `raniaction://` menuju host lain diabaikan/dierror.
-- Ekstensi dibatasi di **tiga** tempat: form Setup (validasi), endpoint download
-  (`/actions/files/{file}`), dan handler klien (`.bat .cmd .ps1 .exe .msi`).
-- Argumen divalidasi karakter-per-karakter (`[A-Za-z0-9._:-]`) — tidak bisa menyisipkan
-  `;`/`&`/spasi perintah berbahaya. Placeholder `{ipaddress}`/`{fqdn}`/`{mac}` menghasilkan
-  token yang selalu cocok.
-- Token HMAC (`sig`) berlaku 5 menit; `exp` kedaluwarsa ditolak baik di server
-  (`/actions/files/*`) maupun di handler. Token dibuat per render; tidak di-cache.
-- Folder `./actions/` di-*mount read-only* ke container (`:ro`); file di dalamnya ada
-  di repo git — tidak bisa ditulis dari dalam container.
-- Action script bukan alat deployment: jika skrip bersifat destruktif (restart server,
-  shutdown), Anda **wajib** mengaktifkan *Tanyakan konfirmasi*; log semua perubahan
-  masuk `audit_logs`.
-- Tidak ada kredensial yang disimpan, tidak ada langkah yang menulis ke PC tanpa aksi
-  klik user.
+- Ekstensi hanya aktif di halaman RANI (marker `<meta name="rani" content="app">`);
+  di situs lain ekstensi diam total.
+- Native host hanya menerima `origin` yang cocok dengan `server_origin` di
+  `config.json` (dibuat installer).
+- Tidak ada akses ke file/passwords di browser; native host hanya menjalankan file
+  yang ada di `./actions/` server — divalidasi di **tiga lapis** (form Setup,
+  endpoint download, native host).
+- Argumen divalidasi whitelist karakter `[A-Za-z0-9._:-]` — tidak bisa menyisipkan
+  `;` / `&` / `|` / spasi perintah shell.
+- Token HMAC (`sig`) berlaku 5 menit (`RANI_ACTIONS_URLTTL_S`); `exp` kedaluwarsa
+  ditolak di server maupun di native host. Token dibuat per render; tidak di-cache.
+- Folder `./actions/` di-*mount read-only* ke container; file di dalamnya ada di git.
+- Action script bukan alat deployment: skrip destruktif **wajib** diaktifkan
+  *Tanyakan konfirmasi* + tercatat di `audit_logs`.
+- Tidak ada kredensial yang disimpan; setiap aksi dijalankan dengan hak user yang klik.
 
 ### 7.6 Troubleshooting
 
 | Gejala | Sebab / solusi |
 |---|---|
-| Klik action tidak melakukan apa-apa | Handler belum terpasang di PC ini / protokol tidak terdaftar; jalankan installer §7.3, cek `HKCU\Software\Classes\raniaction` |
-| "konfigurasi tidak ditemukan" | `config.json` hilang; pasang ulang handler (`install-action-handler.ps1 -ServerUrl …`) |
-| "token kedaluwarsa" | Halaman dibiarkan terbuka >5 menit — reload halaman, klik lagi |
-| "server_url tidak valid" | `config.json` rusak; hapus `%ProgramData%\RaniAction\config.json`, pasang ulang |
-| File terdownload tapi tidak jalan | Ekstensi tidak diizinkan (`.vbs` ditolak); antivirus/SmartScreen memblokir; coba jalankan file hasil download secara manual untuk melihat error |
-| Action script tidak muncul di menu | Belum di-"Enabled" di Setup → Actions, atau nama file kosong/placeholder salah saat dibuat |
-| `rdp.bat` membuka tapi mstsc error | `{ipaddress}` kosong (asset tidak punya `ip_last`); isi parameter lain atau perbaiki konektivitas |
-| Popup/dropdown blank di browser | Refresh (Ctrl+Shift+R) — token action dibuat ulang saat halaman dimuat |
+| Klik action tidak melakukan apa-apa | Ekstensi belum terpasang / belum diizinkan di situs ini; atau native host belum dipasang. Klik ikon RANI di toolbar — hijau "native host terhubung" atau merah dengan pesan penyebab. |
+| Popup ekstensi: "native host tidak terjangkau" | Pasang native host (§7.3). Cek `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.rani.action_host` menunjuk ke `com.rani.action_host.json` yang benar. |
+| "origin tidak diizinkan" | `config.json` berisi server lain — pasang ulang (`install-extension.ps1 -ServerUrl …`). |
+| "token kedaluwarsa" | Halaman terbuka >5 menit — reload, klik lagi. |
+| "ekstensi … tidak diizinkan" | Ekstensi coba mengunduh file dengan ekstensi di luar whitelist — perbaiki action di Setup → Actions. |
+| Klik tidak terjadi (tombol inert) | Ekstensi belum aktif di situs ini: klik ikon puzzle → **RANI Actions** → **Enable on this site**. |
+| Action script tidak muncul di menu | Action *Enabled* belum dicentang di Setup → Actions, atau action ini *Advanced* (masuk grup Advanced). |
+| mstsc / window tidak tampak | Mungkin terbuka di desktop lain / minimized; coba `Alt+Tab`. |
 
 Skrip contoh tersimpan di repo: `actions/rdp.bat`, `actions/ping.bat`,
-`actions/compmgmt.bat`, `actions/services.bat`, `actions/perfmon.bat`,
-`actions/handler/{rani-action.ps1, install-action-handler.ps1, install.bat, uninstall-action-handler.ps1}`.
+`actions/compmgmt.bat`, `actions/services.bat`, `actions/perfmon.bat`.
+Source ekstensi + native host: `extension/`, `agent/rani_action_host.py`.
+Fallback lama (protokol OS `raniaction://` + handler PowerShell) masih tersedia di
+`actions/handler/` — dipakai bila ekstensi tidak bisa dipasang di browser tertentu.

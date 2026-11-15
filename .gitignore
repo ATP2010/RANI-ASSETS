@@ -13,3 +13,6 @@ node_modules/
 # artefak build untuk image Docker Hub (disalin scripts/push-dockerhub.sh)
 docker/artifacts/*
 !docker/artifacts/.gitkeep
+
+# kunci privat ekstensi (jangan commit)
+extension/private-key.pem
