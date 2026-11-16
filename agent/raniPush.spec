@@ -33,6 +33,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=True,
+    icon=str(ROOT.parent / 'server' / 'app' / 'static' / 'img' / 'favicon.ico'),
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,
