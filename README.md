@@ -1,160 +1,239 @@
-# RANI ProjectDev
+# RANI — Resource & Asset Network Intelligence
 
-**RANI — Resource & Asset Network Intelligence.** IT asset inventory self-hosted (mirip
-Lansweeper): **raniPush** agent → FastAPI ingest → dashboard AdminLTE realtime (WebSocket).
+**RANI** = IT asset inventory self-hosted (mirip Lansweeper): agent **raniPush** di PC user
+→ server FastAPI menangkap → dashboard AdminLTE realtime (WebSocket) + custom report SQL +
+scan SNMP + port map L2 + manajemen user/role + Actions (gaya Lansweeper).
 
-- Requirements & analisis: [`../baseOn/analysis results.md`](../baseOn/analysis%20results.md)
-- Doktrin untuk AI agent/dev: [`DEVGUIDE.md`](DEVGUIDE.md) ← **baca dulu**
-- Progres: [`CHECKLIST.md`](CHECKLIST.md)
-- UI: dashboard memakai **Apache ECharts 5.5** (vendored di `server/app/static/vendor/echarts.min.js`,
-  tanpa CDN/online) dan sidebar AdminLTE `sidebar-mini` — status collapse disimpan di
-  `localStorage` (`lte.sidebar.state`) sehingga tetap ringkas saat pindah menu.
-- Deploy dari Docker Hub: [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md)
-  (overview yang tampil di Docker Hub: [`docs/dockerhub-overview.md`](docs/dockerhub-overview.md)) ·
-  compose siap pakai `docker-compose.hub.yml`, env contoh `.env.hub.example`,
-  build+push `scripts/push-dockerhub.sh`.
-- Deploy dengan HTTPS (Caddy): [`docs/deploy-caddy.md`](docs/deploy-caddy.md) ·
-  overlay `docker-compose.caddy.yml` · installer satu perintah `scripts/install-ubuntu.sh`.
-- Panduan lain: [`docs/reports.md`](docs/reports.md) (custom report SQL) ·
-  [`docs/scan.md`](docs/scan.md) (scan SNMP + custom OID) ·
-  [`docs/users.md`](docs/users.md) (menu Users, role/permission, login lokal + AD) ·
-  [`docs/actions.md`](docs/actions.md) (Actions ala Lansweeper di menu Assets) ·
-  [`docs/branding.md`](docs/branding.md) (logo/ikon) ·
-  [`docs/agent-windows.md`](docs/agent-windows.md) (agent Windows).
-- Ikon aplikasi: `server/app/static/img/` (`favicon.ico`, `favicon-32/48.png`,
-  `icon-192.png`, `rani-logo-512.png`, `rani-adminlte-brand-160.png`,
-  `apple-touch-icon-180.png`) + `static/manifest.json`; logo sidebar memakai
-  `rani-adminlte-brand-160.png` dan `favicon-32.png` saat sidebar ringkas.
-  Ganti logo = jalankan `python3 scripts/make-icons.py <logo.png>` lalu rebuild
-  image — langkah lengkap di [`docs/branding.md`](docs/branding.md).
+- GitHub: https://github.com/ATP2010/RANI-ASSETS
+- Docker Hub image: `adhityatp/raniassets:<tag>` (https://hub.docker.com/repository/docker/adhityatp/raniassets)
+- Dokumentasi lengkap: [`docs/`](docs/) (deploy, scan, users, actions, reports, agent Windows)
+- Doktrin dev: [`DEVGUIDE.md`](DEVGUIDE.md) · Progres: [`CHECKLIST.md`](CHECKLIST.md)
 
-## Status sekarang
+---
 
-| Bagian | Status |
-|---|---|
-| Server ingest + reconciler + UI (F1) | jalan, terverifikasi end-to-end |
-| Agent `raniPush` Linux | jalan, terverifikasi (payload nyata → asset) |
-| Agent `raniPush` Windows (WMI/registry/PowerShell) | kode ada (**0.2.1**: pindah server tanpa hapus config), **belum diuji di PC Windows nyata** |
-| Custom reports SQL (`/reports`) | jalan — role DB read-only, grid + filter kolom, export CSV |
-| Scan SNMP (`/agents/scan`) | jalan — grup IP + custom OID, probe v1/v2c, asset `network` otomatis; jadwal otomatis belum |
-| Port map L2 (`/agents/portmap`) | jalan — MAC ↔ port switch dari bridge FDB (dot1d/dot1q, GETBULK), tab di asset network + lookup MAC; graf topologi (LLDP/CDP) belum |
-| Users & akses (lokal + AD) | **jalan (F5.1–F5.7)** — menu **Users** (`/users`): akun login lokal + AD (`DOMAIN\user`), role/permission custom (union multi-role, admin terkunci), connector LDAP/LDAPS, mapping group AD → role, sync delta + riwayat; desain di [`docs/users.md`](docs/users.md) |
-| Deploy Docker Hub | `adhityatp/raniassets:<tag>` — pull & run tanpa build ([`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md)) |
-| Unduhan agent di `/agents/push` | 2 jalur (portable = jalur A, exe signed = jalur B) + kartu “blocked by your organization” berisi SHA256 artefak & diagnostik SAC/ASR ([`docs/agent-windows.md` §8](docs/agent-windows.md#8-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control)) |
-| Sisa F2 (printer enrichment, jadwal scan) + installer exe/GNS (F3) | belum |
+## 1. Syarat new server (prasyarat)
 
-## Quick start (dev LXC 192.168.88.92)
+Sebelum install, pastikan server memenuhi:
 
-```bash
-cd ProjectDev
-cp .env.example .env      # isi POSTGRES_PASSWORD, RANI_ADMIN_PASSWORD, RANI_INGEST_PEPPER
-docker compose up -d --build
-```
+### Hardware
+- **CPU**: 2 vCPU (disarankan 4 untuk scan SNMP + report SQL)
+- **RAM**: ≥ 2 GB (disarankan 4 GB — Postgres + Redis + 2 worker uvicorn)
+- **Disk**: ≥ 20 GB (Postgres data + raw payload retention 90 hari)
+- **Arsitektur**: `linux/amd64` (image dibangun untuk amd64)
 
-- UI: `http://192.168.88.92:8091` — login `RANI_ADMIN_USER` / `RANI_ADMIN_PASSWORD`
-  dari `.env` (dibuat otomatis saat boot pertama).
-- Compose project name = **`rani-inv`** (container `rani-inv-api-1`, dst.) supaya tidak
-  bentrok dengan stack lama `/root/rani` (project `rani`, port 8088/8443).
-- API docs (mode dev): `http://192.168.88.92:8091/api/docs`
+### Software
+- **OS**: Ubuntu 22.04/24.04 (atau Debian 11/12, Rocky/Alma 8/9 — lihat `scripts/install-ubuntu.sh`)
+- **Docker Engine** 20.10+ dengan **Compose v2** (`docker compose version`)
+- Akses ke `registry-1.docker.io` (untuk pull image) dan repo image
+- Port bebas: **80 & 443** (Caddy/HTTPS) atau **8091** (HTTP dev)
+- Untuk scan SNMP: UDP 161 (atau port grup) terbuka dari server ke perangkat target
 
-## Alur pakai
+### Jaringan & domain (produksi)
+- Domain publik dengan DNS A/AAAA → IP server (untuk HTTPS otomatis Let's Encrypt)
+- Port 80 & 443 terbuka di firewall (`sudo ufw allow 80,443/tcp`)
 
-1. Login → menu **Agents → Push** → panel **Download agent (Windows)** → unduh
-   `raniPush-signed.exe` (dan `rani-push-signing.cer` + `install-cert.ps1` bila PC
-   memblokir "unknown publisher"). Tidak ada token/enroll untuk agent 0.2+.
-2. Di PC target (Windows, PowerShell **as Administrator**):
-   ```
-   .\install-agent.ps1 -Server 192.168.88.92:8091 -ExePath .\raniPush-signed.exe
-   ```
-   Script menyalin exe ke `C:\Rani`, mendaftarkan Task Scheduler tiap 60 menit, lalu
-   push pertama. Manual:
-   ```
-   raniPush-signed.exe 192.168.88.92:8091                # collect + push (exit 0)
-   schtasks /create /tn RaniPush /sc hourly /ru SYSTEM /rl HIGHEST /f `
-     /tr "C:\Rani\raniPush-signed.exe 192.168.88.92:8091"
-   ```
-   Server mengenali PC dari `machine_id` (MachineGuid) dan mendaftarkan agent pada push
-   pertama; revoke agent kapan saja di UI Agents. Ingin wajib kredensial? Set
-   `RANI_TOKENLESS_PUSH=0` di `.env` lalu pakai token + HMAC (`--enroll`).
-   Panduan lengkap Windows (Task Scheduler, SmartScreen/SAC, troubleshooting, uninstall):
-   [`docs/agent-windows.md`](docs/agent-windows.md).
-3. Push masuk → API validasi (digest + nonce + timestamp + skema; HMAC bila agent
-   ter-enroll) → Redis Stream → worker merekonsiliasi → halaman **Assets** dan dashboard
-   ter-update via WebSocket.
+### Kredensial yang perlu disiapkan
+- Password DB (`POSTGRES_PASSWORD`) — generate: `openssl rand -hex 16`
+- Password admin (`RANI_ADMIN_PASSWORD`)
+- HMAC pepper (`RANI_INGEST_PEPPER`) — generate: `openssl rand -hex 32`
+- Password role report (`RANI_REPORT_DB_PASSWORD`) — generate: `openssl rand -hex 16`
+- (Produksi) `RANI_DOMAIN` + `RANI_ACME_EMAIL`
 
-Push gagal (server mati/jaringan) → payload di-spool dan dicoba lagi pada run berikutnya
-(maks 7 hari).
+---
 
-## Build agent Windows (`raniPush.exe`)
+## 2. Cara clone ke new server (install & run)
 
-Artefak di `release/` (tidak di-commit, binary):
-
-| File | Isi | Kapan dipakai |
-|---|---|---|
-| `raniPush.exe` | exe unsigned, 7,4 MB | PC yang tidak memblokir exe |
-| `raniPush-signed.exe` | exe + signature internal + timestamp | PC dengan SmartScreen/"unknown publisher"; pasang `rani-push-signing.cer` dulu |
-| `rani-push-signing.cer` | sertifikat publik code-signing internal | dipasang via `scripts/install-cert.ps1` |
-| `raniPush-portable.zip` | Python embeddable resmi + `raniPush.py` + `raniPush.cmd` | PC dengan Smart App Control/AV ketat yang memblokir exe buatan sendiri |
-
-Keempat file itu bisa diunduh langsung dari browser di `http://192.168.88.92:8091/agents`
-(route `/downloads/<nama>`, wajib login; compose me-mount `release/` dan `scripts/`
-read-only ke container).
+### Opsi A — satu perintah (installer otomatis, disarankan)
 
 ```bash
-bash scripts/build-exe.sh        # → release/raniPush.exe
-bash scripts/sign-exe.sh         # → release/raniPush-signed.exe + .cer
-bash scripts/build-portable.sh   # → release/raniPush-portable.zip
-
-# di Windows (paling andal, atau lewat GitHub Actions workflow build-agent-exe):
-python -m pip install pyinstaller==6.11.1
-pyinstaller --noconfirm --clean --distpath release agent/raniPush.spec
+sudo bash scripts/install-ubuntu.sh
+# atau tanpa clone repo:
+curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/scripts/install-ubuntu.sh | sudo bash
 ```
 
-Kalau Windows memblokir exe: lihat
-[`docs/agent-windows.md` §8](docs/agent-windows.md#8-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control).
+Installer otomatis: install Docker, siapkan `/opt/rani`, generate secret, pull image,
+`up -d` (api+worker+postgres+redis+caddy), pasang systemd `rani.service`, health check,
+dan cetak URL + kredensial admin.
 
-## Verifikasi
+### Opsi B — manual (clone + compose)
 
 ```bash
-# unit test aturan identitas/normalisasi/kontrak payload (di dalam image)
-docker exec rani-inv-api-1 sh -c "cd /srv && python -m unittest discover -s tests -v"
+# 1. Clone repo
+git clone https://github.com/ATP2010/RANI-ASSETS.git
+cd RANI-ASSETS/ProjectDev
 
-# smoke test end-to-end (login → token → enroll → push → reconcile → UI/CSV)
-python3 scripts/smoke_test.py --base http://127.0.0.1:8091
+# 2. Siapkan .env
+cp .env.hub.example .env
+# edit .env: POSTGRES_PASSWORD, RANI_ADMIN_PASSWORD, RANI_INGEST_PEPPER,
+#            RANI_REPORT_DB_PASSWORD, RANI_DOMAIN, RANI_ACME_EMAIL
+
+# 3. Pull & run (HTTP saja)
+docker compose -f docker-compose.hub.yml up -d
+
+# ATAU dengan HTTPS (Caddy)
+docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
+
+# 4. Verifikasi
+curl -s http://127.0.0.1:8091/health
+# {"status":"ok","db":true,"version":"0.1.0"}
 ```
 
-## Deploy ke server lain (migrasi)
+### Opsi C — tanpa clone (hanya pull image)
 
 ```bash
-bash scripts/push-registry.sh                 # build + push 192.168.88.92:5000/rani-server:latest
-# di server baru:
-git clone <repo> && cd ProjectDev
-cp .env.example .env && $EDITOR .env          # pepper HARUS sama bila DB yang sama dibawa
-RANI_IMAGE=192.168.88.92:5000/rani-server:latest docker compose pull
-RANI_IMAGE=192.168.88.92:5000/rani-server:latest docker compose up -d
+mkdir -p /opt/rani && cd /opt/rani
+curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/docker-compose.hub.yml -o docker-compose.hub.yml
+curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/.env.hub.example -o .env.hub.example
+cp .env.hub.example .env   # edit password & pepper
+docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
 ```
 
-Compose sengaja portable: tanpa `network_mode: host`, tanpa IP hardcode, hanya `TZ=Asia/Jakarta`.
+### Setelah running
+1. Buka `https://<RANI_DOMAIN>` (atau `http://<ip>:8091`) → redirect ke `/login`.
+2. Login dengan `RANI_ADMIN_USER` / `RANI_ADMIN_PASSWORD` dari `.env`.
+3. Cek cepat: Dashboard (0 aset kalau belum ada agent), Agents → Push (tombol download
+   signed exe), Reports (3 contoh), Agents → Grup IP & OID.
+
+### Upgrade versi (nanti)
+```bash
+cd /opt/rani
+docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml pull
+docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
+# migrasi DB jalan otomatis (alembic upgrade head di entrypoint api)
+```
+
+Dokumentasi lengkap: [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md),
+[`docs/deploy-caddy.md`](docs/deploy-caddy.md).
+
+---
+
+## 3. Kelebihan RANI
+
+- **Self-hosted, single image** — pull & run tanpa build, tanpa Python/Node di server.
+  Image berisi API, worker, skema DB, migrasi, docs, skrip, dan artefak agent.
+- **Agent Windows (`raniPush`)** — collect hardware/OS/software/security/users/network,
+  push via Task Scheduler, spool offline, auto-register tanpa token (mode direct).
+- **Dashboard realtime** — AdminLTE 4 + Apache ECharts (donut OS/status, bar top software,
+  area push 24 jam WIB), WebSocket live update.
+- **Sidebar mini persisten** — status collapse disimpan di localStorage.
+- **Custom reports SQL** — user tulis SELECT, dieksekusi role DB read-only `rani_report`
+  (guard SELECT-only, row cap, statement timeout, filter per kolom, export CSV).
+- **Scan SNMP + custom OID** — grup IP (CIDR/range/IP), probe v1/v2c, asset `network`
+  otomatis, port map L2 (MAC ↔ port switch dari bridge FDB), tab di asset.
+- **Port map L2** — `endpoint_port_mappings`, delta present/false, lookup MAC, halaman
+  `/agents/portmap` + tab di asset network.
+- **Users & akses (F5)** — login lokal (bcrypt) + AD (LDAP/LDAPS), role/permission
+  custom (union multi-role, admin terkunci), connector AD, mapping group → role,
+  sync delta + riwayat, sesi & audit.
+- **Actions (gaya Lansweeper)** — hover hostname → popup overview + menu Actions
+  (RDP, SSH, VNC, HTTP/HTTPS, share, salin); action script dieksekusi di PC pengguna
+  via ekstensi Chromium + native host (tanpa admin di server).
+- **Setup → Actions & Dashboard** — kelola action dan widget custom (sumber report SQL)
+  dari UI; urutan/lebar/on-off/duplikat.
+- **Reports & dashboard widget sebagai datatable** — search, sort, pagination,
+  "X–Y dari Z" info, dropdown per halaman.
+- **Bilingual (id/en)** — switcher di navbar (AdminLTE-style `#language-menu`),
+  katalog 700+ key, fallback id.
+- **Bilingual docs** — docs `.md` tersedia di `/docs/<slug>` (wajib login).
+- **Ikon aplikasi** — favicon, apple-touch, manifest, logo sidebar; `scripts/make-icons.py`.
+- **Deploy fleksibel** — Docker Hub pull & run, Caddy HTTPS otomatis, installer Ubuntu,
+  registry lokal, GPO/SCCM untuk agent Windows.
+- **Tanpa CDN/online** — ECharts, Bootstrap, AdminLTE vendored di image.
+- **Keamanan** — HMAC ingest, nonce anti-replay, RBAC, audit log, report SQL read-only,
+  bind password AD terenkripsi (Fernet), tidak ada tulis ke AD.
+
+---
+
+## 4. Problem solving (kasus umum)
+
+### A. `/health` belum menjawab setelah `up -d`
+- api masih migrasi/boot (±30–60 detik pertama). Cek `logs api`, tunggu, jangan restart.
+- Migrasi gagal (DuplicateColumn) → pastikan image terbaru (sudah idempotent di 0005/0006).
+
+### B. `pull access denied for adhityatp/raniassets`
+- Repo private → `docker login -u adhityatp` dulu; atau tag salah (cek `docker images`).
+
+### C. Menu Reports: "fitur report belum aktif"
+- `RANI_REPORT_DB_PASSWORD` kosong di `.env` → isi, lalu `up -d` (restart api).
+
+### D. Agent push gagal / 401
+- Secret salah → 401; digest salah → 401; agent tak dikenal → 401; replay nonce → 409.
+- Revoke agent → push 401. Cek log agent (`C:\ProgramData\Rani\raniPush.log`).
+- Push gagal (server mati) → payload di-spool, dicoba lagi pada run berikutnya (maks 7 hari).
+
+### E. Windows memblokir `raniPush.exe`
+- SmartScreen: `Unblock-File .\raniPush.exe` atau "More info → Run anyway".
+- Smart App Control enforce: gunakan **Jalur A (portable)** — `python.exe` resmi lolos.
+- ASR/WDAC domain: minta IT allowlist publisher (CN=RANI Internal Code Signing) atau hash.
+- Detail: [`docs/agent-windows.md` §8](docs/agent-windows.md#8-kalau-windows-memblokir-ranipushexe-smartscreen--smart-app-control).
+
+### F. Scan SNMP: 0 host menjawab
+- Cek community string, ACL SNMP di perangkat, UDP port grup. Probe sysObjectID timeout → tandai `timeout`.
+
+### G. Login AD gagal
+- `RANI_AD_ENABLED=0` → set 1 + restart.
+- Tanpa mapping group → `no_mapped_group`. Petakan group AD → role di `/users/directory`.
+- Rate-limit: 20× 401 → 429 (tunggu 5 menit).
+- Bind password salah → sync `partial`, user tidak dinonaktifkan massal.
+
+### H. Sesi/cert
+- HTTPS: cek DNS A record + port 80 terbuka (Let's Encrypt HTTP-01). Lihat `docker compose logs caddy`.
+- Port 8091 terbuka langsung di produksi → set `RANI_HTTP_PORT=127.0.0.1:8091`.
+
+### I. Database / migrasi
+- Backup: `pg_dump` harian ke volume (belum otomatis — backlog F3.7).
+- Rollback: set `RANI_IMAGE` ke tag lama → `pull` → `up -d`. Kalau migrasi baru sudah ubah schema, restore dari backup.
+
+### J. Lain-lain
+- Compose project name bentrok dengan stack lama `/root/rani` (project `rani`, port 8088/8443) → ProjectDev memakai `rani-inv`, jangan ubah.
+- `.env` gitignored — jangan commit password/pepper. `.env.secrets` juga gitignored + dockerignored.
+- Pepper berubah → agent lama & community tersimpan tidak bisa didekripsi (agent harus push ulang / community diisi ulang).
+
+---
 
 ## Struktur
 
 ```
 ProjectDev/
 ├── docker-compose.yml      api, worker, postgres 16.4, redis 7.4 (project rani-inv)
+├── docker-compose.hub.yml  pull & run dari Docker Hub (tanpa build)
+├── docker-compose.caddy.yml overlay HTTPS (Caddy)
+├── Caddyfile               reverse proxy + TLS otomatis
+├── .env.example / .env.hub.example / .env.secrets
 ├── schema/agent_payload_v1.json   kontrak payload agent (versioned)
-├── agent/raniPush.py       collector+pusher Windows/Linux (stdlib, tanpa dependensi)
-├── server/app/             FastAPI: api/, ingest/ (reconciler), templates/, static/
+├── agent/raniPush.py       collector+pusher Windows/Linux (stdlib)
+├── server/app/             FastAPI: api/, ingest/, templates/, static/
 ├── server/worker/          konsumen Redis Stream + requeue + stale sweep
-├── db/                     alembic (0001_initial = schema rani_inventory)
+├── db/                     alembic (0001–0012, idempotent fresh install)
 ├── server/tests/           unit test murni
-└── scripts/                push-registry.sh, smoke_test.py
+├── scripts/                build, push, install, sign, smoke test
+├── docs/                   deploy, scan, users, actions, reports, branding, agent-windows
+└── .github/workflows/      build-agent-exe, push-dockerhub
 ```
+
+## Dokumentasi lengkap
+
+- [`docs/overview.md`](docs/overview.md) — dokumentasi terkonsolidasi
+- [`docs/analysis.md`](docs/analysis.md) — requirements & analisis
+- [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md) — deploy dari Docker Hub
+- [`docs/deploy-caddy.md`](docs/deploy-caddy.md) — deploy dengan Caddy/HTTPS
+- [`docs/agent-windows.md`](docs/agent-windows.md) — agent Windows
+- [`docs/scan.md`](docs/scan.md) — scan SNMP + custom OID
+- [`docs/users.md`](docs/users.md) — Users, role/permission, AD
+- [`docs/actions.md`](docs/actions.md) — Actions ala Lansweeper
+- [`docs/reports.md`](docs/reports.md) — custom report SQL
+- [`docs/branding.md`](docs/branding.md) — logo/ikon
 
 ## Keamanan singkat
 
 - Agent auth: `HMAC-SHA256(agent_secret, timestamp+nonce+body)` + `sha256(body)` digest,
   toleransi skew 300s, nonce anti-replay di Redis. Secret disimpan terenkripsi (Fernet,
-  key turunan `RANI_INGEST_PEPPER`) — bukan plaintext.
+  key turunan `RANI_INGEST_PEPPER`).
 - Tidak ada TLS wajib (LAN by-IP, keputusan owner ADR-D2); HMAC tetap jalan tanpa TLS.
+  Untuk produksi/internet: gunakan Caddy (HTTPS otomatis).
 - UI: session cookie HttpOnly + bcrypt + RBAC (`admin` > `operator` > `reader`), audit log.
-- `.env` gitignored — jangan pernah commit password/pepper.
+- `.env` / `.env.secrets` gitignored — jangan pernah commit password/pepper.
+
+## Lisensi
+
+Proprietary — lihat `org.opencontainers.image.licenses` di Dockerfile.
