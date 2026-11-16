@@ -46,6 +46,9 @@ DOCS = {
     "branding": "branding.md",
     "deploy-dockerhub": "deploy-dockerhub.md",
     "dockerhub-overview": "dockerhub-overview.md",
+    "deploy-caddy": "deploy-caddy.md",
+    "analysis": "analysis.md",
+    "overview": "overview.md",
 }
 
 
