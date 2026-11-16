@@ -6,7 +6,7 @@ set -euo pipefail
 
 INSTALL_DIR="${INSTALL_DIR:-/opt/rani}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-rani}"
-BASE_URL="${RANI_INSTALL_BASE_URL:-https://raw.githubusercontent.com/adhityatp/raniassets/main}"
+BASE_URL="${RANI_INSTALL_BASE_URL:-https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main}"
 
 log() { printf '\033[1;32m[rani]\033[0m %s\n' "$*"; }
 err() { printf '\033[1;31m[rani]\033[0m %s\n' "$*" >&2; }
