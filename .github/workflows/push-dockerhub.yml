@@ -1,0 +1,86 @@
+name: push-dockerhub
+
+# Build & push image RANI ke Docker Hub (adhityatp/raniassets:<tag>).
+# Trigger: push ke branch main, atau tag v*, atau manual (workflow_dispatch).
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag image (kosong = pakai git describe / 0.1.0)"
+        required: false
+        default: ""
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login ke Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tentukan tag
+        id: meta
+        run: |
+          if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/v}"
+          else
+            TAG="$(git describe --tags --always 2>/dev/null || echo 0.1.0)"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Image tag: $TAG"
+
+      - name: Siapkan artefak agent (opsional)
+        run: |
+          mkdir -p docker/artifacts
+          # Kalau artefak ada di repo (release/), salin. Kalau tidak, image
+          # tetap jalan (tombol download di UI kosong).
+          if ls release/raniPush-signed.exe >/dev/null 2>&1; then
+            find release -maxdepth 1 -type f -exec cp -a {} docker/artifacts/ \;
+            echo "Artefak disalin: $(ls docker/artifacts | wc -l) file"
+          else
+            echo "PERINGATAN: release/raniPush-signed.exe tidak ada — image tanpa exe."
+            echo "Jalankan workflow build-agent-exe terlebih dahulu, atau build lokal."
+          fi
+          # .gitkeep supaya folder tidak hilang
+          touch docker/artifacts/.gitkeep
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          push: true
+          tags: |
+            adhityatp/raniassets:${{ steps.meta.outputs.tag }}
+            adhityatp/raniassets:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Ringkasan
+        run: |
+          echo "Image pushed:"
+          echo "  adhityatp/raniassets:${{ steps.meta.outputs.tag }}"
+          echo "  adhityatp/raniassets:latest"
+          echo ""
+          echo "Deploy di server baru:"
+          echo "  mkdir -p /opt/rani && cd /opt/rani"
+          echo "  curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.hub.yml -o docker-compose.hub.yml"
+          echo "  curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/.env.hub.example -o .env.hub.example"
+          echo "  cp .env.hub.example .env  # edit dulu"
+          echo "  docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d"
