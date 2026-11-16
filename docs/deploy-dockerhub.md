@@ -41,14 +41,34 @@ Halaman di aplikasi: `/` dashboard, `/assets`, `/agents/push`, `/agents/scan`,
 mkdir -p /opt/rani && cd /opt/rani
 ```
 
-Ambil dua file dari mesin ini (server lama):
+Ambil dua file dari mesin ini (server lama) **atau** dari GitHub (repo publik):
 
 ```bash
+# dari server lama (SSH)
 scp root@192.168.88.92:/root/RaniProject/ProjectDev/docker-compose.hub.yml .
 scp root@192.168.88.92:/root/RaniProject/ProjectDev/.env.hub.example .
+
+# ATAU dari GitHub (tanpa SSH)
+curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/docker-compose.hub.yml -o docker-compose.hub.yml
+curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/.env.hub.example -o .env.hub.example
 ```
 
 Kalau tidak ada akses SSH, salin isi kedua file dari lampiran di bawah (bagian 11).
+
+## 2b. Satu perintah (installer otomatis)
+
+Untuk server baru, cukup jalankan installer yang menangani semuanya (Docker, compose,
+Caddy/HTTPS, secret, systemd):
+
+```bash
+sudo bash scripts/install-ubuntu.sh
+# atau tanpa clone repo:
+curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/scripts/install-ubuntu.sh | sudo bash
+```
+
+Installer akan: install Docker, siapkan `/opt/rani`, generate secret, pull image,
+`up -d` (api+worker+postgres+redis+caddy), pasang systemd unit `rani.service`,
+health check, dan cetak URL + kredensial admin. Panduan lengkap: `docs/deploy-caddy.md`.
 
 > Nama folder menentukan nama project Compose (prefix container & volume). Kalau di
 > server itu sudah ada stack RANI lain, jangan pakai folder yang sama, atau set
@@ -200,8 +220,25 @@ docker compose -f docker-compose.hub.yml down -v            # stop + HAPUS data 
 ```
 
 Port & firewall: UI hanya butuh TCP 8091 (atau `RANI_HTTP_PORT`). Jangan buka Postgres/
-Redis ke luar — keduanya di network `internal` dan tanpa `ports`. Kalau perlu HTTPS,
-taruh reverse proxy (Caddy/Nginx) di depan 8091; aplikasi sudah memakai `--proxy-headers`.
+Redis ke luar — keduanya di network `internal` dan tanpa `ports`.
+
+**HTTPS (produksi):** taruh Caddy di depan 8091 dengan overlay `docker-compose.caddy.yml`
+(sertifikat otomatis via Let's Encrypt). Panduan lengkap: [`docs/deploy-caddy.md`](deploy-caddy.md).
+
+```bash
+# di folder /opt/rani, set di .env:
+RANI_DOMAIN=rani.example.com
+RANI_ACME_EMAIL=admin@example.com
+# lalu jalankan:
+docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
+```
+
+Atau gunakan installer satu perintah (sudah termasuk Caddy):
+```bash
+sudo bash scripts/install-ubuntu.sh
+```
+
+Kalau perlu HTTPS, aplikasi sudah memakai `--proxy-headers`.
 
 ## 9. Backup & restore
 
