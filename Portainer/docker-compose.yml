@@ -1,0 +1,234 @@
+# =============================================================================
+# RANI — stack Portainer (Web editor, satu file)
+# =============================================================================
+# Cara pakai (ringkas):
+#   1) Portainer → Stacks → Add stack → nama stack: rani
+#   2) Build method: Web editor → paste isi file ini
+#   3) Environment variables → isi / import dari .env.portainer.example
+#   4) Deploy the stack
+#
+# Tidak ada env_file dan tidak ada bind mount:
+#   - semua konfigurasi lewat Environment Variables Portainer
+#   - docs, skrip, dan artefak agent sudah ada di dalam image
+#   - Caddyfile ditulis inline saat container Caddy start (tidak butuh file host)
+#
+# HTTPS otomatis (Let's Encrypt) memakai Caddy. Prasyarat:
+#   - DNS A/AAAA RANI_DOMAIN sudah mengarah ke IP server ini
+#   - port 80 dan 443 bebas/terbuka
+#   - RANI_DOMAIN diisi tanpa http:// (contoh: rani.example.com)
+#   - RANI_DOMAIN boleh dikosongkan: Caddy lalu melayani HTTP di port 80
+#     (akses via http://<ip-server>/). Isi RANI_DOMAIN kapan saja untuk HTTPS.
+#
+# Panduan lengkap: README.md di folder ini.
+# =============================================================================
+
+x-server: &server
+  image: ${RANI_IMAGE:-adhityatp/raniassets:latest}
+  environment:
+    TZ: ${TZ:-Asia/Jakarta}
+    DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-rani}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}@db:5432/${POSTGRES_DB:-rani}"
+    REDIS_URL: redis://redis:6379/0
+    # Dipakai api/worker untuk menurunkan pepper otomatis kalau RANI_INGEST_PEPPER kosong.
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}
+
+    # --- Admin & keamanan ingest ---
+    RANI_ADMIN_USER: ${RANI_ADMIN_USER:-admin}
+    RANI_ADMIN_PASSWORD: ${RANI_ADMIN_PASSWORD:-}
+    # Kosong = diturunkan otomatis dari POSTGRES_PASSWORD (lihat command api/worker).
+    # Isi manual hanya kalau ingin pepper terpisah dari password DB.
+    RANI_INGEST_PEPPER: ${RANI_INGEST_PEPPER:-}
+
+    # --- Agent / push ---
+    RANI_TOKENLESS_PUSH: ${RANI_TOKENLESS_PUSH:-1}
+    RANI_DEFAULT_INTERVAL_S: ${RANI_DEFAULT_INTERVAL_S:-3600}
+    RANI_TS_SKEW_S: ${RANI_TS_SKEW_S:-300}
+    RANI_OFFLINE_AFTER_S: ${RANI_OFFLINE_AFTER_S:-10800}
+    RANI_RATE_LIMIT_PER_MIN: ${RANI_RATE_LIMIT_PER_MIN:-30}
+
+    # --- Users & akses ---
+    RANI_SESSION_TTL_H: ${RANI_SESSION_TTL_H:-12}
+    RANI_AUTH_LOCAL_ENABLED: ${RANI_AUTH_LOCAL_ENABLED:-1}
+    RANI_AD_ENABLED: ${RANI_AD_ENABLED:-0}
+    RANI_AD_SYNC_INTERVAL_S: ${RANI_AD_SYNC_INTERVAL_S:-3600}
+    RANI_PASSWORD_MIN_LEN: ${RANI_PASSWORD_MIN_LEN:-12}
+    RANI_LOGIN_MAX_ATTEMPTS: ${RANI_LOGIN_MAX_ATTEMPTS:-20}
+
+    # --- Custom report SQL ---
+    RANI_REPORT_DB_USER: ${RANI_REPORT_DB_USER:-rani_report}
+    RANI_REPORT_DB_PASSWORD: ${RANI_REPORT_DB_PASSWORD:-}
+    RANI_REPORT_MAX_ROWS: ${RANI_REPORT_MAX_ROWS:-1000}
+    RANI_REPORT_TIMEOUT_MS: ${RANI_REPORT_TIMEOUT_MS:-8000}
+
+    # --- Scan SNMP + port map L2 ---
+    RANI_SCAN_MAX_HOSTS: ${RANI_SCAN_MAX_HOSTS:-512}
+    RANI_SCAN_CONCURRENCY: ${RANI_SCAN_CONCURRENCY:-16}
+    RANI_SCAN_TIMEOUT_S: ${RANI_SCAN_TIMEOUT_S:-1.0}
+    RANI_SCAN_RETRIES: ${RANI_SCAN_RETRIES:-1}
+    RANI_SCAN_FDB_ENABLED: ${RANI_SCAN_FDB_ENABLED:-1}
+    RANI_SCAN_FDB_MAX: ${RANI_SCAN_FDB_MAX:-2000}
+    RANI_SCAN_FDB_UPLINK_MACS: ${RANI_SCAN_FDB_UPLINK_MACS:-10}
+
+    # --- Actions ---
+    RANI_ACTIONS_DIR: ${RANI_ACTIONS_DIR:-/srv/actions}
+    RANI_ACTIONS_URLTTL_S: ${RANI_ACTIONS_URLTTL_S:-300}
+
+    # --- Lain-lain ---
+    RANI_ENV: ${RANI_ENV:-production}
+    RANI_LOG_LEVEL: ${RANI_LOG_LEVEL:-info}
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rani}
+      POSTGRES_USER: ${POSTGRES_USER:-rani}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}"
+      TZ: ${TZ:-Asia/Jakarta}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rani} -d ${POSTGRES_DB:-rani}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redisdata:/data
+    networks: [internal]
+    restart: unless-stopped
+
+  api:
+    <<: *server
+    command:
+      - sh
+      - -c
+      - |
+        # Pepper & password role report: pakai nilai env kalau diisi; kalau kosong
+        # diturunkan dari POSTGRES_PASSWORD (deterministik, sama di api & worker).
+        if [ -z "$$RANI_INGEST_PEPPER" ]; then
+          RANI_INGEST_PEPPER=$$(python3 -c "import hashlib,os;print(hashlib.sha256(('rani-pepper-v1:'+os.environ['POSTGRES_PASSWORD']).encode()).hexdigest())")
+          export RANI_INGEST_PEPPER
+        fi
+        if [ -z "$$RANI_REPORT_DB_PASSWORD" ]; then
+          RANI_REPORT_DB_PASSWORD=$$(python3 -c "import hashlib,os;print(hashlib.sha256(('rani-report-v1:'+os.environ['POSTGRES_PASSWORD']).encode()).hexdigest())")
+          export RANI_REPORT_DB_PASSWORD
+        fi
+        alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --workers 2
+    # Hanya localhost; akses publik lewat Caddy. Set RANI_BIND_IP=0.0.0.0
+    # kalau memang ingin membuka port 8091 langsung ke LAN.
+    ports:
+      - "${RANI_BIND_IP:-127.0.0.1}:${RANI_HTTP_PORT:-8091}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks: [edge, internal]
+
+  worker:
+    <<: *server
+    command:
+      - sh
+      - -c
+      - |
+        if [ -z "$$RANI_INGEST_PEPPER" ]; then
+          RANI_INGEST_PEPPER=$$(python3 -c "import hashlib,os;print(hashlib.sha256(('rani-pepper-v1:'+os.environ['POSTGRES_PASSWORD']).encode()).hexdigest())")
+          export RANI_INGEST_PEPPER
+        fi
+        exec python -m worker.worker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks: [internal]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      TZ: ${TZ:-Asia/Jakarta}
+    # Caddyfile ditulis inline supaya stack tetap satu file dan tidak butuh
+    # bind mount. Nilai ${...} di bawah diisi oleh Compose saat deploy.
+    command:
+      - sh
+      - -c
+      - |
+        cat >/etc/caddy/Caddyfile <<'CADDY'
+        {
+            email ${RANI_ACME_EMAIL:-admin@example.com}
+        }
+
+        ${RANI_DOMAIN:-:80} {
+            encode gzip zstd
+
+            header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+                X-Content-Type-Options "nosniff"
+                X-Frame-Options "DENY"
+                Referrer-Policy "strict-origin-when-cross-origin"
+                Permissions-Policy "geolocation=(), microphone=(), camera=()"
+                -Server
+            }
+
+            reverse_proxy api:8000 {
+                flush_interval -1
+                header_up X-Real-IP {remote_host}
+            }
+
+            log {
+                output stdout
+                format console
+            }
+        }
+        CADDY
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2019/config/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  edge:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:
