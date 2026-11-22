@@ -24,7 +24,7 @@ COPY alembic.ini /srv/alembic.ini
 COPY db /srv/db
 COPY server/app /srv/app
 COPY server/worker /srv/worker
-COPY server/tests /srv
+COPY server/tests /srv/tests
 COPY actions /srv/actions/tests
 COPY schema /srv/schema
 COPY docs /srv/docs

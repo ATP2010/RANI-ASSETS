@@ -3,8 +3,10 @@
 Revision ID: 0013_scan_schedule
 Revises: 0012_dashboard_widgets_width32
 Create Date: 2026-11-22
+
+Idempotent: 0001_initial memakai ``Base.metadata.create_all`` sehingga DB baru
+sudah membawa kolom dari models. Pola sama dengan 0005_bridge_fdb.
 """
-import sqlalchemy as sa
 from alembic import op
 
 revision = "0013_scan_schedule"
@@ -13,42 +15,34 @@ branch_labels = None
 depends_on = None
 
 SCHEMA = "rani_inventory"
+INDEX = "ix_rani_inventory_scan_groups_due"
+
+COLUMNS = (
+    ("schedule_enabled", "BOOLEAN NOT NULL DEFAULT false"),
+    ("schedule_mode", "VARCHAR(16) NOT NULL DEFAULT 'interval'"),
+    ("schedule_interval_min", "INTEGER NOT NULL DEFAULT 360"),
+    ("schedule_time", "VARCHAR(5)"),
+    ("schedule_days", "VARCHAR(20)"),
+    ("next_run_at", "TIMESTAMP WITH TIME ZONE"),
+    ("last_schedule_at", "TIMESTAMP WITH TIME ZONE"),
+)
 
 
 def upgrade() -> None:
-    op.add_column("scan_groups",
-                  sa.Column("schedule_enabled", sa.Boolean(), nullable=False,
-                            server_default=sa.false()),
-                  schema=SCHEMA)
-    op.add_column("scan_groups",
-                  sa.Column("schedule_mode", sa.String(16), nullable=False,
-                            server_default="interval"),
-                  schema=SCHEMA)
-    op.add_column("scan_groups",
-                  sa.Column("schedule_interval_min", sa.Integer(), nullable=False,
-                            server_default="360"),
-                  schema=SCHEMA)
-    op.add_column("scan_groups",
-                  sa.Column("schedule_time", sa.String(5), nullable=True),
-                  schema=SCHEMA)
-    op.add_column("scan_groups",
-                  sa.Column("schedule_days", sa.String(20), nullable=True),
-                  schema=SCHEMA)
-    op.add_column("scan_groups",
-                  sa.Column("next_run_at", sa.DateTime(timezone=True), nullable=True),
-                  schema=SCHEMA)
-    op.add_column("scan_groups",
-                  sa.Column("last_schedule_at", sa.DateTime(timezone=True), nullable=True),
-                  schema=SCHEMA)
-    op.create_index("ix_rani_inventory_scan_groups_due", "scan_groups",
-                    ["next_run_at"], schema=SCHEMA,
-                    postgresql_where=sa.text("schedule_enabled AND enabled"))
+    for name, ddl_type in COLUMNS:
+        op.execute(
+            f"ALTER TABLE {SCHEMA}.scan_groups "
+            f"ADD COLUMN IF NOT EXISTS {name} {ddl_type}"
+        )
+    op.execute(
+        f"CREATE INDEX IF NOT EXISTS {INDEX} ON {SCHEMA}.scan_groups (next_run_at) "
+        "WHERE schedule_enabled AND enabled"
+    )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_rani_inventory_scan_groups_due", table_name="scan_groups",
-                  schema=SCHEMA)
-    for column in ("last_schedule_at", "next_run_at", "schedule_days",
-                   "schedule_time", "schedule_interval_min", "schedule_mode",
-                   "schedule_enabled"):
-        op.drop_column("scan_groups", column, schema=SCHEMA)
+    op.execute(f"DROP INDEX IF EXISTS {SCHEMA}.{INDEX}")
+    for name, _ in reversed(COLUMNS):
+        op.execute(
+            f"ALTER TABLE {SCHEMA}.scan_groups DROP COLUMN IF EXISTS {name}"
+        )
