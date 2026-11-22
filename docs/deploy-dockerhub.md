@@ -402,3 +402,40 @@ RANI_LOGIN_MAX_ATTEMPTS=20
 - [ ] Agent Windows push → aset muncul di `/assets`
 - [ ] Backup `pg_dump` sudah dijadwalkan
 - [ ] (Produksi) reverse proxy + HTTPS di depan port UI
+
+## 12. Rilis otomatis (auto-sync ke Docker Hub)
+
+Image dirilis dari **server dev ini**, bukan dari GitHub Actions, karena artefak agent
+(`release/raniPush-signed.exe`, portable zip, cert) gitignored dan ditandatangani dengan
+private key yang hanya ada di server.
+
+```bash
+# cek + build + push kalau versi di origin/main belum ada di Docker Hub
+scripts/sync-dockerhub.sh
+
+# hanya melaporkan (tanpa build/push)
+DRY_RUN=1 scripts/sync-dockerhub.sh
+
+# paksa build & push walau tag sudah ada
+scripts/sync-dockerhub.sh --force
+```
+
+Alur: baca `VERSION` dari `server/app/version.py` di `origin/main` → tanya Docker Hub API
+(tag sudah ada?) → kalau belum: syaratkan working tree bersih, `git merge --ff-only
+origin/main`, lalu `scripts/push-dockerhub.sh <VERSION>` (build + tag `latest` + push).
+
+Terpasang sebagai systemd timer di server dev (tiap 30 menit, `Persistent=true`):
+
+```bash
+systemctl list-timers rani-dockerhub-sync.timer
+systemctl start rani-dockerhub-sync.service      # jalankan sekali sekarang
+journalctl -u rani-dockerhub-sync.service -n 50  # log
+```
+
+Artinya: naikkan `VERSION` di `server/app/version.py`, commit, push — dalam ≤30 menit
+image `<VERSION>` dan `latest` terbit sendiri. Exit code: `0` sinkron/tiada perubahan,
+`2` dilewati (working tree kotor / bukan branch `main`), `1` error.
+
+GitHub Actions `push-dockerhub` tetap ada untuk rilis bertag (`v*`) atau manual, tapi
+butuh repo secrets `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` dan tidak menyertakan artefak
+agent bertanda tangan. `docker login` di server tidak berpengaruh ke runner GitHub.

@@ -2,9 +2,19 @@ name: push-dockerhub
 
 # Build & push image RANI ke Docker Hub (adhityatp/raniassets:<tag>).
 # Trigger: push ke branch main, atau tag v*, atau manual (workflow_dispatch).
+#
+# Catatan penting:
+#   - Workflow ini butuh repo secrets DOCKERHUB_USERNAME + DOCKERHUB_TOKEN
+#     (Docker Hub > Account settings > Personal access tokens, scope Read & Write).
+#     `docker login` di server TIDAK dipakai runner GitHub.
+#   - release/ gitignored & exe ditandatangani di server (private key lokal), jadi
+#     image hasil workflow ini TANPA artefak agent. Untuk image lengkap, pakai
+#     scripts/sync-dockerhub.sh di server (systemd timer rani-dockerhub-sync).
 on:
+  # Sengaja TIDAK auto-run tiap push ke main: rilis rutin ditangani
+  # scripts/sync-dockerhub.sh di server (systemd timer), yang ikut membawa
+  # artefak agent bertanda tangan. Workflow ini untuk rilis bertag / manual.
   push:
-    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -39,7 +49,13 @@ jobs:
           elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             TAG="${GITHUB_REF#refs/tags/v}"
           else
-            TAG="$(git describe --tags --always 2>/dev/null || echo 0.1.0)"
+            # Versi kode (server/app/version.py), bukan SHA — supaya tag image
+            # sejajar dengan /health dan docs. Butuh tag git untuk rilis resmi.
+            TAG="$(sed -n 's/^VERSION *= *"\([^"]*\)".*/\1/p' server/app/version.py)"
+          fi
+          if [[ -z "$TAG" ]]; then
+            echo "ERROR: tag image tidak bisa ditentukan" >&2
+            exit 1
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Image tag: $TAG"
