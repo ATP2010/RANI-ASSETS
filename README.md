@@ -7,6 +7,7 @@ scan SNMP + port map L2 + manajemen user/role + Actions (gaya Lansweeper).
 - GitHub: https://github.com/ATP2010/RANI-ASSETS
 - Docker Hub image: `adhityatp/raniassets:<tag>` (https://hub.docker.com/repository/docker/adhityatp/raniassets)
 - Dokumentasi lengkap: [`docs/`](docs/) (deploy, scan, users, actions, reports, agent Windows)
+- Deploy tercepat: punya Portainer? paste [`Portainer/docker-compose.yml`](Portainer/docker-compose.yml) + 2 env → deploy (§2 Opsi A)
 - Doktrin dev: [`DEVGUIDE.md`](DEVGUIDE.md) · Progres: [`CHECKLIST.md`](CHECKLIST.md)
 
 ---
@@ -24,6 +25,8 @@ Sebelum install, pastikan server memenuhi:
 ### Software
 - **OS**: Ubuntu 22.04/24.04 (atau Debian 11/12, Rocky/Alma 8/9 — lihat `scripts/install-ubuntu.sh`)
 - **Docker Engine** 20.10+ dengan **Compose v2** (`docker compose version`)
+- **Portainer** 2.20+ (opsional, disarankan) — kalau sudah ada, deploy cukup dari
+  Stack editor: paste stack + env, tanpa clone repo (lihat §2 Opsi A)
 - Akses ke `registry-1.docker.io` (untuk pull image) dan repo image
 - Port bebas: **80 & 443** (Caddy/HTTPS) atau **8091** (HTTP dev)
 - Untuk scan SNMP: UDP 161 (atau port grup) terbuka dari server ke perangkat target
@@ -41,9 +44,81 @@ Sebelum install, pastikan server memenuhi:
 
 ---
 
-## 2. Cara clone ke new server (install & run)
+## 2. Deploy ke new server
 
-### Opsi A — satu perintah (installer otomatis, disarankan)
+Dua jalur, image sama (`adhityatp/raniassets:latest`), tanpa build di server:
+
+- **Opsi A — Portainer** (disarankan kalau Portainer sudah ada): tempel stack, isi env, deploy.
+  Tidak perlu clone repo, tidak perlu SSH ke host, tidak ada file yang di-copy.
+- **Opsi B — tanpa Portainer**: installer satu perintah atau Docker Compose manual.
+
+### Opsi A — Portainer: paste stack + env, lalu deploy
+
+**Prasyarat**
+- **Portainer 2.20+** dengan endpoint **Docker standalone** (bukan Swarm), sudah login.
+- **Docker Engine** 20.10+ di host, arsitektur **linux/amd64**.
+- **RAM** ≥ 2 GB (disarankan 4 GB), **disk** ≥ 20 GB.
+- Port **80** bebas di host (Caddy). Port **443** juga, kalau mau HTTPS.
+- Akses `registry-1.docker.io` dari server.
+- (Opsional, untuk HTTPS) domain dengan DNS A/AAAA → IP server; port 80 reachable dari internet.
+
+**Langkah (5 menit)**
+1. Portainer → **Stacks** → **Add stack** → **Name**: `rani` → Build method: **Web editor**.
+2. Tempel seluruh isi [`Portainer/docker-compose.yml`](Portainer/docker-compose.yml)
+   (buka link → **Raw** → copy semua). Stack ini sengaja satu file: tanpa `env_file`,
+   tanpa bind mount, Caddyfile ditulis inline saat container start.
+3. Bagian **Environment variables** → **Advanced mode** → paste minimal 2 baris ini:
+
+```
+POSTGRES_PASSWORD=ganti-hex-16-karakter
+RANI_ADMIN_PASSWORD=ganti-password-admin
+```
+
+   Opsional (biarkan kosong kalau akses masih lewat IP):
+
+```
+RANI_DOMAIN=rani.example.com
+RANI_ACME_EMAIL=admin@example.com
+TZ=Asia/Jakarta
+```
+
+   Alternatif: **Load variables from .env file** → upload
+   [`.env.portainer.example`](Portainer/.env.portainer.example) yang sudah diisi
+   (atau paste isinya). Daftar lengkap 40+ variabel ada di file itu.
+
+4. Klik **Deploy the stack**. Urutan start: `db`/`redis` healthy → `api` menjalankan
+   `alembic upgrade head` lalu uvicorn → `worker` konsumsi Redis → `caddy` di port 80.
+   Siap ±30–60 detik (HTTPS butuh 30–60 detik tambahan untuk sertifikat Let's Encrypt).
+5. Buka `http://<ip-server>/` (atau `https://<RANI_DOMAIN>/`) → login `admin` /
+   `RANI_ADMIN_PASSWORD`.
+
+**Env wajib vs otomatis**
+
+| Variable | Status |
+|---|---|
+| `POSTGRES_PASSWORD` | **wajib** — huruf/angka saja: `openssl rand -hex 16` |
+| `RANI_ADMIN_PASSWORD` | disarankan — kosong = password acak, dicetak di log `api` |
+| `RANI_DOMAIN` + `RANI_ACME_EMAIL` | opsional — kosong = HTTP di port 80 |
+| `RANI_INGEST_PEPPER` | otomatis — diturunkan dari `POSTGRES_PASSWORD` |
+| `RANI_REPORT_DB_PASSWORD` | otomatis — diturunkan; menu Reports langsung aktif |
+| 40+ var lain (scan, AD, actions, …) | default aman, tidak perlu diisi |
+
+Catatan:
+- **Jangan ganti `POSTGRES_PASSWORD` setelah ada data** — pepper agent & password role
+  report diturunkan dari situ. Kalau harus ganti, isi `RANI_INGEST_PEPPER` manual dulu
+  dengan nilai lama, baru ganti password.
+- Jangan menambahkan `COMPOSE_PROJECT_NAME`; prefix container/volume ikut nama stack.
+- Port `8091` default hanya listen di localhost. Mau expose langsung? set
+  `RANI_BIND_IP=0.0.0.0`.
+- Port 80/443 sudah dipakai NPM/Traefik/Caddy lain? Hapus service `caddy` dari stack,
+  set `RANI_BIND_IP=0.0.0.0`, lalu arahkan proxy Anda ke `http://<ip-server>:8091`.
+
+Panduan Portainer lengkap (HTTPS, backup/restore, troubleshooting, uninstall):
+[`Portainer/README.md`](Portainer/README.md).
+
+### Opsi B — tanpa Portainer
+
+**Installer satu perintah** (install Docker, `/opt/rani`, systemd, health check):
 
 ```bash
 sudo bash scripts/install-ubuntu.sh
@@ -51,59 +126,54 @@ sudo bash scripts/install-ubuntu.sh
 curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/scripts/install-ubuntu.sh | sudo bash
 ```
 
-Installer otomatis: install Docker, siapkan `/opt/rani`, generate secret, pull image,
-`up -d` (api+worker+postgres+redis+caddy), pasang systemd `rani.service`, health check,
-dan cetak URL + kredensial admin.
-
-### Opsi B — manual (clone + compose)
+**Manual (clone + compose)**
 
 ```bash
-# 1. Clone repo
 git clone https://github.com/ATP2010/RANI-ASSETS.git
 cd RANI-ASSETS/ProjectDev
-
-# 2. Siapkan .env
 cp .env.hub.example .env
 # edit .env: POSTGRES_PASSWORD, RANI_ADMIN_PASSWORD, RANI_INGEST_PEPPER,
 #            RANI_REPORT_DB_PASSWORD, RANI_DOMAIN, RANI_ACME_EMAIL
-
-# 3. Pull & run (HTTP saja)
-docker compose -f docker-compose.hub.yml up -d
-
-# ATAU dengan HTTPS (Caddy)
-docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
-
-# 4. Verifikasi
-curl -s http://127.0.0.1:8091/health
-# {"status":"ok","db":true,"version":"0.1.0"}
+docker compose -f docker-compose.hub.yml up -d                 # HTTP saja
+docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d   # HTTPS
 ```
 
-### Opsi C — tanpa clone (hanya pull image)
+**Tanpa clone (hanya pull image)**
 
 ```bash
 mkdir -p /opt/rani && cd /opt/rani
 curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/docker-compose.hub.yml -o docker-compose.hub.yml
-curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/.env.hub.example -o .env.hub.example
-cp .env.hub.example .env   # edit password & pepper
+curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/docker-compose.caddy.yml -o docker-compose.caddy.yml
+curl -fsSL https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/.env.hub.example -o .env
+# edit .env, lalu:
 docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
 ```
 
+Verifikasi: `curl -s http://127.0.0.1:8091/health` →
+`{"status":"ok","db":true,"version":"0.1.0"}` — nilai `version` mengikuti tag image
+yang di-pull (`latest` saat ini = 0.1.0).
+
 ### Setelah running
 1. Buka `https://<RANI_DOMAIN>` (atau `http://<ip>:8091`) → redirect ke `/login`.
-2. Login dengan `RANI_ADMIN_USER` / `RANI_ADMIN_PASSWORD` dari `.env`.
+2. Login dengan `RANI_ADMIN_USER` / `RANI_ADMIN_PASSWORD` dari env.
 3. Cek cepat: Dashboard (0 aset kalau belum ada agent), Agents → Push (tombol download
    signed exe), Reports (3 contoh), Agents → Grup IP & OID.
 
 ### Upgrade versi (nanti)
+
+**Portainer**: Stacks → `rani` → **Pull and redeploy** (centang re-pull image).
+
+**Compose**:
 ```bash
 cd /opt/rani
 docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml pull
 docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
-# migrasi DB jalan otomatis (alembic upgrade head di entrypoint api)
 ```
 
+Migrasi DB jalan otomatis (`alembic upgrade head` di entrypoint `api`).
+
 Dokumentasi lengkap: [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md),
-[`docs/deploy-caddy.md`](docs/deploy-caddy.md).
+[`docs/deploy-caddy.md`](docs/deploy-caddy.md), [`Portainer/README.md`](Portainer/README.md).
 
 ---
 
@@ -200,12 +270,13 @@ ProjectDev/
 ├── docker-compose.hub.yml  pull & run dari Docker Hub (tanpa build)
 ├── docker-compose.caddy.yml overlay HTTPS (Caddy)
 ├── Caddyfile               reverse proxy + TLS otomatis
+├── Portainer/              stack siap-paste untuk Portainer (compose + env contoh + README)
 ├── .env.example / .env.hub.example / .env.secrets
 ├── schema/agent_payload_v1.json   kontrak payload agent (versioned)
 ├── agent/raniPush.py       collector+pusher Windows/Linux (stdlib)
 ├── server/app/             FastAPI: api/, ingest/, templates/, static/
 ├── server/worker/          konsumen Redis Stream + requeue + stale sweep
-├── db/                     alembic (0001–0012, idempotent fresh install)
+├── db/                     alembic (0001–0013, idempotent fresh install & upgrade)
 ├── server/tests/           unit test murni
 ├── scripts/                build, push, install, sign, smoke test
 ├── docs/                   deploy, scan, users, actions, reports, branding, agent-windows
@@ -218,6 +289,7 @@ ProjectDev/
 - [`docs/analysis.md`](docs/analysis.md) — requirements & analisis
 - [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md) — deploy dari Docker Hub
 - [`docs/deploy-caddy.md`](docs/deploy-caddy.md) — deploy dengan Caddy/HTTPS
+- [`Portainer/README.md`](Portainer/README.md) — deploy via Portainer (stack siap-paste)
 - [`docs/agent-windows.md`](docs/agent-windows.md) — agent Windows
 - [`docs/scan.md`](docs/scan.md) — scan SNMP + custom OID
 - [`docs/users.md`](docs/users.md) — Users, role/permission, AD
