@@ -82,6 +82,8 @@
 - [x] F3.5 CSV export asset view (`/export/assets.csv`)
 - [x] F3.6 Script push image → registry lokal `192.168.88.92:5000/rani-server` (`scripts/push-registry.sh`)
 - [x] F3.9 **Deploy Docker Hub** `adhityatp/raniassets:v0.1.0` + `latest` (repo public, digest `sha256:06f96852…47215c`, 386 MB): image berisi API+worker+schema+docs+skrip+artefak agent, `docker-compose.hub.yml` (tanpa build/mount), `.env.hub.example`, `scripts/push-dockerhub.sh` (artefak → `docker/artifacts/` → build → tag latest → push), panduan `docs/deploy-dockerhub.md`
+- [x] F3.10 **Rilis image `0.2.0`** `adhityatp/raniassets:0.2.0` + `latest` (digest `sha256:bdbbdd56…b9d6d`, 428 MB / 122 MB compressed, 22 Nov 2026): memuat jadwal scan otomatis + migrasi `0013` idempotent + artefak agent; diperbaiki `COPY actions /srv/actions` (sebelumnya salah ke `/srv/actions/tests` sehingga `/actions/files/{file}` 404 di image)
+  - Bukti (22 Nov 2026, uji image hasil pull di DB kosong): `/health` → `{"status":"ok","db":true,"version":"0.2.0"}`; `alembic_version=0013_scan_schedule`, 3 kolom jadwal ada di `scan_groups`; `/srv/actions/ping.bat` ada; `GET /actions/files/ping.bat` token valid → 200 (129 B, isi benar), sig salah → 403; `latest` dan `0.2.0` digest sama
 - [ ] F3.7 Backup schedule postgres (pg_dump harian ke volume)
 
 ## F4 — Backlog (nilai tambah, belum dijanjikan)

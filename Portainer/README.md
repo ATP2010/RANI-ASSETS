@@ -131,7 +131,7 @@ berada di volume Docker (`rani_pgdata`, `rani_redisdata`, `rani_caddy_data`).
 ```bash
 # health API lewat Caddy (HTTP selama RANI_DOMAIN kosong)
 curl -fsS http://<ip-server>/health
-# {"status":"ok","db":true,"version":"0.1.0"}
+# {"status":"ok","db":true,"version":"0.2.0"}
 
 # cek langsung dari server (port 8091 hanya di localhost)
 curl -fsS http://127.0.0.1:8091/health
@@ -195,7 +195,7 @@ Mengganti domain:
 ## 5. Upgrade versi
 
 1. Portainer → **Stacks** → `rani` → tab **Editor**.
-2. Ubah `RANI_IMAGE` bila perlu (mis. dari `latest` ke `0.1.0`).
+2. Ubah `RANI_IMAGE` bila perlu (mis. dari `latest` ke `0.2.0`).
 3. Centang **Re-pull image** (wajib kalau tetap memakai `latest`).
 4. Klik **Update the stack**.
 
@@ -260,7 +260,7 @@ Semua variable lain sudah punya default aman. Yang paling sering diubah:
 
 | Variable | Default | Keterangan |
 |---|---|---|
-| `RANI_IMAGE` | `adhityatp/raniassets:latest` | Pin ke `0.1.0` untuk produksi stabil |
+| `RANI_IMAGE` | `adhityatp/raniassets:latest` | Pin ke `0.2.0` untuk produksi stabil |
 | `RANI_DOMAIN` | kosong | Kosong = HTTP port 80 via IP; isi hostname untuk HTTPS |
 | `RANI_ACME_EMAIL` | `admin@example.com` | Email Let's Encrypt (hanya saat domain diisi) |
 | `RANI_BIND_IP` | `127.0.0.1` | `0.0.0.0` = buka 8091 ke LAN |
@@ -344,9 +344,9 @@ Docker Hub `adhityatp/raniassets` saat ini memiliki:
 
 | Tag | Build | Keterangan |
 |---|---|---|
-| `latest` | 16 Nov 2026 | Sama dengan `0.1.0`, sudah memuat artefak agent terbaru |
-| `0.1.0` | 16 Nov 2026 | Disarankan untuk produksi yang ingin pin versi |
+| `latest` | 22 Nov 2026 | Sama dengan `0.2.0` (jadwal scan otomatis per grup IP) |
+| `0.2.0` | 22 Nov 2026 | Disarankan untuk produksi yang ingin pin versi |
+| `0.1.0` | 16 Nov 2026 | Build sebelumnya, artefak agent sama |
 | `v0.1.0` | 14 Nov 2026 | Build lebih lama, belum memuat artefak agent terbaru |
 
-Dokumen lain di repo (`docs/deploy-dockerhub.md`, `.env.hub.example`) masih
-menyebut `v0.1.0`; untuk stack Portainer ini gunakan `latest` atau `0.1.0`.
+Untuk stack Portainer ini gunakan `latest` atau `0.2.0`.

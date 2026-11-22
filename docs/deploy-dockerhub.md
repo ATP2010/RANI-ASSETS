@@ -4,11 +4,11 @@ Panduan memindahkan RANI ke server dev hanya dengan **pull image** dari Docker H
 tidak perlu clone repo, build, Python, atau Node. Image berisi API, worker, skema DB,
 migrasi, dokumen, skrip, dan artefak agent (raniPush-signed.exe, cert, portable zip).
 
-- Image: `adhityatp/raniassets:v0.1.0` (+ `:latest`) — repo **public**
-- Digest v0.1.0: `sha256:06f96852f887349c9d36426d8e4dcaafdc763b65d6bcc20d01974bb43a47215c`
+- Image: `adhityatp/raniassets:0.2.0` (+ `:latest`) — repo **public**
+- Digest 0.2.0: `sha256:bdbbdd56b771959af63a9228c2bcb0e3df191e5cac9246862d3496a9c05b9d6d`
 - Yang tetap di host: file `docker-compose.hub.yml` + `.env`, volume Postgres/Redis
 - Arsitektur image: **linux/amd64** (dibangun di server ini)
-- Ukuran image: ±386 MB (termasuk exe 7,4 MB + portable zip 11 MB)
+- Ukuran image: ±428 MB (122 MB compressed; termasuk exe 7,6 MB + portable zip 10,9 MB)
 
 ## 0. Apa yang ada di dalam image vs di host
 
@@ -96,7 +96,7 @@ POSTGRES_PASSWORD=<hasil rand 16>
 RANI_ADMIN_PASSWORD=<password admin pilihan Anda>
 RANI_INGEST_PEPPER=<hasil rand 32>
 RANI_REPORT_DB_PASSWORD=<hasil rand 16>
-RANI_IMAGE=adhityatp/raniassets:v0.1.0     # pakai tag spesifik, bukan latest
+RANI_IMAGE=adhityatp/raniassets:0.2.0     # pakai tag spesifik, bukan latest
 RANI_HTTP_PORT=8091
 TZ=Asia/Jakarta
 ```
@@ -133,7 +133,7 @@ Cek status dan kesehatan:
 ```bash
 docker compose -f docker-compose.hub.yml ps
 curl -s http://127.0.0.1:8091/health
-# {"status":"ok","db":true,"version":"0.1.0"}
+# {"status":"ok","db":true,"version":"0.2.0"}
 ```
 
 Kalau `/health` belum menjawab, tunggu ±30–60 detik (migrasi pertama) lalu cek log:

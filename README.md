@@ -150,8 +150,8 @@ docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
 ```
 
 Verifikasi: `curl -s http://127.0.0.1:8091/health` →
-`{"status":"ok","db":true,"version":"0.1.0"}` — nilai `version` mengikuti tag image
-yang di-pull (`latest` saat ini = 0.1.0).
+`{"status":"ok","db":true,"version":"0.2.0"}` — nilai `version` mengikuti tag image
+yang di-pull (`latest` saat ini = 0.2.0).
 
 ### Setelah running
 1. Buka `https://<RANI_DOMAIN>` (atau `http://<ip>:8091`) → redirect ke `/login`.

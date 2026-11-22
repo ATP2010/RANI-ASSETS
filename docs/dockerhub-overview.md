@@ -102,7 +102,7 @@ volumes:
 YAML
 
 cat > .env <<'ENV'
-RANI_IMAGE=adhityatp/raniassets:v0.1.0
+RANI_IMAGE=adhityatp/raniassets:0.2.0
 RANI_HTTP_PORT=8091
 TZ=Asia/Jakarta
 POSTGRES_DB=rani
@@ -197,9 +197,10 @@ openssl rand -hex 16   # RANI_REPORT_DB_PASSWORD, POSTGRES_PASSWORD
 
 ## Tags
 
+- `0.2.0` / `latest` — current build (22 Nov 2026): scheduled SNMP scans per IP group,
+  idempotent 0013 migration, actions scripts shipped at `/srv/actions`
 - `v0.1.0` — first public build (agent 0.2 tokenless push, ECharts dashboard, custom
   reports, SNMP scan, Docker Hub deployment)
-- `latest` — points at the newest published build; pin a version tag in production
 
 ## Included documentation
 

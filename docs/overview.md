@@ -5,10 +5,10 @@
   - Clone: `git clone https://github.com/ATP2010/RANI-ASSETS.git`
   - Raw file: `https://raw.githubusercontent.com/ATP2010/RANI-ASSETS/main/<path>`
 - **Docker Hub (image)**: https://hub.docker.com/repository/docker/adhityatp/raniassets
-  - Tag: `adhityatp/raniassets:0.1.0` (digest `sha256:081a272f91e8...`) + `:latest`
-  - Pull: `docker pull adhityatp/raniassets:0.1.0`
-  - Size: ±426 MB (121 MB compressed)
-- **Status push**: GitHub ✅, Docker Hub ✅ (2026-11-16)
+  - Tag: `adhityatp/raniassets:0.2.0` (digest `sha256:bdbbdd56b771...`) + `:latest`
+  - Pull: `docker pull adhityatp/raniassets:0.2.0`
+  - Size: ±428 MB (122 MB compressed)
+- **Status push**: GitHub ✅, Docker Hub ✅ (2026-11-22, image `0.2.0`)
 
 
 > Dokumen ini menggabungkan (dan menduplikasi-semantik) isi dari:
@@ -159,7 +159,7 @@ PENTING: jangan bentrok dengan stack lama `/root/rani` (project `rani`, port 808
 Lihat `docs/deploy-dockerhub.md` (atau `docs/deploy-caddy.md`) untuk panduan lengkap. Ringkasan:
 
 ### Deploy Docker Hub (pull & run)
-- Image: `adhityatp/raniassets:0.1.0` (+ `:latest`), repo public, ±426 MB.
+- Image: `adhityatp/raniassets:0.2.0` (+ `:latest`), repo public, ±428 MB.
 - GitHub: https://github.com/ATP2010/RANI-ASSETS
 - Docker Hub: https://hub.docker.com/repository/docker/adhityatp/raniassets
 - Image berisi API+worker+skema+migrasi+docs+skrip+artefak agent.
@@ -181,7 +181,7 @@ cp .env.hub.example .env   # edit: RANI_DOMAIN, RANI_ACME_EMAIL, password, peppe
 docker compose -f docker-compose.hub.yml -f docker-compose.caddy.yml up -d
 ```
 
-- Image: `adhityatp/raniassets:v0.1.0` (+ `:latest`), repo public, ±386 MB.
+- Image: `adhityatp/raniassets:0.2.0` (+ `:latest`), repo public, ±428 MB.
 - Image berisi API+worker+skema+migrasi+docs+skrip+artefak agent.
 - Yang tetap di host: `docker-compose.hub.yml` + `.env`, volume Postgres/Redis.
 - Panduan: `docs/deploy-dockerhub.md`.
