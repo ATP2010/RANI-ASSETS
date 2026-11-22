@@ -8,7 +8,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -23,7 +23,7 @@ from app.db import get_session
 from app.deps import require_perm
 from app.models import (AppUser, AppUserRole, AuthSession, AuditLog,
                         DirectoryGroupRole, Role)
-from app.permissions import (ALL_PERMISSIONS, DEFAULT_ROLES, PERMISSIONS,
+from app.permissions import (DEFAULT_ROLES, PERMISSIONS,
                              normalize_permissions)
 from app.security import hash_password
 from app.templating import templates

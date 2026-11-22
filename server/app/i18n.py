@@ -1,6 +1,5 @@
 """i18n id/en — middleware + catalog + helper terjemahan untuk Jinja & route."""
 from contextvars import ContextVar
-from collections.abc import Callable
 
 from fastapi import Request
 

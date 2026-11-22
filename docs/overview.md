@@ -12,14 +12,14 @@
 
 
 > Dokumen ini menggabungkan (dan menduplikasi-semantik) isi dari:
-> - `baseOn/analysis results.md` (requirements & analisis awal)
-> - `ProjectDev/CHECKLIST.md` (source-of-truth progres)
-> - `ProjectDev/DEVGUIDE.md` (doktrin dev/agent)
-> - `baseOn/deploy-guide.md` (setup, deploy, CI, credential, trust)
+> - [`analysis.md`](analysis.md) (requirements & analisis awal)
+> - [`../CHECKLIST.md`](../CHECKLIST.md) (source-of-truth progres)
+> - [`../DEVGUIDE.md`](../DEVGUIDE.md) (doktrin dev/agent)
+> - [`deploy-dockerhub.md`](deploy-dockerhub.md) + [`deploy-caddy.md`](deploy-caddy.md) (setup, deploy, CI, credential, trust)
 >
-> Salinan "live" tetap ada di `ProjectDev/CHECKLIST.md` dan `ProjectDev/DEVGUIDE.md`
+> Salinan "live" tetap ada di `CHECKLIST.md` dan `DEVGUIDE.md` di root repo
 > (dibutuhkan agent yang berjalan di folder ProjectDev). Dokumen ini adalah
-> snapshot terkonsolidasi untuk referensi di `baseOn/`.
+> snapshot terkonsolidasi; folder `baseOn/` sudah dihapus dan isinya dimerge ke `docs/`.
 
 ---
 
@@ -32,7 +32,7 @@ Loop inti: **`raniPush`** (agent di PC user, CLI `raniPush <targetIP>`, jalan vi
 Task Scheduler) → **server FastAPI menangkap** (`POST /api/v1/ingest/push`) → **data tampil
 detail di web dashboard** (AdminLTE 4 + Apache ECharts + WebSocket realtime).
 
-Sumber requirements: `baseOn/analysis results.md` (§3 blueprint, §4b SNMP, §5 keputusan
+Sumber requirements: `docs/analysis.md` (§3 blueprint, §4b SNMP, §5 keputusan
 owner signed-off 2026-11-13).
 
 ---
@@ -156,7 +156,7 @@ PENTING: jangan bentrok dengan stack lama `/root/rani` (project `rani`, port 808
 
 ## 8. Deploy & CI
 
-Lihat `baseOn/deploy-guide.md` untuk panduan lengkap. Ringkasan:
+Lihat `docs/deploy-dockerhub.md` (atau `docs/deploy-caddy.md`) untuk panduan lengkap. Ringkasan:
 
 ### Deploy Docker Hub (pull & run)
 - Image: `adhityatp/raniassets:0.1.0` (+ `:latest`), repo public, ±426 MB.
@@ -290,7 +290,7 @@ GPO (AD)
 
 ## 12. Kontak konteks
 
-- Analisis Lansweeper + blueprint: `baseOn/analysis results.md`
-- Repo REA (reverse-engineer toolkit; referensi discipline kontrak JSON-schema): `..`
+- Analisis Lansweeper + blueprint: `docs/analysis.md`
+- Repo REA (reverse-engineer toolkit; referensi discipline kontrak JSON-schema): sudah tidak ada di `/root/RaniProject` (dulu `baseOn/`)
 - Fondasi RANI lama (pattern RBAC/FastAPI yang boleh di-reuse sebagai referensi baca-saja): `/root/rani` — jangan tulis kode aplikasi ke sana.
 - Dokumentasi live: `ProjectDev/CHECKLIST.md` (progres), `ProjectDev/DEVGUIDE.md` (doktrin dev/agent).

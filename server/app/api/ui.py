@@ -6,16 +6,13 @@ import uuid
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, \
     WebSocketDisconnect
 from fastapi.responses import RedirectResponse, StreamingResponse
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import audit
-from app.api.downloads import artifact_rows
 from app.db import get_session
 from app.deps import get_current_user_ws, require_perm
-from app.models import AppUser, Asset, Software
-from app.queries import (dashboard_stats, get_asset_detail, list_agents, list_assets,
-                         list_tokens)
+from app.models import AppUser
+from app.queries import dashboard_stats, get_asset_detail, list_assets
 from app.actions import load_action_rows, render_actions
 from app.widgets import load_enabled
 from app.services import create_enrollment_token, revoke_agent

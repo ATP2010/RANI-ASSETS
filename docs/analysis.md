@@ -1,5 +1,5 @@
 # RANI — Analysis: Lansweeper → Blueprint Aplikasi Serupa
-**Date:** 2026-11-13 · **Author:** Hermes (senior IT dev pass) · **Location:** `/root/RaniProject/baseOn/`
+**Date:** 2026-11-13 · **Author:** Hermes (senior IT dev pass) · **Location:** `/root/RaniProject/ProjectDev/docs/` (aslinya `baseOn/`, sudah dimerge ke `docs/`)
 **Goal:** Bangun aplikasi mirip Lansweeper bernama **Rani**, inti loop-nya: **`lspush`** (agent di PC user mengirim data) → **server menangkap** → **detail ditampilkan di dashboard**.
 
 ---

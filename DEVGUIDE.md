@@ -5,7 +5,7 @@
 ## 1. Apa aplikasi ini
 **RANI** = IT asset management / cyber-asset inventory mirip **Lansweeper**, self-hosted, target ±1.000 endpoint Windows + perangkat jaringan.
 Loop inti: **`raniPush`** (agent di PC user, CLI `raniPush <targetIP>`, jalan via Windows Task Scheduler) → **server FastAPI menangkap** (`POST /api/v1/ingest/push`) → **data tampil detail di web dashboard** (AdminLTE 4 + Apache ECharts + WebSocket realtime).
-Sumber requirements: `/root/RaniProject/baseOn/analysis results.md` (§3 blueprint, §4b SNMP, §5 keputusan owner signed-off 2026-11-13).
+Sumber requirements: `docs/analysis.md` (§3 blueprint, §4b SNMP, §5 keputusan owner signed-off 2026-11-13).
 
 ## 2. Stack & keputusan tetap (JANGAN diganti tanpa owner sign-off)
 | Layer | Pilihan | Alasan |
@@ -102,6 +102,6 @@ di direktori lain atau mengubah project name ProjectDev menjadi `rani`.
   image; `scripts/smoke_test.py` = end-to-end lewat CLI agent asli.
 
 ## 8. Kontak konteks
-- Analisis Lansweeper + blueprint: `../baseOn/analysis results.md`
+- Analisis Lansweeper + blueprint: `docs/analysis.md`
 - Repo REA (reverse-engineer toolkit; referensi discipline kontrak JSON-schema): `..`
 - Fondasi RANI lama (pattern RBAC/FastAPI yang boleh di-reuse sebagai referensi baca-saja): `/root/rani` — **jangan tulis kode aplikasi ke sana**, ProjectDev ini rumah baru.

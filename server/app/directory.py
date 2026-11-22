@@ -11,7 +11,6 @@ import logging
 import re
 import time
 import uuid
-from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 import ldap3

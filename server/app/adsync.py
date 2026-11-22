@@ -14,7 +14,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import directory as ad
-from app.models import (AppUser, AppUserRole, AuthSession, DirectoryConnector,
+from app.models import (AppUser, AppUserRole, DirectoryConnector,
                         DirectoryGroupRole, DirectorySyncRun, Role)
 from starlette.concurrency import run_in_threadpool
 

@@ -6,7 +6,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -202,7 +202,7 @@ async def setup_actions_move(action_id: str, request: Request, dir: str = Form("
 from app.models import DashboardWidget
 from app.queries import list_reports
 from app.widgets import (BUILTIN_KINDS, WIDGET_KINDS, WIDGET_WIDTHS,
-                         load_enabled, preview_report)
+                         preview_report)
 
 
 async def _all_widgets(session: AsyncSession) -> list[DashboardWidget]:
