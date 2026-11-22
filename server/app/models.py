@@ -413,6 +413,14 @@ class ScanGroup(Base):
     port: Mapped[int] = mapped_column(Integer, default=161)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     fdb_enabled: Mapped[bool] = mapped_column(Boolean, default=True)  # port map (bridge FDB)
+    # Jadwal scan otomatis (mode interval menit/jam atau jam tertentu + hari)
+    schedule_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    schedule_mode: Mapped[str] = mapped_column(String(16), default="interval")  # interval|time
+    schedule_interval_min: Mapped[int] = mapped_column(Integer, default=360)
+    schedule_time: Mapped[str | None] = mapped_column(String(5))     # HH:MM (TZ scheduler)
+    schedule_days: Mapped[str | None] = mapped_column(String(20))    # "1,3,5" ISO; NULL = tiap hari
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_schedule_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at = _now()
     last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_scan_status: Mapped[str | None] = mapped_column(String(32))

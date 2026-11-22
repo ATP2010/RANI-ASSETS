@@ -15,12 +15,13 @@ import ipaddress
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from redis.asyncio import Redis
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit import audit
 from app.config import get_settings
 from app.crypto import decrypt_secret
 from app.db import SessionLocal
@@ -53,6 +54,7 @@ VENDOR_BY_OID = {
 }
 
 _RUNNING: dict[str, str] = {}  # group_id -> run_id (cegah scan ganda per grup dalam proses ini)
+_TASKS: set[asyncio.Task] = set()
 
 
 class ScanError(RuntimeError):
@@ -670,3 +672,70 @@ def register_run(group_id: uuid.UUID, run_id: uuid.UUID) -> None:
 
 def running_for(group_id: uuid.UUID) -> str | None:
     return _RUNNING.get(str(group_id))
+
+
+async def find_running_run(session: AsyncSession, group_id: uuid.UUID,
+                           max_age_h: int = 6) -> ScanRun | None:
+    """Run 'running' yang masih dianggap hidup (bukan sisa proses yang mati)."""
+    rows = (await session.execute(
+        select(ScanRun).where(ScanRun.group_id == group_id,
+                              ScanRun.status == "running")
+        .order_by(ScanRun.started_at.desc()).limit(20))).scalars().all()
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        if row.started_at is not None and row.started_at > now - timedelta(hours=max_age_h):
+            return row
+    return None
+
+
+async def create_scan_run(session: AsyncSession, group: ScanGroup, *,
+                          actor: str | None, request=None,
+                          action: str = "scan.start",
+                          details: dict | None = None) -> ScanRun:
+    """Buat baris ScanRun + audit. Belum commit dan belum dijalankan."""
+    run = ScanRun(group_id=group.id, status="running", created_by=actor,
+                  stats={"group": group.name})
+    session.add(run)
+    await session.flush()
+    await audit(session, request, actor=actor, action=action,
+                target=str(run.id),
+                details={"group": group.name, "ranges": group.ranges,
+                         **(details or {})})
+    return run
+
+
+def launch_scan(run: ScanRun) -> None:
+    """Daftarkan run in-process lalu jalankan sebagai background task."""
+    register_run(run.group_id, run.id)
+    task = asyncio.create_task(execute_scan(run.id))
+    _TASKS.add(task)
+    task.add_done_callback(_TASKS.discard)
+
+
+async def start_group_scan(session: AsyncSession, group: ScanGroup, *,
+                           actor: str | None, request=None,
+                           action: str = "scan.start",
+                           details: dict | None = None) -> ScanRun | None:
+    """Mulai scan satu grup. Return None kalau grup sudah punya run 'running'."""
+    if await find_running_run(session, group.id):
+        return None
+    run = await create_scan_run(session, group, actor=actor, request=request,
+                                action=action, details=details)
+    await session.commit()
+    launch_scan(run)
+    return run
+
+
+async def mark_interrupted_runs(session: AsyncSession, max_age_min: int = 10) -> int:
+    """Tandai run 'running' sisa proses lama (server restart) sebagai failed."""
+    now = datetime.now(timezone.utc)
+    rows = (await session.execute(select(ScanRun).where(ScanRun.status == "running"))).scalars().all()
+    stale = [r for r in rows
+             if r.started_at is not None and r.started_at < now - timedelta(minutes=max_age_min)]
+    for row in stale:
+        row.status = "failed"
+        row.error = "interrupted (server restart)"
+        row.finished_at = now
+    if stale:
+        await session.commit()
+    return len(stale)

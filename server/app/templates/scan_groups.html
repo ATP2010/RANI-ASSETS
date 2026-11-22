@@ -4,6 +4,12 @@
 {% block subheading %}{{ t('groups.subheading') }}{% endblock %}
 
 {% block content %}
+{% set s_on = values.schedule_enabled if values.schedule_enabled is defined else editing_schedule.schedule_enabled %}
+{% set s_mode = values.schedule_mode if values.schedule_mode is defined else editing_schedule.schedule_mode %}
+{% set s_value = values.schedule_interval_value if values.schedule_interval_value is defined else editing_schedule.schedule_interval_value %}
+{% set s_unit = values.schedule_interval_unit if values.schedule_interval_unit is defined else editing_schedule.schedule_interval_unit %}
+{% set s_time = values.schedule_time if values.schedule_time is defined else editing_schedule.schedule_time %}
+{% set s_days = values.schedule_days if values.schedule_days is defined else editing_schedule.schedule_days %}
 {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
 {% if oid_error %}<div class="alert alert-warning py-2">{{ t('oids.not_saved', error=oid_error) }}</div>{% endif %}
 
@@ -60,6 +66,65 @@
             <label class="form-check-label small" for="g-fdb">{{ t('groups.fdb') }}</label>
             <div class="form-text">{{ t('groups.fdb_help') }}</div>
           </div>
+          <hr class="my-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-semibold small">{{ t('groups.schedule') }}</span>
+            <span class="small-muted">
+              {% if editing %}
+                {% if editing.schedule_enabled %}<span class="badge text-bg-info">{{ t('groups.schedule_badge_on') }}</span>
+                {% else %}<span class="badge text-bg-secondary">{{ t('common.disabled') }}</span>{% endif %}
+                {% if editing.next_run_at %}<div class="small-muted">{{ t('groups.schedule_next', at=(editing.next_run_at | fmt_dt)) }}</div>{% endif %}
+                {% if editing.last_schedule_at %}<div class="small-muted">{{ t('groups.schedule_last', at=(editing.last_schedule_at | fmt_dt)) }}</div>{% endif %}
+              {% endif %}
+            </span>
+          </div>
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="g-sched-on" name="schedule_enabled" value="1"
+                   {% if s_on %}checked{% endif %}>
+            <label class="form-check-label small" for="g-sched-on">{{ t('groups.schedule_enable') }}</label>
+            <div class="form-text">{{ t('groups.schedule_help') }}</div>
+          </div>
+          <div class="mt-2" id="g-sched-fields">
+            <div class="mb-2">
+              <label class="form-label small" for="g-sched-mode">{{ t('groups.schedule_mode') }}</label>
+              <select class="form-select form-select-sm" id="g-sched-mode" name="schedule_mode">
+                <option value="interval" {% if s_mode == 'interval' %}selected{% endif %}>{{ t('groups.schedule_mode_interval') }}</option>
+                <option value="time" {% if s_mode == 'time' %}selected{% endif %}>{{ t('groups.schedule_mode_time') }}</option>
+              </select>
+            </div>
+            <div id="g-sched-interval" class="row g-2 align-items-end">
+              <div class="col-5">
+                <label class="form-label small" for="g-sched-value">{{ t('groups.schedule_every') }}</label>
+                <input class="form-control form-control-sm" id="g-sched-value" name="schedule_interval_value" type="number" min="1" max="43200" step="1" value="{{ s_value }}">
+              </div>
+              <div class="col-4">
+                <label class="form-label small" for="g-sched-unit">{{ t('groups.schedule_unit') }}</label>
+                <select class="form-select form-select-sm" id="g-sched-unit" name="schedule_interval_unit">
+                  <option value="minute" {% if s_unit == 'minute' %}selected{% endif %}>{{ t('groups.schedule_unit_minute') }}</option>
+                  <option value="hour" {% if s_unit == 'hour' %}selected{% endif %}>{{ t('groups.schedule_unit_hour') }}</option>
+                </select>
+              </div>
+            </div>
+            <div id="g-sched-time" class="row g-2 align-items-end d-none">
+              <div class="col-5">
+                <label class="form-label small" for="g-sched-time-input">{{ t('groups.schedule_at') }}</label>
+                <input class="form-control form-control-sm" id="g-sched-time-input" name="schedule_time" type="time" step="300" value="{{ s_time }}">
+              </div>
+              <div class="col-7">
+                <label class="form-label small">{{ t('groups.schedule_days') }}</label>
+                <div class="d-flex flex-wrap gap-2">
+                  {% for d in [1, 2, 3, 4, 5, 6, 7] %}
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="schedule_days" id="g-day-{{ d }}" value="{{ d }}"
+                           {% if (d | string) in s_days %}checked{% endif %}>
+                    <label class="form-check-label small" for="g-day-{{ d }}">{{ t('groups.day.' ~ d) }}</label>
+                  </div>
+                  {% endfor %}
+                </div>
+                <div class="form-text">{{ t('groups.schedule_days_help') }}</div>
+              </div>
+            </div>
+          </div>
           <div class="d-flex gap-2 mt-3">
             <button class="btn btn-primary btn-sm" type="submit">{{ t('groups.save') if editing else t('groups.add') }}</button>
             {% if editing %}<a class="btn btn-outline-secondary btn-sm" href="/agents/groups">{{ t('common.cancel') }}</a>{% endif %}
@@ -78,7 +143,7 @@
       <div class="card-body p-0">
         <table class="table table-sm table-tight mb-0 align-middle">
           <thead class="table-light">
-            <tr><th>{{ t('common.name') }}</th><th>{{ t('groups.col.range') }}</th><th>{{ t('groups.col.hosts') }}</th><th>SNMP</th><th>{{ t('common.status') }}</th><th></th></tr>
+            <tr><th>{{ t('common.name') }}</th><th>{{ t('groups.col.range') }}</th><th>{{ t('groups.col.hosts') }}</th><th>SNMP</th><th>{{ t('common.status') }}</th><th>{{ t('groups.schedule_col') }}</th><th></th></tr>
           </thead>
           <tbody>
             {% for row in groups %}
@@ -100,6 +165,20 @@
                 {% else %}<span class="badge text-bg-secondary">{{ t('common.disabled') }}</span>{% endif %}
                 {% if g.last_scan_status %}<div class="small-muted">{{ g.last_scan_status }}</div>{% endif %}
               </td>
+              <td class="small">
+                {% if g.schedule_enabled %}
+                  <span class="badge text-bg-info">{{ t('groups.schedule_mode_' ~ g.schedule_mode) }}</span>
+                  {% if g.schedule_mode == 'time' %}
+                    {{ g.schedule_time }}
+                    {% if g.schedule_days %}<div class="small-muted">{{ t('groups.schedule_days_short', days=g.schedule_days) }}</div>{% endif %}
+                  {% else %}
+                    {% set mins = g.schedule_interval_min | int %}
+                    {% if mins > 0 and mins % 60 == 0 %}{{ t('groups.schedule_every_hours', n=((mins / 60) | int)) }}
+                    {% else %}{{ t('groups.schedule_every_minutes', n=mins) }}{% endif %}
+                  {% endif %}
+                  {% if g.next_run_at %}<div class="small-muted">{{ t('groups.schedule_next', at=(g.next_run_at | fmt_dt)) }}</div>{% endif %}
+                {% else %}<span class="small-muted">—</span>{% endif %}
+              </td>
               <td class="text-end text-nowrap">
                 <a class="btn btn-sm btn-outline-primary" href="/agents/scan">{{ t('groups.scan') }}</a>
                 {% if can_manage %}
@@ -115,7 +194,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="small-muted p-3">{{ t('groups.empty') }}</td></tr>
+            <tr><td colspan="7" class="small-muted p-3">{{ t('groups.empty') }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -195,4 +274,23 @@
     </table>
   </div>
 </div>
+<script>
+(function () {
+  const on = document.getElementById('g-sched-on');
+  const mode = document.getElementById('g-sched-mode');
+  const fields = document.getElementById('g-sched-fields');
+  const intervalBox = document.getElementById('g-sched-interval');
+  const timeBox = document.getElementById('g-sched-time');
+  if (!on || !mode || !fields) return;
+  function sync() {
+    const visible = on.checked;
+    fields.classList.toggle('d-none', !visible);
+    if (intervalBox) intervalBox.classList.toggle('d-none', !visible || mode.value !== 'interval');
+    if (timeBox) timeBox.classList.toggle('d-none', !visible || mode.value !== 'time');
+  }
+  on.addEventListener('change', sync);
+  mode.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endblock %}

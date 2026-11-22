@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     RANI_SCAN_FDB_ENABLED: bool = True
     RANI_SCAN_FDB_MAX: int = 2000
     RANI_SCAN_FDB_UPLINK_MACS: int = 10
+    # Jadwal scan otomatis (menu Agents → Groups)
+    RANI_SCAN_SCHEDULER_TICK_S: int = 30
+    RANI_SCAN_SCHEDULE_MIN_INTERVAL_MIN: int = 5
+    RANI_SCHEDULE_TZ: str = "Asia/Jakarta"
 
     # Direktori artefak agent yang bisa diunduh dari halaman /agents (mount read-only).
     RANI_AGENT_DIR: str = "/srv/release"

@@ -119,7 +119,8 @@ Dokumentasi lengkap: [`docs/deploy-dockerhub.md`](docs/deploy-dockerhub.md),
 - **Custom reports SQL** — user tulis SELECT, dieksekusi role DB read-only `rani_report`
   (guard SELECT-only, row cap, statement timeout, filter per kolom, export CSV).
 - **Scan SNMP + custom OID** — grup IP (CIDR/range/IP), probe v1/v2c, asset `network`
-  otomatis, port map L2 (MAC ↔ port switch dari bridge FDB), tab di asset.
+  otomatis, port map L2 (MAC ↔ port switch dari bridge FDB), tab di asset, **jadwal scan
+  otomatis per grup** (loop menit/jam atau jam tertentu + hari).
 - **Port map L2** — `endpoint_port_mappings`, delta present/false, lookup MAC, halaman
   `/agents/portmap` + tab di asset network.
 - **Users & akses (F5)** — login lokal (bcrypt) + AD (LDAP/LDAPS), role/permission

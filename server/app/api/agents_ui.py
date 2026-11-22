@@ -18,7 +18,8 @@ from app.db import get_session
 from app.deps import require_perm, require_user
 from app.models import AppUser, ScanGroup, ScanOid, ScanResult, ScanRun
 from app.queries import list_agents, list_port_map, list_tokens, port_map_summary
-from app.scanner import ScanError, expand_hosts, normalize_range, parse_ranges, running_for
+from app.scanner import ScanError, expand_hosts, parse_ranges, running_for
+from app.scheduler import compute_next_run, parse_schedule_time
 from app.templating import templates
 
 log = logging.getLogger("rani.agents.ui")
@@ -27,6 +28,79 @@ settings = get_settings()
 
 MAX_NAME = 128
 MAX_DESC = 2000
+MAX_INTERVAL_MIN = 30 * 24 * 60  # 30 hari
+
+
+def _schedule_from_group(group: ScanGroup | None) -> dict:
+    """Nilai form jadwal dari grup (untuk mode edit / default grup baru)."""
+    if group is None:
+        return {"schedule_enabled": False, "schedule_mode": "interval",
+                "schedule_interval_value": "360", "schedule_interval_unit": "minute",
+                "schedule_time": "", "schedule_days": []}
+    minutes = int(group.schedule_interval_min or 0) or 360
+    if minutes >= 60 and minutes % 60 == 0:
+        value, unit = minutes // 60, "hour"
+    else:
+        value, unit = minutes, "minute"
+    days = [d for d in (group.schedule_days or "").split(",") if d]
+    return {"schedule_enabled": bool(group.schedule_enabled),
+            "schedule_mode": group.schedule_mode or "interval",
+            "schedule_interval_value": str(value),
+            "schedule_interval_unit": unit,
+            "schedule_time": group.schedule_time or "",
+            "schedule_days": days}
+
+
+def _parse_schedule(enabled: str, mode: str, interval_value: str,
+                    interval_unit: str, at_time: str, days: list[str]) -> tuple[dict, str | None]:
+    """Validasi + normalisasi input jadwal. Selalu mengembalikan nilai form."""
+    error = None
+    on = (enabled or "").strip().lower() not in ("", "0", "false", "off", "no")
+    mode = (mode or "interval").strip().lower()
+    if mode not in ("interval", "time"):
+        error = "mode jadwal tidak dikenal"
+        mode = "interval"
+    unit = (interval_unit or "minute").strip().lower()
+    if unit not in ("minute", "hour"):
+        unit = "minute"
+    raw_value = (interval_value or "").strip()
+    try:
+        value = int(raw_value)
+    except ValueError:
+        value = 0
+    minutes = max(0, value) * (60 if unit == "hour" else 1)
+    if on and mode == "interval":
+        if minutes < settings.RANI_SCAN_SCHEDULE_MIN_INTERVAL_MIN:
+            error = error or (f"interval minimal "
+                              f"{settings.RANI_SCAN_SCHEDULE_MIN_INTERVAL_MIN} menit")
+        elif minutes > MAX_INTERVAL_MIN:
+            error = error or "interval maksimal 30 hari"
+    if on and mode == "time" and parse_schedule_time(at_time) is None:
+        error = error or "jam harus format HH:MM (contoh 02:00)"
+
+    parsed_days = sorted({int(d) for d in days
+                          if str(d).strip().isdigit() and 1 <= int(d) <= 7})
+    normalized_minutes = minutes if minutes > 0 else 360
+    if mode == "interval":
+        normalized_minutes = min(MAX_INTERVAL_MIN, max(
+            settings.RANI_SCAN_SCHEDULE_MIN_INTERVAL_MIN, normalized_minutes))
+    return {
+        "enabled": on, "mode": mode,
+        "interval_min": normalized_minutes,
+        "time": (at_time or "").strip() or None,
+        "days": ",".join(str(d) for d in parsed_days) or None,
+        "interval_value": raw_value or str(normalized_minutes),
+        "interval_unit": unit,
+        "days_list": [str(d) for d in parsed_days],
+    }, error
+
+
+def _schedule_form(parsed: dict) -> dict:
+    return {"schedule_enabled": parsed["enabled"], "schedule_mode": parsed["mode"],
+            "schedule_interval_value": parsed["interval_value"],
+            "schedule_interval_unit": parsed["interval_unit"],
+            "schedule_time": parsed["time"] or "",
+            "schedule_days": parsed["days_list"]}
 
 
 def _group_stats(group: ScanGroup) -> dict:
@@ -35,6 +109,17 @@ def _group_stats(group: ScanGroup) -> dict:
         return {"hosts": len(hosts), "truncated": truncated}
     except Exception:  # noqa: BLE001 — data lama bisa saja tidak valid
         return {"hosts": 0, "truncated": False}
+
+
+def _schedule_info(group: ScanGroup) -> dict:
+    """Data jadwal untuk kolom tabel (formatting dilakukan di template)."""
+    return {"enabled": bool(group.schedule_enabled),
+            "mode": group.schedule_mode or "interval",
+            "interval_min": int(group.schedule_interval_min or 0),
+            "time": group.schedule_time or "",
+            "days": group.schedule_days or "",
+            "next_run_at": group.next_run_at,
+            "last_schedule_at": group.last_schedule_at}
 
 
 DOCS = {
@@ -198,18 +283,22 @@ async def scan_groups_page(request: Request, edit: str | None = None,
             editing = None
     return templates.TemplateResponse(request, "scan_groups.html", {
         "user": user, "active": "agents", "sub": "groups",
-        "groups": [{"group": g, "stats": _group_stats(g)} for g in groups],
+        "groups": [{"group": g, "stats": _group_stats(g), "schedule": _schedule_info(g)} for g in groups],
         "oids": oids, "editing": editing, "error": None, "values": {},
         "oid_error": oid_error,
         "can_manage": "scan.manage" in getattr(user, "perm_set", set()),
+        "editing_schedule": _schedule_from_group(editing),
         "max_hosts": settings.RANI_SCAN_MAX_HOSTS,
     })
 
 
 def _form_values(name: str, description: str, ranges: str, snmp_version: str,
-                 port: str, fdb_enabled: bool = True) -> dict:
-    return {"name": name, "description": description, "ranges": ranges,
-            "snmp_version": snmp_version, "port": port, "fdb_enabled": fdb_enabled}
+                 port: str, fdb_enabled: bool = True,
+                 schedule: dict | None = None) -> dict:
+    values = {"name": name, "description": description, "ranges": ranges,
+              "snmp_version": snmp_version, "port": port, "fdb_enabled": fdb_enabled}
+    values.update(schedule or _schedule_from_group(None))
+    return values
 
 
 @router.post("/agents/groups/save")
@@ -218,6 +307,12 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
                           ranges: str = Form(""), snmp_version: str = Form("2c"),
                           community: str = Form(""), port: str = Form("161"),
                           fdb_enabled: str = Form(""),
+                          schedule_enabled: str = Form(""),
+                          schedule_mode: str = Form("interval"),
+                          schedule_interval_value: str = Form("360"),
+                          schedule_interval_unit: str = Form("minute"),
+                          schedule_time: str = Form(""),
+                          schedule_days: list[str] = Form([]),
                           session: AsyncSession = Depends(get_session),
                           user: AppUser = Depends(require_perm("scan.manage"))):
     error = None
@@ -225,6 +320,10 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
     port_num = 161
     clean_name = name.strip()[:MAX_NAME]
     fdb_on = fdb_enabled.strip().lower() not in ("", "0", "false", "off", "no")
+    schedule, schedule_error = _parse_schedule(
+        schedule_enabled, schedule_mode, schedule_interval_value,
+        schedule_interval_unit, schedule_time, schedule_days)
+    error = error or schedule_error
     try:
         if not clean_name:
             raise ScanError("nama grup wajib diisi")
@@ -254,9 +353,10 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
             select(ScanOid).order_by(ScanOid.label))).scalars().all()
         return templates.TemplateResponse(request, "scan_groups.html", {
             "user": user, "active": "agents", "sub": "groups",
-            "groups": [{"group": g, "stats": _group_stats(g)} for g in groups],
+            "groups": [{"group": g, "stats": _group_stats(g), "schedule": _schedule_info(g)} for g in groups],
             "oids": oids, "editing": target, "error": error,
-            "values": _form_values(name, description, ranges, snmp_version, port, fdb_on),
+            "values": _form_values(name, description, ranges, snmp_version, port, fdb_on,
+                                   _schedule_form(schedule)),
             "can_manage": True, "max_hosts": settings.RANI_SCAN_MAX_HOSTS,
         }, status_code=400)
 
@@ -270,9 +370,10 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
             select(ScanOid).order_by(ScanOid.label))).scalars().all()
         return templates.TemplateResponse(request, "scan_groups.html", {
             "user": user, "active": "agents", "sub": "groups",
-            "groups": [{"group": g, "stats": _group_stats(g)} for g in groups],
+            "groups": [{"group": g, "stats": _group_stats(g), "schedule": _schedule_info(g)} for g in groups],
             "oids": oids, "editing": target, "error": error,
-            "values": _form_values(name, description, ranges, snmp_version, port, fdb_on),
+            "values": _form_values(name, description, ranges, snmp_version, port, fdb_on,
+                                   _schedule_form(schedule)),
             "can_manage": True, "max_hosts": settings.RANI_SCAN_MAX_HOSTS,
         }, status_code=400)
 
@@ -285,6 +386,12 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
     target.snmp_version = snmp_version
     target.port = port_num
     target.fdb_enabled = fdb_on
+    target.schedule_enabled = schedule["enabled"]
+    target.schedule_mode = schedule["mode"]
+    target.schedule_interval_min = schedule["interval_min"]
+    target.schedule_time = schedule["time"]
+    target.schedule_days = schedule["days"]
+    target.next_run_at = compute_next_run(target)
     if community.strip():
         target.community_enc = encrypt_secret(community.strip(),
                                               settings.RANI_INGEST_PEPPER)
@@ -295,7 +402,14 @@ async def scan_group_save(request: Request, group_id: str = Form(""),
         raise HTTPException(status_code=409, detail="nama grup sudah dipakai")
     await audit(session, request, actor=user.username, action="scan.group.save",
                 target=str(target.id), details={"name": clean_name,
-                                                "ranges": parsed_ranges})
+                                                "ranges": parsed_ranges,
+                                                "schedule_enabled": schedule["enabled"],
+                                                "schedule_mode": schedule["mode"],
+                                                "schedule_interval_min": schedule["interval_min"],
+                                                "schedule_time": schedule["time"],
+                                                "schedule_days": schedule["days"],
+                                                "next_run_at": (target.next_run_at.isoformat()
+                                                                if target.next_run_at else None)})
     await session.commit()
     return RedirectResponse("/agents/groups", status_code=303)
 

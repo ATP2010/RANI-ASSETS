@@ -21,6 +21,8 @@ from app.db import SessionLocal, dispose_engine
 from app.models import AppUser, AppUserRole, Role
 from app.permissions import DEFAULT_ROLES
 from app.reporting import dispose_report_engine, ensure_report_role, seed_sample_reports
+from app.scanner import mark_interrupted_runs
+from app.scheduler import scan_schedule_loop
 from app.security import hash_password, new_token
 from app.version import VERSION
 from app.ws import listen_forever
@@ -114,6 +116,15 @@ async def lifespan(app: FastAPI):
     listener = asyncio.create_task(listen_forever(redis))
     ad_task = asyncio.create_task(ad_sync_loop())
     await seed_admin()
+    # Bersihkan run scan yang tertinggal 'running' karena proses lama mati.
+    try:
+        async with SessionLocal() as session:
+            stale = await mark_interrupted_runs(session)
+        if stale:
+            log.warning("%d scan run ditandai failed (server restart)", stale)
+    except Exception:
+        log.exception("gagal membersihkan scan run yang tertinggal")
+    schedule_task = asyncio.create_task(scan_schedule_loop())
     app.state.reports_enabled = await ensure_report_role()
     if app.state.reports_enabled:
         await seed_sample_reports()
@@ -122,6 +133,7 @@ async def lifespan(app: FastAPI):
     finally:
         listener.cancel()
         ad_task.cancel()
+        schedule_task.cancel()
         try:
             await redis.aclose()
         except Exception:

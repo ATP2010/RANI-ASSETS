@@ -1,5 +1,4 @@
 """API scan SNMP: mulai scan, status/Progres, hasil, cancel."""
-import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -12,12 +11,10 @@ from app.audit import audit
 from app.db import get_session
 from app.deps import require_perm
 from app.models import AppUser, ScanGroup, ScanResult, ScanRun
-from app.scanner import ScanError, execute_scan, register_run, running_for
+from app.scanner import find_running_run, start_group_scan
 
 log = logging.getLogger("rani.scan.api")
 router = APIRouter(tags=["scan"])
-
-_TASKS: set[asyncio.Task] = set()
 
 
 @router.post("/api/v1/scan/groups/{group_id}/run")
@@ -30,22 +27,15 @@ async def start_scan(group_id: uuid.UUID, request: Request,
         raise HTTPException(status_code=404, detail="grup scan tidak ditemukan")
     if not group.enabled:
         raise HTTPException(status_code=400, detail="grup scan nonaktif")
-    active = running_for(group_id)
-    if active:
-        return {"run_id": active, "already_running": True}
+    existing = await find_running_run(session, group.id)
+    if existing is not None:
+        return {"run_id": str(existing.id), "already_running": True}
 
-    run = ScanRun(group_id=group.id, status="running", created_by=user.username,
-                  stats={"group": group.name})
-    session.add(run)
-    await session.flush()
-    await audit(session, request, actor=user.username, action="scan.start",
-                target=str(run.id), details={"group": group.name, "ranges": group.ranges})
-    await session.commit()
-
-    register_run(group.id, run.id)
-    task = asyncio.create_task(execute_scan(run.id))
-    _TASKS.add(task)
-    task.add_done_callback(_TASKS.discard)
+    run = await start_group_scan(session, group, actor=user.username, request=request)
+    if run is None:  # kalah balapan dengan request/scheduler lain
+        existing = await find_running_run(session, group.id)
+        return {"run_id": str(existing.id) if existing else None,
+                "already_running": True}
     return {"run_id": str(run.id), "already_running": False}
 
 

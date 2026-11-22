@@ -120,6 +120,9 @@ Batas & konfigurasi:
 | `RANI_SCAN_FDB_ENABLED` | `1` | saklar global port map |
 | `RANI_SCAN_FDB_MAX` | `2000` | maksimum MAC per perangkat per scan; lebih = `truncated` |
 | `RANI_SCAN_FDB_UPLINK_MACS` | `10` | port dengan ≥ N MAC diberi badge **uplink?** |
+| `RANI_SCAN_SCHEDULER_TICK_S` | `30` | tick loop penjadwal scan otomatis (detik) |
+| `RANI_SCAN_SCHEDULE_MIN_INTERVAL_MIN` | `5` | interval minimum mode loop (menit) |
+| `RANI_SCHEDULE_TZ` | `Asia/Jakarta` | zona waktu perhitungan jadwal |
 
 Port map bisa dimatikan **per grup** (checkbox *Kumpulkan port map* di form grup IP) untuk
 perangkat lama yang lambat atau bila topologi tidak diperlukan.
@@ -177,6 +180,35 @@ ORDER BY s.hostname, m.if_name, m.mac;
 Scan berjalan sebagai background task di proses API (bukan di browser), jadi halaman boleh
 ditutup. WebSocket memancarkan `scan.progress` dan `scan.done`; UI juga polling 1,2 dtk
 sebagai fallback.
+
+## 4b. Jadwal scan otomatis
+
+Scan bisa dijadwalkan per grup IP (**Agents → Groups**) agar berjalan sendiri dari
+server. Penjadwal ada di proses API (`server/app/scheduler.py`), loop tiap
+`RANI_SCAN_SCHEDULER_TICK_S` detik (default 30). Dua mode:
+
+- **Looping**: setiap N menit / N jam.
+- **Jam tertentu**: `HH:MM` + pilihan hari (Sen–Min, ISO 1–7; kosong = tiap hari).
+
+Manajemen jadwal melalui form grup; field DB:
+`scan_groups.schedule_enabled`, `schedule_mode`, `schedule_interval_min`,
+`schedule_time`, `schedule_days`, `next_run_at`, `last_schedule_at`.
+
+Alur:
+
+- Saat grup disave, `next_run_at` dihitung otomatis dari jadwal.
+- Tick scheduler: grup dengan `schedule_enabled AND enabled AND next_run_at <= now()`
+  diambil pakai `FOR UPDATE SKIP LOCKED` (aman dengan `uvicorn --workers 2`).
+- Untuk tiap grup due, run dibuat lewat `start_group_scan` dengan actor `scheduler`
+  (audit: `scan.schedule.trigger`), lalu background task `execute_scan`.
+- Setelah trigger, `next_run_at` dihitung ulang.
+- Jika grup sedang ada scan jalan, scheduler melewatkannya.
+- Jika jadwal terlewat (server restart), saat startup scheduler menjalankan sekali dan
+  melanjutkan hitungan jadwal dari 0.
+- Grup nonaktif → tidak dijadwalkan. Run `running` lama > 10 menit otomatis ditandai
+  `failed` saat startup (`mark_interrupted_runs`).
+
+Untuk memicu scan manual kapan pun: tetap pakai `POST /api/v1/scan/groups/{id}/run`.
 
 ## 5. Yang perlu disiapkan di perangkat
 
